@@ -52,11 +52,11 @@ def load_scheme(report_path=None):
     return dict(DEFAULT)
 
 
-DEFAULT_SUMMARY_WORDS = 250
+DEFAULT_SUMMARY_WORDS = 350
 
 
 def load_summary_limit(report_path=None):
-    """Summary word limit: scheme.json next to the report (per-examination snapshot), else config.json, else 250."""
+    """Summary word limit: scheme.json next to the report (per-examination snapshot), else config.json, else 350."""
     here = os.path.dirname(os.path.abspath(__file__))
     cands = []
     if report_path:

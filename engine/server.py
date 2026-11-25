@@ -90,7 +90,7 @@ def exam_scheme(d):
     return _norm_scheme(s) if isinstance(s, dict) and valid_scheme(s) else dict(DEFAULT_SCHEME)
 
 
-DEFAULT_SUMMARY_WORDS = 250
+DEFAULT_SUMMARY_WORDS = 350
 
 
 def valid_summary_words(n):

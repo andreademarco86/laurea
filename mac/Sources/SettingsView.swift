@@ -23,17 +23,17 @@ struct SettingsView: View {
             Section {
                 LabeledContent("Summary length") {
                     HStack(spacing: 8) {
-                        Text("\(s.wrappedValue.summary_words ?? 250) words").monospacedDigit()
-                            .contentTransition(.numericText(value: Double(s.wrappedValue.summary_words ?? 250)))
+                        Text("\(s.wrappedValue.summary_words ?? 350) words").monospacedDigit()
+                            .contentTransition(.numericText(value: Double(s.wrappedValue.summary_words ?? 350)))
                             .animation(.default, value: s.wrappedValue.summary_words)
-                        Stepper("Summary length", value: Binding(get: { s.wrappedValue.summary_words ?? 250 },
+                        Stepper("Summary length", value: Binding(get: { s.wrappedValue.summary_words ?? 350 },
                                                                  set: { s.wrappedValue.summary_words = $0; scheduleSave() }),
                                 in: 50...1000, step: 25)
                             .labelsHidden()
                     }
                 }
-                if (s.wrappedValue.summary_words ?? 250) != 250 {
-                    Button("Restore Default (250 words)") { s.wrappedValue.summary_words = 250; scheduleSave() }
+                if (s.wrappedValue.summary_words ?? 350) != 350 {
+                    Button("Restore Default (350 words)") { s.wrappedValue.summary_words = 350; scheduleSave() }
                         .buttonStyle(.link)
                 }
             } header: {

@@ -21,7 +21,7 @@ Every report has the same structure:
 - Student name, dissertation title, degree, institution and examiner.
 - A recommended mark for each of five criteria, and the dissertation total.
 - A viva mark, added after the oral, and the final mark out of 100.
-- A summary within a word limit you set (250 words by default).
+- A summary within a word limit you set (350 words by default): what the work did and found, then the main points that drive the mark.
 - For each criterion, 2–3 strengths and 2–3 weaknesses, each pointing to a section and printed page.
 - 3–5 viva questions, each with what a good answer should cover and what a weak one looks like.
 - 5–10 minor corrections, with page references.
