@@ -215,11 +215,11 @@ private struct ProfileStep: View {
                        subtitle: "These details and your signature appear on every report.")
             Form {
                 TextField("Examiner name", text: Binding(get: { s.wrappedValue.examiner_name ?? "" }, set: { s.wrappedValue.examiner_name = $0 }),
-                          prompt: Text("e.g. Dr Jane Borg"))
+                          prompt: Text("Your name, as it should appear on reports"))
                 TextField("Institution", text: Binding(get: { s.wrappedValue.institution ?? "" }, set: { s.wrappedValue.institution = $0 }),
-                          prompt: Text("e.g. University of Malta"))
+                          prompt: Text("Your university or institution"))
                 TextField("Default degree", text: Binding(get: { s.wrappedValue.degree_default ?? "" }, set: { s.wrappedValue.degree_default = $0 }),
-                          prompt: Text("e.g. MSc in Artificial Intelligence"))
+                          prompt: Text("The degree you examine most often"))
                 SignatureField()
             }
             .formStyle(.grouped)
