@@ -188,6 +188,7 @@ Write like an experienced examiner jotting clear notes for a colleague and the s
 - **No hedging stacks** ("may potentially somewhat"). Say how sure you are once: "probably", "it is unclear whether".
 - **Praise is specific and earned.** "The ablation in Table 5.4 (p. 47) isolates the attention module cleanly" - not "excellent work".
 - **The summary is prose**, not bullets: what was done, on what data, the headline result, and one plain sentence of judgement.
+- **Write as the examiner.** Never mention AI, language models, Claude, automation, this skill or how the report was produced, anywhere in the report. The report is the examiner's own document.
 - **Viva questions read as you would say them aloud** to the student, one question each, not compound lists.
 
 The checker (`check_report.py`) flags many of these phrases as warnings. Rewrite every flagged sentence.

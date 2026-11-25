@@ -146,7 +146,7 @@ def main():
             r"\bin the realm of\b", r"\blandscape\b", r"\btapestry\b", r"\bunderscor\w*", r"\bit is worth noting\b",
             r"\bit is important to note\b", r"\boverall,? the dissertation\b", r"\bnot only\b.{0,80}\bbut also\b",
             r"\bcutting[- ]edge\b", r"\bstate[- ]of[- ]the[- ]art\b(?![^.]*\b(table|fig|p\.))", r"^\s*[-*]?\s*(Furthermore|Moreover|Additionally),",
-            r"!(?!\[)", r"\bnavigat\w* the\b", r"\bintricate\b", r"\bnuanced\b", r"\bmultifaceted\b"]
+            r"!(?!\[)", r"\bClaude\b", r"\bAnthropic\b", r"\b(?:AI|LLM)[- ]generated\b", r"\blanguage model\b", r"\bas an AI\b", r"\bnavigat\w* the\b", r"\bintricate\b", r"\bnuanced\b", r"\bmultifaceted\b"]
     body = re.sub(r"^\|.*$", "", text, flags=re.M)  # skip header table
     hits = {}
     for pat in SLOP:
