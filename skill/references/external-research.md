@@ -21,6 +21,8 @@ An examiner of international standing does not judge a dissertation only from in
 
 ## B. Reference verification (feeds (a) and (b); integrity if serious)
 
+Start with `scripts/verify_refs.py` (Crossref, OpenAlex, arXiv; titles and identifiers only), then use the steps below for the references it could not settle.
+
 1. Spot-check 10-15 references, choosing: those supporting key claims, any that look odd (wrong venue/year, vague details, unfamiliar titles), and a random few.
 2. For each: does it exist with these authors/year/venue? Does it say what the dissertation claims it says (read the abstract at least)?
 3. Fabricated or badly misattributed references are serious. They are often a sign of unchecked AI-generated text. Report exact cases with page numbers; do not generalise beyond the evidence.

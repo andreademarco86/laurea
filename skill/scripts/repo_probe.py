@@ -76,7 +76,8 @@ def probe(url, dest):
         "readme": bool(readme), "readme_words": len(readme_text.split()),
         "readme_reproduce": any(w in rt for w in ("reproduce", "usage", "how to run", "train", "evaluate", "getting started")),
         "readme_data": any(w in rt for w in ("dataset", "download", "data/")),
-        "license": has(r"(^|/)(license|licence|copying)(\.\w+)?$"),
+        "license": has(r"(^|/)(license|licence|copying)(\.\w+)?$")
+                   or (["README metadata"] if re.search(r"^\s*licen[cs]e\s*:", readme_text, re.I | re.M) else []),
         "dependencies": has(r"requirements.*\.txt$", r"environment\.ya?ml$", r"pyproject\.toml$", r"setup\.py$", r"pipfile",
                             r"package\.json$", r"cargo\.toml$", r"cmakelists\.txt$", r"\.cabal$", r"description$"),
         "container": has(r"dockerfile$", r"\.devcontainer", r"singularity", r"apptainer"),
@@ -115,6 +116,10 @@ def main():
     yes = lambda v: "yes" if v else "**no**"
     with open(os.path.join(work, "repo.md"), "w", encoding="utf-8") as f:
         f.write("# Code and data repositories\n\n")
+        if urls:
+            f.write("Links can be the student's own code or third-party resources the work uses (pretrained models, "
+                    "datasets, libraries). Decide from the dissertation which, if any, holds the student's own code, and judge "
+                    "reproducibility from that one.\n\n")
         if not urls:
             f.write("No repository links found in the dissertation. If it claims code or data are available, that is a "
                     "reproducibility weakness; if it builds software, ask in the viva where the code is.\n")
@@ -132,6 +137,8 @@ def main():
                     f"- Tests: {yes(res['tests'])}; notebooks: {res['notebooks']}\n"
                     f"- Files setting random seeds: {res['seed_files']}\n"
                     f"- Model weights in the repository: {', '.join(res['weights']) or 'none (may be hosted elsewhere)'}\n\n")
+        if len(roots) > mx:
+            f.write("Not retrieved (limit of " + str(mx) + "): " + ", ".join(roots[mx:]) + "\n\n")
         if others:
             f.write("Other links (data or archives, not cloned): " + ", ".join(others[:10]) + "\n")
         f.write("\nThe code was not run. Judge reproducibility from this, the dissertation's own description, and the "
