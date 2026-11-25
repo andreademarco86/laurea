@@ -24,7 +24,7 @@ struct WelcomeView: View {
                 }
                 VStack(alignment: .leading, spacing: 20) {
                     FeatureRow(icon: "doc.text.magnifyingglass", tint: .blue, title: "Reads every page",
-                               text: "Figures, tables and results included, judged against ML, computer vision and astronomy standards.")
+                               text: "Figures, tables and results included, judged against ML, computer vision, astronomy and computational physics standards.")
                     FeatureRow(icon: "books.vertical.fill", tint: .orange, title: "Knows the field",
                                text: "Searches the current literature, verifies references and screens for originality.")
                     FeatureRow(icon: "dial.medium.fill", tint: .green, title: "Learns your standard",
@@ -217,7 +217,7 @@ enum SystemIntegration {
     @MainActor
     static func showAbout() {
         let credits = NSMutableAttributedString(
-            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations in ML and AI.\n\nDrafted by Claude Opus 5.5 with the dissertation-examiner skill. Finished, calibrated and signed by you.",
+            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations in ML, AI and computational physics.\n\nDrafted by Claude Opus 5.5 with the dissertation-examiner skill. Finished, calibrated and signed by you.",
             attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
         let p = NSMutableParagraphStyle(); p.alignment = .center
         credits.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: credits.length))
