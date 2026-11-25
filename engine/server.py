@@ -748,10 +748,11 @@ def skill_history(limit=40):
     if _git_raw(root, "rev-parse", "HEAD").returncode != 0:
         return []
     out = git("log", f"-n{limit}", "--date=format:%Y-%m-%d %H:%M", "--format=%h%x09%ad%x09%s", "--", spec).stdout
+    first = git("log", "--reverse", "--format=%h", "--", spec).stdout.split()[:1]
     items = []
     for line in out.splitlines():
         h, d, msg = (line.split("\t") + ["", ""])[:3]
-        items.append({"commit": h, "date": d, "message": msg})
+        items.append({"commit": h, "date": d, "message": msg, "undoable": h not in first})
     return items
 
 
@@ -934,12 +935,19 @@ class Handler(BaseHTTPRequestHandler):
             ensure_skill_repo()
             commit_pending("Skill: changes made outside the app")
             subj = git("log", "-n1", "--format=%s", c).stdout.strip()
+            if not any(i["commit"].startswith(c[:7]) and i["undoable"] for i in skill_history(400)):
+                return self.send(409, {"error": "The first version of the skill can't be undone."})
+            before = head()
             r = git("revert", "--no-commit", c)
             if r.returncode == 0:
                 r = git("commit", "-q", "-m", "Skill: undo " + subj.replace("Skill: ", "", 1)[:72])
             if r.returncode != 0:
                 git("revert", "--abort")
                 return self.send(409, {"error": "That change can't be undone on its own because later changes build on it. Undo the later ones first."})
+            problems = validate_skill()
+            if problems:
+                git("reset", "-q", "--hard", before)
+                return self.send(409, {"error": "Undoing this would stop the app working properly (" + "; ".join(problems) + "), so the skill was left as it is."})
             chat = load_chat()
             chat["messages"].append({"role": "system", "text": f"Undid: {subj}", "ts": now()})
             save_chat(chat)

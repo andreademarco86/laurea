@@ -303,4 +303,5 @@ struct SkillCommit: Codable, Identifiable, Hashable {
     let commit: String
     let date: String
     let message: String
+    var undoable: Bool?
 }

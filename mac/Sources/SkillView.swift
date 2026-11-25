@@ -55,7 +55,7 @@ struct SkillView: View {
                     ForEach(model.skillHistory) { c in
                         Menu("\(c.date)  ·  \(c.message.replacingOccurrences(of: "Skill: ", with: ""))") {
                             Button("Undo This Change") { Task { await model.undoSkillChange(c.commit) } }
-                                .disabled(c.message == "Starting version")
+                                .disabled(c.undoable == false)
                         }
                     }
                     Divider()
