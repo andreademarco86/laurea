@@ -9,8 +9,8 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 | **Degree** | {{DEGREE}} |
 | **Institution** | {{INSTITUTION}} |
 | **Examiner** | {{EXAMINER_NAME}} |
-| **Recommended dissertation mark** | **{{TOTAL}} / 90** |
-| **Viva mark** | ______ / 10 |
+| **Recommended dissertation mark** | **{{TOTAL}} / {{DISSERTATION_MAX}}** |
+| **Viva mark** | ______ / {{VIVA_MAX}} |
 | **Final mark** | ______ / 100 |
 
 ## 1. Summary
@@ -21,14 +21,14 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 | Criterion | Max | Mark |
 |---|:---:|:---:|
-| (a) Introduction and overall document | 10 | {{A}} |
-| (b) Literature Review | 20 | {{B}} |
-| (c) Method and Solution | 25 | {{C}} |
-| (d) Testing, Results, Analysis and Evaluation | 25 | {{D}} |
-| (e) Discussion, Conclusion and Future Work | 10 | {{E}} |
-| **Total** | **90** | **{{TOTAL}}** |
+| (a) Introduction and overall document | {{MAX_A}} | {{A}} |
+| (b) Literature Review | {{MAX_B}} | {{B}} |
+| (c) Method and Solution | {{MAX_C}} | {{C}} |
+| (d) Testing, Results, Analysis and Evaluation | {{MAX_D}} | {{D}} |
+| (e) Discussion, Conclusion and Future Work | {{MAX_E}} | {{E}} |
+| **Total** | **{{DISSERTATION_MAX}}** | **{{TOTAL}}** |
 
-### (a) Introduction and overall document - {{A}}/10
+### (a) Introduction and overall document - {{A}}/{{MAX_A}}
 
 **Strengths**
 
@@ -40,7 +40,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 - {{point with §x.y, p. N}}
 - {{point}}
 
-### (b) Literature Review - {{B}}/20
+### (b) Literature Review - {{B}}/{{MAX_B}}
 
 **Strengths**
 
@@ -52,7 +52,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 - {{point}}
 - {{point}}
 
-### (c) Method and Solution - {{C}}/25
+### (c) Method and Solution - {{C}}/{{MAX_C}}
 
 **Strengths**
 
@@ -64,7 +64,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 - {{point}}
 - {{point}}
 
-### (d) Testing, Results, Analysis and Evaluation - {{D}}/25
+### (d) Testing, Results, Analysis and Evaluation - {{D}}/{{MAX_D}}
 
 **Strengths**
 
@@ -76,7 +76,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 - {{point}}
 - {{point}}
 
-### (e) Discussion, Conclusion and Future Work - {{E}}/10
+### (e) Discussion, Conclusion and Future Work - {{E}}/{{MAX_E}}
 
 **Strengths**
 

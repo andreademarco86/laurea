@@ -5,10 +5,14 @@ Usage: python3 check_report.py <report.md> [--meta <work_dir>/meta.json]
 Exit code 1 if any ERROR is found. WARNINGs should be reviewed but do not fail.
 """
 import json
+import os
 import re
 import sys
 
-MAX = {"a": 10, "b": 20, "c": 25, "d": 25, "e": 10}
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from scheme import KEYS, dissertation_max, load_scheme  # noqa: E402
+
+MAX = {}  # filled from the marking scheme in main()
 errors, warnings = [], []
 PAGE_REF = re.compile(r"(?<![A-Za-z])pp?\.[ \t]?((?:\d{1,4}|[ivxlc]{1,7})(?:[ \t]?[-–][ \t]?(?:\d{1,4}|[ivxlc]{1,7}))?)(?![\w])", re.I)
 
@@ -36,6 +40,10 @@ def main():
         with open(args[args.index("--meta") + 1], encoding="utf-8") as f:
             meta = json.load(f)
     text = open(path, encoding="utf-8").read()
+    scheme = load_scheme(path)
+    MAX.update({k: scheme[k] for k in KEYS})
+    DMAX, VMAX = dissertation_max(scheme), scheme["viva"]
+    print(f"scheme: " + ", ".join(f"({k}) {MAX[k]}" for k in KEYS) + f"; dissertation /{DMAX}; viva /{VMAX}")
 
     # Unfilled template slots
     left = re.findall(r"\{\{[^}]*\}\}", text)
@@ -47,12 +55,12 @@ def main():
         m = re.search(rf"\*\*{field}\*\*\s*\|\s*(.*?)\s*\|", text)
         if not m or not m.group(1).strip():
             errors.append(f"header field '{field}' missing or empty")
-    m = re.search(r"\*\*Recommended dissertation mark\*\*\s*\|\s*\*\*(\d+)\s*/\s*90\*\*", text)
+    m = re.search(rf"\*\*Recommended dissertation mark\*\*\s*\|\s*\*\*(\d+)\s*/\s*{DMAX}\*\*", text)
     header_total = int(m.group(1)) if m else None
     if header_total is None:
-        errors.append("recommended mark '**N / 90**' not found in header")
-    if not re.search(r"\*\*Viva mark\*\*\s*\|\s*(?:_+|\*\*[\d.]+)\s*/\s*10", text):
-        errors.append("viva mark row ('______ / 10' or a filled-in mark) missing")
+        errors.append(f"recommended mark '**N / {DMAX}**' not found in header")
+    if not re.search(rf"\*\*Viva mark\*\*\s*\|\s*(?:_+|\*\*[\d.]+)\s*/\s*{VMAX}\b", text):
+        errors.append(f"viva mark row ('______ / {VMAX}' or a filled-in mark) missing")
     if not re.search(r"\*\*Final mark\*\*\s*\|\s*(?:_+|\*\*[\d.]+)\s*/\s*100", text):
         errors.append("final mark row ('______ / 100' or a filled-in mark) missing")
 
@@ -101,10 +109,10 @@ def main():
                     warnings.append(f"criterion ({k}) {name} point has no page ref: {b.strip()[:70]}...")
     if len(marks) == 5:
         total = sum(marks.values())
-        print("marks: " + ", ".join(f"({k}) {v}/{MAX[k]}" for k, v in marks.items()) + f" -> {total}/90")
+        print("marks: " + ", ".join(f"({k}) {v}/{MAX[k]}" for k, v in marks.items()) + f" -> {total}/{DMAX}")
         if header_total is not None and header_total != total:
             errors.append(f"header total {header_total} != sum of criteria {total}")
-        trow = re.search(r"^\|\s*\*\*Total\*\*\s*\|\s*\**90\**\s*\|\s*\**(\d+)\**\s*\|", text, re.M)
+        trow = re.search(rf"^\|\s*\*\*Total\*\*\s*\|\s*\**{DMAX}\**\s*\|\s*\**(\d+)\**\s*\|", text, re.M)
         if not trow or int(trow.group(1)) != total:
             errors.append(f"table Total row missing or != {total}")
 

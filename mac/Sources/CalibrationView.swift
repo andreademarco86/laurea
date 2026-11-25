@@ -36,7 +36,7 @@ struct CalibrationView: View {
                     .chartXAxisLabel("Marks Claude adds to its evidence-based mark")
                     .frame(height: 220)
                     .padding(.vertical, 6)
-                    LabeledContent("Total offset", value: "\(Fmt.signed(cal.total, digits: 1)) / 90")
+                    LabeledContent("Total offset", value: "\(Fmt.signed(cal.total, digits: 1)) / \(cal.dissertation_max ?? 90)")
                 } else {
                     ContentUnavailableView {
                         Label("Nothing Learned Yet", systemImage: "dial.medium")

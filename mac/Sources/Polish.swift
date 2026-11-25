@@ -113,7 +113,7 @@ struct ScoreHeader: View {
     var body: some View {
         let level = Level(rawValue: model.detail?.status.level ?? "msc") ?? .msc
         HStack(spacing: 26) {
-            MarkRing(value: Double(draft.total), max: 90, caption: "Dissertation")
+            MarkRing(value: Double(draft.total), max: Double(draft.dissertationMax), caption: "Dissertation")
             MarkRing(value: draft.viva.map { Double(draft.total) + $0 }, max: 100, caption: "Final",
                      colors: [.green, .mint, .teal])
             VStack(alignment: .leading, spacing: 8) {
@@ -202,7 +202,7 @@ enum SystemIntegration {
         let c = UNMutableNotificationContent()
         c.title = exam.state == "done" ? "Report ready" : "Examination needs attention"
         var body = exam.displayName
-        if let t = exam.total, exam.state == "done" { body += " · \(Fmt.mark(t)) / 90" }
+        if let t = exam.total, exam.state == "done" { body += " · \(Fmt.mark(t)) / \(exam.dissertation_max ?? 90)" }
         c.body = body
         c.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: exam.id + "-" + exam.state, content: c, trigger: nil))

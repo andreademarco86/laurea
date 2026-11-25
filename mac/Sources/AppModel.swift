@@ -153,7 +153,7 @@ final class AppModel {
             let d: ExamDetail = try await backend.get("/api/exams/\(id)")
             guard selectedExamID == id else { return }
             detail = d
-            draft = d.report.map(ReportDraft.init)
+            draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
             note = d.calibration?.note ?? ""
             dirty = false
             slider = 0; sliderBase = nil
@@ -263,7 +263,7 @@ final class AppModel {
         guard var d = draft else { return }
         if sliderBase == nil { sliderBase = d.criteria.map(\.mark) }
         slider = value.rounded()
-        let marks = distribute(sliderBase!, delta: Int(slider))
+        let marks = distribute(sliderBase!, delta: Int(slider), maxima: d.criteria.map(\.spec.max))
         for i in d.criteria.indices { d.criteria[i].mark = marks[i] }
         draft = d
         dirty = true
@@ -298,7 +298,7 @@ final class AppModel {
 
     func save() async {
         guard let id = selectedExamID, var d = draft else { return }
-        if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to 10."; return }
+        if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return }
         if let l = Level(rawValue: detail?.status.level ?? "msc") { d.docTitle = "\(l.label) \(l.noun) - Examiner's Report" }
         struct Body: Encodable { let report: APIReport; let note: String }
         isSaving = true
@@ -440,10 +440,17 @@ final class AppModel {
     }
 
     func saveSettings() async {
-        struct Body: Encodable { let examiner_name, institution, degree_default, effort: String }
+        struct Body: Encodable { let examiner_name, institution, degree_default, effort: String; let marking_scheme: [String: Int]? }
         let s = settings
+        let scheme = s.marking_scheme.flatMap { Scheme.isValid($0) ? $0 : nil }
         let r: SettingsInfo? = try? await backend.send("PUT", "/api/settings",
-            Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "", degree_default: s.degree_default ?? "", effort: s.effort ?? "high"))
-        if let r { settings = r }
+            Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "", degree_default: s.degree_default ?? "",
+                 effort: s.effort ?? "high", marking_scheme: scheme))
+        if let r {
+            // keep an in-progress (not yet valid) weights edit on screen
+            let editing = settings.marking_scheme
+            settings = r
+            if let editing, !Scheme.isValid(editing) { settings.marking_scheme = editing }
+        }
     }
 }

@@ -109,7 +109,7 @@ struct ExamRow: View {
                 }
                 Spacer()
                 if let t = exam.total {
-                    Text(exam.viva.map { "\(Fmt.mark(t + $0))/100" } ?? "\(Fmt.mark(t))/90")
+                    Text(exam.viva.map { "\(Fmt.mark(t + $0))/100" } ?? "\(Fmt.mark(t))/\(exam.dissertation_max ?? 90)")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 }
             }
@@ -261,7 +261,12 @@ struct StartView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .keyboardShortcut(.defaultAction)
-            Text("Usually takes 20–60 minutes.").font(.caption).foregroundStyle(.tertiary)
+            let sc = detail.markingScheme
+            HStack(spacing: 4) {
+                Text("Marked out of \(sc.dissertationMax), viva out of \(sc.viva) · usually 20–60 minutes ·")
+                SettingsLink { Text("Change weights…") }.buttonStyle(.link)
+            }
+            .font(.caption).foregroundStyle(.tertiary)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

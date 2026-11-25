@@ -1,6 +1,6 @@
 import Foundation
 
-// MARK: - Fixed marking scheme
+// MARK: - Marking scheme (criterion weights = maximum marks; criteria + viva = 100)
 
 struct CriterionSpec: Hashable {
     let key: String
@@ -16,6 +16,25 @@ let CRITERIA: [CriterionSpec] = [
     .init(key: "e", name: "Discussion, Conclusion and Future Work", max: 10),
 ]
 
+struct Scheme: Equatable {
+    static let defaults: [String: Int] = ["a": 10, "b": 20, "c": 25, "d": 25, "e": 10, "viva": 10]
+    var weights: [String: Int]
+
+    init(_ w: [String: Int]?) {
+        if let w, Scheme.isValid(w) { weights = w } else { weights = Scheme.defaults }
+    }
+
+    static func isValid(_ w: [String: Int]) -> Bool {
+        let crit = CRITERIA.map { w[$0.key] ?? 0 }
+        return crit.allSatisfy { $0 >= 1 } && (w["viva"] ?? -1) >= 0 && crit.reduce(0, +) + (w["viva"] ?? 0) == 100
+    }
+
+    func max(_ key: String) -> Int { weights[key] ?? Scheme.defaults[key] ?? 0 }
+    var viva: Int { weights["viva"] ?? 10 }
+    var dissertationMax: Int { 100 - viva }
+    var specs: [CriterionSpec] { CRITERIA.map { .init(key: $0.key, name: $0.name, max: max($0.key)) } }
+}
+
 // MARK: - API types (mirror the engine's JSON)
 
 struct ExamSummary: Codable, Identifiable, Hashable {
@@ -28,6 +47,7 @@ struct ExamSummary: Codable, Identifiable, Hashable {
     let total: Double?
     let viva: Double?
     var level: String?
+    var dissertation_max: Int?
 
     var displayName: String { student.isEmpty ? (pdf as NSString).deletingPathExtension.replacingOccurrences(of: "_", with: " ") : student }
 }
@@ -95,6 +115,9 @@ struct ExamDetail: Codable {
     let markdown: String?
     let page_labels: [String]
     let calibration: CalEntry?
+    let scheme: [String: Int]?
+
+    var markingScheme: Scheme { Scheme(scheme) }
 
     func proposedMark(_ k: String) -> Int? { (proposed[k] ?? nil).map { Int($0.rounded()) } }
 }
@@ -117,6 +140,7 @@ struct ProgressInfo: Codable {
 
 struct CalibrationInfo: Codable {
     let level: String?
+    let dissertation_max: Int?
     let entries: [CalEntry]
     let n: Int
     let offsets: [String: Double]
@@ -133,6 +157,8 @@ struct SettingsInfo: Codable {
     var skill_path: String?
     var skill_updated: String?
     var data_path: String?
+    var marking_scheme: [String: Int]?
+    var default_scheme: [String: Int]?
 }
 
 struct SaveResult: Codable {
@@ -182,27 +208,31 @@ struct ReportDraft {
     var questions: [QuestionDraft] = []
     var corrections: [TextItem] = []
     var vivaText = ""
+    var vivaMax = 10
+    var dissertationMax = 90
     var date = ""
     var docTitle = "MSc Dissertation - Examiner's Report"
 
     var total: Int { criteria.reduce(0) { $0 + $1.mark } }
     var viva: Double? {
         let t = vivaText.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
-        guard let v = Double(t), (0...10).contains(v) else { return nil }
+        guard let v = Double(t), (0...Double(vivaMax)).contains(v) else { return nil }
         return v
     }
     var vivaInvalid: Bool { !vivaText.trimmingCharacters(in: .whitespaces).isEmpty && viva == nil }
 
     init() {}
 
-    init(_ r: APIReport) {
+    init(_ r: APIReport, scheme: Scheme = Scheme(nil)) {
+        vivaMax = scheme.viva
+        dissertationMax = scheme.dissertationMax
         student = r.header["student"] ?? ""
         title = r.header["title"] ?? ""
         degree = r.header["degree"] ?? ""
         institution = r.header["institution"] ?? ""
         examiner = r.header["examiner"] ?? ""
         summary = r.summary
-        criteria = CRITERIA.map { s in
+        criteria = scheme.specs.map { s in
             let c = r.criteria[s.key]
             return CriterionDraft(spec: s, mark: Int((c?.mark ?? 0).rounded()),
                                   strengths: (c?.strengths ?? []).map { TextItem(text: $0) },
@@ -259,17 +289,18 @@ func wordCount(_ s: String) -> Int {
 }
 
 /// Spread `delta` whole marks over criteria in proportion to their maximum, one mark at a time.
-func distribute(_ base: [Int], delta: Int) -> [Int] {
+func distribute(_ base: [Int], delta: Int, maxima: [Int]) -> [Int] {
+    let total = Double(max(1, maxima.reduce(0, +)))
     var out = base
     var given = Array(repeating: 0, count: base.count)
     let sign = delta >= 0 ? 1 : -1
     for _ in 0..<abs(delta) {
         var best: Int? = nil
         var bestGap = -Double.infinity
-        for (i, spec) in CRITERIA.enumerated() {
-            let room = sign > 0 ? out[i] < spec.max : out[i] > 0
+        for (i, mx) in maxima.enumerated() {
+            let room = sign > 0 ? out[i] < mx : out[i] > 0
             guard room else { continue }
-            let gap = Double(abs(delta)) * Double(spec.max) / 90.0 - Double(abs(given[i]))
+            let gap = Double(abs(delta)) * Double(mx) / total - Double(abs(given[i]))
             if gap > bestGap { bestGap = gap; best = i }
         }
         guard let b = best else { break }

@@ -6,14 +6,16 @@ Mark as an external examiner of international standing would: against what stron
 
 ## Generic bands (as % of each criterion's maximum)
 
-| Band | % of max | (a)/10 | (b)/20 | (c)/25 | (d)/25 | (e)/10 | Meaning |
-|---|---|---|---|---|---|---|---|
-| Outstanding | 85-100 | 9-10 | 17-20 | 22-25 | 22-25 | 9-10 | Publishable-quality work in this aspect; very little to fault. Rare. |
-| Excellent | 70-84 | 7-8 | 14-16 | 18-21 | 18-21 | 7-8 | Strong, rigorous, critical; minor gaps only. |
-| Very good | 60-69 | 6 | 12-13 | 15-17 | 15-17 | 6 | Solid and competent; some moderate weaknesses. |
-| Good / satisfactory | 50-59 | 5 | 10-11 | 13-14 | 13-14 | 5 | Adequate; clear weaknesses but core requirements met. |
-| Weak | 40-49 | 4 | 8-9 | 10-12 | 10-12 | 4 | Partly meets requirements; significant gaps. |
-| Inadequate | < 40 | 0-3 | 0-7 | 0-9 | 0-9 | 0-3 | Falls well short of what is expected at MSc level in this aspect. |
+| Band | % of the criterion's maximum | Meaning |
+|---|---|---|
+| Outstanding | 85-100 | Publishable-quality work in this aspect; very little to fault. Rare. |
+| Excellent | 70-84 | Strong, rigorous, critical; minor gaps only. |
+| Very good | 60-69 | Solid and competent; some moderate weaknesses. |
+| Good / satisfactory | 50-59 | Adequate; clear weaknesses but core requirements met. |
+| Weak | 40-49 | Partly meets requirements; significant gaps. |
+| Inadequate | < 40 | Falls well short of what is expected at this level in this aspect. |
+
+Convert the percentage to whole marks for the criterion's maximum in the current marking scheme (see SKILL.md). Example with the default maxima: "Very good" is 6/10 for (a), 12-13/20 for (b) and 15-17/25 for (c) or (d).
 
 These bands only guide the mark for each criterion. The report gives the marks obtained, never a pass/fail verdict, grade or classification.
 

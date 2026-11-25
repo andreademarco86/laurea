@@ -112,15 +112,19 @@ Use `$SKILL/references/marking-rubric.md` (band descriptors, calibration rules).
 2. Write **2-3 strengths** and **2-3 weaknesses**, each one or two sentences, each with `§x.y, p. N` (and figure/table number where relevant). Be specific: "Table 5.2 (p. 47) compares against 3 baselines on identical splits" - not "good evaluation".
 3. Weaknesses must be things the student could reasonably have done better at the dissertation's level (BSc, MSc or PhD).
 
-Criteria and maxima (sum = 90):
+**Marking scheme (weights).** Each criterion's weight is its maximum mark. The five criteria plus the viva always total 100, so the dissertation is marked out of 100 minus the viva weight. Use the scheme given in your run instructions; otherwise `scheme.json` in the examination folder; otherwise `config.json` → `marking_scheme`. Print it with `python3 $SKILL/scripts/scheme.py "<report.md>"`. Defaults:
 
-| | Criterion | Max |
+| | Criterion | Default max |
 |---|---|---|
 | (a) | Introduction and overall document | 10 |
 | (b) | Literature Review | 20 |
 | (c) | Method and Solution | 25 |
 | (d) | Testing, Results, Analysis and Evaluation | 25 |
 | (e) | Discussion, Conclusion and Future Work | 10 |
+| | Viva | 10 |
+| | **Dissertation total** | **90** (final mark /100 with the viva) |
+
+Decide each criterion's band as a percentage of its maximum (the rubric's bands), then convert to whole marks for that maximum. Fill the template's `{{MAX_A}}`…`{{MAX_E}}`, `{{DISSERTATION_MAX}}` and `{{VIVA_MAX}}` from the scheme.
 
 Then apply the rubric's **calibration checks** (holistic sanity check, no double-penalising, comments consistent with marks). These evidence-based marks are the **raw marks**.
 
@@ -164,7 +168,7 @@ Finish with a short chat message. If Phase 5 found a serious academic-integrity 
 
 ## Adding the viva mark later
 
-The report never states a pass/fail verdict, grade or classification - only the marks. The viva row stays `______ / 10` and the final row `______ / 100` until the examiner supplies the viva mark. When they do (e.g. "viva mark 8 for thesis_examiner_report.md"), run:
+The report never states a pass/fail verdict, grade or classification - only the marks. The viva row stays `______ / <viva weight>` and the final row `______ / 100` until the examiner supplies the viva mark. When they do (e.g. "viva mark 8 for thesis_examiner_report.md"), run:
 
 ```bash
 python3 $SKILL/scripts/add_viva_mark.py "<report.md>" <viva_mark>

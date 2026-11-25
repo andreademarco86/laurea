@@ -2,5 +2,16 @@
   "examiner_name": "",
   "institution": "",
   "degree_default": "MSc in Artificial Intelligence",
-  "output_formats": ["md", "docx"]
+  "output_formats": [
+    "md",
+    "docx"
+  ],
+  "marking_scheme": {
+    "a": 10,
+    "b": 20,
+    "c": 25,
+    "d": 25,
+    "e": 10,
+    "viva": 10
+  }
 }

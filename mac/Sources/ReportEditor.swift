@@ -124,7 +124,7 @@ struct MarksSections: View {
                 Text("More generous").font(.caption)
             }
             if let pt = model.proposedTotal {
-                LabeledContent("Claude's proposal", value: "\(pt) / 90")
+                LabeledContent("Claude's proposal", value: "\(pt) / \(draft.dissertationMax)")
                 LabeledContent("Your adjustment") {
                     let d = draft.total - pt
                     Text(d == 0 ? "None" : Fmt.signed(Double(d)) + " marks")
@@ -157,7 +157,7 @@ struct MarksSections: View {
 
         Section("Result") {
             LabeledContent("Dissertation") {
-                Text("\(draft.total) / 90").font(.title3.weight(.semibold)).monospacedDigit()
+                Text("\(draft.total) / \(draft.dissertationMax)").font(.title3.weight(.semibold)).monospacedDigit()
             }
             LabeledContent("Viva") {
                 HStack(spacing: 6) {
@@ -166,7 +166,7 @@ struct MarksSections: View {
                         .multilineTextAlignment(.trailing)
                         .frame(width: 110)
                         .foregroundStyle(draft.vivaInvalid ? .red : .primary)
-                    Text("/ 10").foregroundStyle(.secondary)
+                    Text("/ \(draft.vivaMax)").foregroundStyle(.secondary)
                 }
             }
             LabeledContent("Final mark") {
