@@ -628,12 +628,12 @@ final class AppModel {
     }
 
     func saveSettings() async {
-        struct Body: Encodable { let examiner_name, institution, degree_default: String; let marking_scheme: [String: Int]? }
+        struct Body: Encodable { let examiner_name, institution, degree_default: String; let marking_scheme: [String: Int]?; let summary_words: Int? }
         let s = settings
         let scheme = s.marking_scheme.flatMap { Scheme.isValid($0) ? $0 : nil }
         let r: SettingsInfo? = try? await backend.send("PUT", "/api/settings",
             Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "", degree_default: s.degree_default ?? "",
-                 marking_scheme: scheme))
+                 marking_scheme: scheme, summary_words: s.summary_words))
         if let r {
             // keep an in-progress (not yet valid) weights edit on screen
             let editing = settings.marking_scheme

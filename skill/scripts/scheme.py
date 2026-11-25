@@ -52,6 +52,28 @@ def load_scheme(report_path=None):
     return dict(DEFAULT)
 
 
+DEFAULT_SUMMARY_WORDS = 250
+
+
+def load_summary_limit(report_path=None):
+    """Summary word limit: scheme.json next to the report (per-examination snapshot), else config.json, else 250."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    cands = []
+    if report_path:
+        d = os.path.dirname(os.path.abspath(report_path))
+        cands += [os.path.join(d, "scheme.json"), os.path.join(d, "..", "scheme.json")]
+    cands.append(os.path.join(here, "..", "config.json"))
+    for c in cands:
+        try:
+            with open(c, encoding="utf-8") as f:
+                n = int(json.load(f).get("summary_words"))
+            if 50 <= n <= 2000:
+                return n
+        except Exception:
+            continue
+    return DEFAULT_SUMMARY_WORDS
+
+
 def dissertation_max(s):
     return 100 - s["viva"]
 
@@ -63,4 +85,5 @@ def describe(s):
 
 if __name__ == "__main__":
     import sys
-    print(describe(load_scheme(sys.argv[1] if len(sys.argv) > 1 else None)))
+    p = sys.argv[1] if len(sys.argv) > 1 else None
+    print(describe(load_scheme(p)) + f"; summary at most {load_summary_limit(p)} words")

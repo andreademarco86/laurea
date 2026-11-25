@@ -22,6 +22,28 @@ struct SettingsView: View {
             MarkingSchemeSection(scheme: Binding(
                 get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },
                 set: { s.wrappedValue.marking_scheme = $0; if Scheme.isValid($0) { scheduleSave() } }))
+            Section {
+                LabeledContent("Summary length") {
+                    HStack(spacing: 8) {
+                        Text("\(s.wrappedValue.summary_words ?? 250) words").monospacedDigit()
+                            .contentTransition(.numericText(value: Double(s.wrappedValue.summary_words ?? 250)))
+                            .animation(.default, value: s.wrappedValue.summary_words)
+                        Stepper("Summary length", value: Binding(get: { s.wrappedValue.summary_words ?? 250 },
+                                                                 set: { s.wrappedValue.summary_words = $0; scheduleSave() }),
+                                in: 50...1000, step: 25)
+                            .labelsHidden()
+                    }
+                }
+                if (s.wrappedValue.summary_words ?? 250) != 250 {
+                    Button("Restore Default (250 words)") { s.wrappedValue.summary_words = 250; scheduleSave() }
+                        .buttonStyle(.link)
+                }
+            } header: {
+                Text("Report")
+            } footer: {
+                Text("The maximum length of the report's summary. Applies to new examinations.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             EngineSection()
             Section("Files") {
                 LabeledContent("Examinations") {

@@ -10,7 +10,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scheme import KEYS, dissertation_max, load_scheme  # noqa: E402
+from scheme import KEYS, dissertation_max, load_scheme, load_summary_limit  # noqa: E402
 
 MAX = {}  # filled from the marking scheme in main()
 errors, warnings = [], []
@@ -71,10 +71,11 @@ def main():
     else:
         words = re.findall(r"[A-Za-z0-9][\w'’.%/-]*", re.sub(r"[*_`#>]", " ", summ))
         n = len(words)
-        if n > 250:
-            errors.append(f"summary has {n} words (> 250)")
-        elif n < 150:
-            warnings.append(f"summary has only {n} words; aim for 200-250")
+        limit = load_summary_limit(path)
+        if n > limit:
+            errors.append(f"summary has {n} words (> {limit})")
+        elif n < int(limit * 0.6):
+            warnings.append(f"summary has only {n} words; aim for {int(limit * 0.8)}-{limit}")
         else:
             print(f"summary: {n} words")
 

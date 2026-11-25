@@ -116,6 +116,7 @@ struct ExamDetail: Codable {
     let page_labels: [String]
     let calibration: CalEntry?
     let scheme: [String: Int]?
+    let summary_words: Int?
 
     var markingScheme: Scheme { Scheme(scheme) }
 
@@ -157,6 +158,7 @@ struct SettingsInfo: Codable {
     var skill_updated: String?
     var data_path: String?
     var marking_scheme: [String: Int]?
+    var summary_words: Int?
     var provider: String?
     var model: String?
     var default_scheme: [String: Int]?

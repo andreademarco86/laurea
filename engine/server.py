@@ -91,6 +91,26 @@ def exam_scheme(d):
     return _norm_scheme(s) if isinstance(s, dict) and valid_scheme(s) else dict(DEFAULT_SCHEME)
 
 
+DEFAULT_SUMMARY_WORDS = 250
+
+
+def valid_summary_words(n):
+    try:
+        return 50 <= int(n) <= 2000
+    except (TypeError, ValueError):
+        return False
+
+
+def current_summary_words():
+    n = (read_json(SKILL_CONFIG, {}) or {}).get("summary_words")
+    return int(n) if valid_summary_words(n) else DEFAULT_SUMMARY_WORDS
+
+
+def exam_summary_words(d):
+    n = (read_json(d / "scheme.json", {}) or {}).get("summary_words")
+    return int(n) if valid_summary_words(n) else DEFAULT_SUMMARY_WORDS
+
+
 def crit(s):
     return [(k, name, s[k]) for k, name, _ in CRITERIA]
 
@@ -1206,6 +1226,10 @@ class Handler(BaseHTTPRequestHandler):
             for k in ("examiner_name", "institution", "degree_default"):
                 if k in b:
                     cfg[k] = b[k]
+            if "summary_words" in b:
+                if not valid_summary_words(b["summary_words"]):
+                    return self.send(400, {"error": "The summary limit must be a whole number of words between 50 and 2000."})
+                cfg["summary_words"] = int(b["summary_words"])
             if "marking_scheme" in b:
                 if not valid_scheme(b["marking_scheme"] or {}):
                     return self.send(400, {"error": "The weights must be whole numbers (each criterion at least 1) that add up to 100 with the viva."})
@@ -1220,6 +1244,7 @@ class Handler(BaseHTTPRequestHandler):
             write_json(SETTINGS_FILE, s)
         skill_mtime = (CURRENT_STANDARDS.resolve().parent / "revision.json").stat().st_mtime
         self.send(200, {**cfg, **settings(), "marking_scheme": current_scheme(), "default_scheme": DEFAULT_SCHEME,
+                        "summary_words": current_summary_words(),
                         "assistant_name": PROVIDERS[settings().get("provider", "claude")],
                         "model_label": assistant_label(), "skill_path": str(CURRENT_STANDARDS),
                         "skill_updated": dt.datetime.fromtimestamp(skill_mtime).strftime("%Y-%m-%d %H:%M"),
@@ -1284,6 +1309,7 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and action == "":
             info = exam_summary(d)
             prop = load_proposal(d)
+            info.update(summary_words=exam_summary_words(d) if (d / "scheme.json").exists() else current_summary_words())
             info.update(status=st, scheme=exam_scheme(d) if (d / "scheme.json").exists() or st.get("state") != "new" else current_scheme(),
                         proposed=prop.get("proposed", {}), raw=prop.get("raw", {}),
                         applied=prop.get("applied", {}),
@@ -1322,10 +1348,11 @@ class Handler(BaseHTTPRequestHandler):
                     level = level if level in LEVEL_WHAT else "msc"
                     set_status(d, level=level)
                     sc = current_scheme()
-                    write_json(d / "scheme.json", sc)
+                    words = current_summary_words()
+                    write_json(d / "scheme.json", {**sc, "summary_words": words})
                     prompt = (f"Examine the {LEVEL_WHAT[level]} PDF `{st['pdf']}` in the current folder at {level.upper()} level "
                               f"and write all outputs there. Use this marking scheme: {describe_scheme(sc)}. "
-                              "The summary must be at most 250 words.")
+                              f"The summary must be at most {words} words.")
                 else:
                     instr = (body.get("instruction") or "").strip()
                     rp = report_path(d)

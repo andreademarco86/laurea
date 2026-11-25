@@ -1,6 +1,6 @@
 ---
 name: dissertation-examiner
-description: Act as an expert external/internal examiner for BSc, MSc or PhD dissertations and theses in numerate sciences with an AI/ML or computational focus - AI/ML and computer vision, computing/ICT and computer engineering, speech and language processing, physics and computational physics, astronomy, and related fields - with expectations matched to the level. Takes a dissertation PDF and produces a fair, evidence-based examiner's report - student name, title, examiner, recommended mark split over five weighted criteria with page-referenced strengths and weaknesses, viva mark placeholder, a <=250-word summary, 3-5 viva questions with expected answers, 5-10 minor corrections, and signature/date placeholders - as Markdown and Word (.docx). Use when the user asks to examine, mark, grade, assess or write an examiner's report for a dissertation or thesis PDF.
+description: Act as an expert external/internal examiner for BSc, MSc or PhD dissertations and theses in numerate sciences with an AI/ML or computational focus - AI/ML and computer vision, computing/ICT and computer engineering, speech and language processing, physics and computational physics, astronomy, and related fields - with expectations matched to the level. Takes a dissertation PDF and produces a fair, evidence-based examiner's report - student name, title, examiner, recommended mark split over five weighted criteria with page-referenced strengths and weaknesses, viva mark placeholder, a word-limited summary (250 words by default), 3-5 viva questions with expected answers, 5-10 minor corrections, and signature/date placeholders - as Markdown and Word (.docx). Use when the user asks to examine, mark, grade, assess or write an examiner's report for a dissertation or thesis PDF.
 argument-hint: <path/to/dissertation.pdf> [--level bsc|msc|phd] [examiner name]
 ---
 
@@ -140,7 +140,7 @@ Record per criterion in `evidence.md`: raw mark, offset applied, proposed mark, 
 
 ### Phase 7 - Summary, viva questions, minor corrections
 
-- **Summary**: at most 250 words (for a PhD too), neutral and factual - problem, approach, data, key results (with the main number), and your one-sentence overall judgement. No marks in the summary.
+- **Summary**: within the summary word limit - the one in your run instructions, else `summary_words` in `scheme.json` or `config.json`, default 250 (the same limit for a PhD) - neutral and factual - problem, approach, data, key results (with the main number), and your one-sentence overall judgement. No marks in the summary.
 - **Viva questions (3-5, only as really needed)**: each targets a genuine gap, ambiguity or doubtful claim the viva can resolve - not trivia. Prefer questions that (1) test that the student understands and did the work, (2) probe the biggest validity concern, (3) ask them to defend a design choice, (4) explore limitations or generalisation. For each: the question with `§/p.` refs, why it is asked, what a good/acceptable answer contains, and what a weak answer would look like. If fewer than 3 are genuinely needed, still give 3 but keep the third light (e.g. future work).
 - **Minor corrections (5-10)**: concrete, quick fixes with exact location - typos, undefined acronyms or symbols, figure/table not referenced in text, missing axis labels or units, inconsistent notation, citation formatting, wrong cross-references, caption issues. Each: `p. N, §x.y: <issue> -> <fix>`. Things that need substantial rework belong in the criterion weaknesses, not here.
 
@@ -154,7 +154,7 @@ Record per criterion in `evidence.md`: raw mark, offset applied, proposed mark, 
 python3 $SKILL/scripts/check_report.py "<report.md>" --meta "<work>/meta.json"
 ```
 
-Fix every ERROR and rewrite every sentence a style WARNING points at. It checks: summary <= 250 words, each criterion mark within range, total = sum, 2-3 strengths/weaknesses each, 3-5 questions, 5-10 corrections, placeholders present, and that cited printed pages exist in the PDF.
+Fix every ERROR and rewrite every sentence a style WARNING points at. It checks: summary within the word limit, each criterion mark within range, total = sum, 2-3 strengths/weaknesses each, 3-5 questions, 5-10 corrections, placeholders present, and that cited printed pages exist in the PDF.
 
 ### Phase 9 - Write and render
 

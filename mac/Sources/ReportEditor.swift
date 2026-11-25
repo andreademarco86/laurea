@@ -33,8 +33,9 @@ struct ReportEditor: View {
                     Text("Summary")
                     Spacer()
                     let n = wordCount(draft.wrappedValue.summary)
-                    Text("\(n) / 250 words").monospacedDigit()
-                        .foregroundStyle(n > 250 ? .red : .secondary)
+                    let limit = model.detail?.summary_words ?? 250
+                    Text("\(n) / \(limit) words").monospacedDigit()
+                        .foregroundStyle(n > limit ? .red : .secondary)
                 }
             }
 

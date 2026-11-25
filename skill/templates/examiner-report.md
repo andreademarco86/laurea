@@ -15,7 +15,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 1. Summary
 
-{{SUMMARY - at most 250 words, one or two paragraphs}}
+{{SUMMARY - within the summary word limit (default 250), one or two paragraphs}}
 
 ## 2. Marking scheme
 
