@@ -18,6 +18,8 @@ struct LaureaApp: App {
         .commands {
             CommandGroup(replacing: .appInfo) {
                 Button("About Laurea") { SystemIntegration.showAbout() }
+                Button("Setup Assistant…") { model.openSetup() }
+                    .disabled(!model.engineReady)
             }
             CommandGroup(replacing: .newItem) {
                 Button("New Examination…") { model.chooseAndImport() }
@@ -52,7 +54,7 @@ struct LaureaApp: App {
                     .keyboardShortcut("k", modifiers: [.command, .shift])
                 Button("Open Calibration Notes") { model.openCalibrationNotes() }
                 Divider()
-                Button("Move to Trash…") { model.showDeleteConfirm = true }
+                Button("Move to Trash…") { model.confirmDelete() }
                     .keyboardShortcut(.delete, modifiers: [.command])
                     .disabled(model.detail == nil || model.detail?.state == "running")
             }

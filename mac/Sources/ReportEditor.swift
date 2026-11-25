@@ -116,7 +116,7 @@ struct MarksSections: View {
         }
 
         Section {
-            Slider(value: Binding(get: { model.slider }, set: { model.applySlider($0) }), in: -15...15, step: 1) {
+            Slider(value: Binding(get: { model.slider }, set: { model.applySlider($0) }), in: -1...1) {
                 Text("Overall")
             } minimumValueLabel: {
                 Text("Harsher").font(.caption)
@@ -148,10 +148,10 @@ struct MarksSections: View {
             HStack {
                 Text("Overall Calibration")
                 Spacer()
-                Text(model.slider == 0 ? "0" : Fmt.signed(model.slider)).monospacedDigit()
+                Text(model.sliderDelta == 0 ? "0" : Fmt.signed(Double(model.sliderDelta)) + " marks").monospacedDigit()
             }
         } footer: {
-            Text("Moves the whole mark down or up, spread over the criteria by weight. Fine-tune any criterion above. Each save teaches the skill your calibration for the next \(Level(rawValue: model.detail?.status.level ?? "msc")?.label ?? "") examination.")
+            Text("Moves the whole mark down or up, spread over the criteria by weight: fine steps near the middle, reaching zero or full marks at the ends. Fine-tune any criterion above. Each save teaches Laurea your calibration for the next \(Level(rawValue: model.detail?.status.level ?? "msc")?.label ?? "") examination.")
                 .font(.caption).foregroundStyle(.secondary)
         }
 
@@ -244,7 +244,7 @@ struct DeclarationSection: View {
     var body: some View {
         Section("Declaration") {
             LabeledContent("Signature") {
-                if let img = NSImage(contentsOf: model.backend.signatureURL) {
+                if let img = model.signatureImage {
                     Image(nsImage: img).resizable().scaledToFit().frame(height: 52)
                         .padding(6).background(.white, in: .rect(cornerRadius: 6))
                 } else {

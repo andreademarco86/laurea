@@ -89,8 +89,8 @@ class Doc:
 
     def image(self, src, width_cm):
         path = next((os.path.join(d, src) for d in self.resource_dirs if os.path.isfile(os.path.join(d, src))), None)
-        if not path:
-            return run(f"[{src} not found]", italic=True)
+        if not path:  # no signature yet: leave a line to sign by hand
+            return run("______________________________")
         size = png_size(path)
         if not size:
             return run(f"[{src} is not a PNG]", italic=True)

@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Laurea"
 EXEC="Laurea"
-VERSION="${VERSION:-1.2}"
+VERSION="${VERSION:-1.3}"
 BUILD="build"
 APP="$BUILD/$APP_NAME.app"
 DIST="../dist"
@@ -38,6 +38,19 @@ fi
 
 echo "› Resources"
 cp "$ENGINE" "$APP/Contents/Resources/server.py"
+# The examiner skill: only files tracked in git, so no personal data (name, signature, calibration) is ever bundled.
+( cd .. && git ls-files -z skill ) | while IFS= read -r -d '' f; do
+  mkdir -p "$APP/Contents/Resources/$(dirname "$f")"
+  cp "../$f" "$APP/Contents/Resources/$f"
+done
+# PDF helpers (PDFKit), prebuilt so sandboxed engines never need to compile them
+mkdir -p "$APP/Contents/Resources/bin"
+for tool in pdftext pdfrender; do
+  for arch in arm64 x86_64; do
+    swiftc -O -target "$arch-apple-macos14.0" "../skill/scripts/$tool.swift" -o "$BUILD/$tool-$arch" 2>/dev/null
+  done
+  lipo -create "$BUILD/$tool-arm64" "$BUILD/$tool-x86_64" -output "$APP/Contents/Resources/bin/$tool"
+done
 if [ -f "$BUILD/AppIcon.icns" ]; then cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"; fi
 
 cat > "$APP/Contents/Info.plist" <<PLIST

@@ -34,12 +34,13 @@ struct ContentView: View {
         } message: {
             Text(model.errorMessage ?? "")
         }
-        .confirmationDialog("Move this examination to the Trash?", isPresented: $model.showDeleteConfirm) {
+        .confirmationDialog("Move “\(model.deleteTargetName)” to the Trash?", isPresented: $model.showDeleteConfirm) {
             Button("Move to Trash", role: .destructive) { Task { await model.deleteSelected() } }
         } message: {
-            Text("The PDF, the report and the working notes are moved to the Trash. You can restore them from there.")
+            Text("Its PDF, report and working notes are moved to the Trash, and it is removed from your calibration. You can restore the files from the Trash.")
         }
         .sheet(isPresented: $model.showRevise) { ReviseSheet() }
+        .sheet(isPresented: $model.showSetup) { SetupView().environment(model) }
     }
 }
 
@@ -65,11 +66,15 @@ struct SidebarView: View {
                             Button("Show in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([model.backend.examsDir.appendingPathComponent(exam.id)])
                             }
+                            Divider()
+                            Button("Move to Trash…", role: .destructive) { model.confirmDelete(exam.id) }
+                                .disabled(exam.state == "running")
                         }
                 }
             }
         }
         .listStyle(.sidebar)
+        .onDeleteCommand { model.confirmDelete() }
         .searchable(text: Binding(get: { model.search }, set: { model.search = $0 }), placement: .sidebar, prompt: "Search")
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) { Divider(); EngineStatusBar() }.background(.bar)
@@ -215,6 +220,10 @@ struct ExamToolbar: ToolbarContent {
                 }
                 .help("Save the report and update the Word document (⌘S)")
                 .disabled(!model.canSave)
+            }
+            if detail.state != "running" {
+                Button(role: .destructive) { model.confirmDelete() } label: { Label("Move to Trash", systemImage: "trash") }
+                    .help("Move this examination to the Trash (⌘⌫)")
             }
             Button { model.showPDF.toggle() } label: { Label("Dissertation PDF", systemImage: "sidebar.trailing") }
                 .help("Show or hide the dissertation (⌥⌘P)")

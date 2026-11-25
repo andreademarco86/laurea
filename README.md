@@ -81,9 +81,18 @@ In Settings, each engine shows whether it is installed and signed in, with **Ins
 
 No Python packages, pandoc or Homebrew are needed. The engine and all skill scripts use only Python's standard library, and the Word document is generated in Python. If `pypdf` happens to be installed, PDF text extraction uses it; otherwise it uses macOS's built-in PDFKit.
 
-## Setup
+## Installing
 
-**1. Clone the repository.**
+1. Open `Laurea 1.3.dmg` and drag **Laurea** to **Applications**. The app is signed for local use only, so on another Mac, right-click it and choose **Open** the first time.
+2. Open Laurea. The **Setup Assistant** guides you through the rest:
+   - choose Claude and/or ChatGPT, then install and sign in from the app;
+   - your name, institution and default degree;
+   - your signature: drop an image or choose a file;
+   - the marking weights.
+
+Laurea starts blank: the app contains no examiner details. On first run it installs its examining standards (the skill) to `~/Library/Application Support/Laurea/skill` and links them where Claude Code finds skills. Your details, signature, calibration and examinations stay on your Mac.
+
+## Building from source (developers)
 
 ```bash
 git clone https://github.com/andreademarco86/laurea.git ~/Work/Laurea
@@ -93,30 +102,23 @@ git clone https://github.com/andreademarco86/laurea.git ~/Work/Laurea
 cd ~/Work/Laurea
 ```
 
-**2. Make the skill available to Claude Code.**
-
-The `skill/` folder holds the examiner's knowledge: instructions, rubric, checklists, report template and scripts. Claude Code loads skills from `~/.claude/skills`, so link it there:
+To work on the skill in place (instead of the copy the app installs), link the repository's `skill/` folder before the first launch:
 
 ```bash
 mkdir -p ~/.claude/skills && ln -sfn "$PWD/skill" ~/.claude/skills/dissertation-examiner
 ```
 
-**3. Add your personal files.**
-
-These are listed in `.gitignore`, so they are never committed:
-
-- `skill/templates/signature.png`: your signature, as a PNG with a white or transparent background. It appears in the Declaration section of every report.
-- `skill/config.json`: your name, institution, default degree and marking weights. It is created from `config.example.json` the first time the app runs. You can then edit everything except the signature in **Settings** (⌘,).
-
-**4. Build and install the app.**
+Build the app and DMG:
 
 ```bash
 bash mac/build.sh
 ```
 
-This produces `dist/Laurea 1.2.dmg`, a universal app for Apple silicon and Intel Macs. Open the DMG and drag **Laurea** to **Applications**. The app is signed for local use only, so on another Mac, right-click the app and choose **Open** the first time.
+This produces `dist/Laurea 1.3.dmg`, a universal app for Apple silicon and Intel Macs. The build bundles only files tracked in git, plus the PDF helper programs, so your personal files (`skill/config.json`, `skill/templates/signature.png` and the calibration files, all git-ignored) never end up in the app.
 
 ## Using the app
+
+On first launch the **Setup Assistant** guides you through choosing an engine (with Install and Sign In buttons), your name, institution and signature, and the marking weights. Run it again any time from **Laurea → Setup Assistant…**.
 
 1. **Add a dissertation:** press **⌘N**, or drag PDFs onto the window.
 2. **Examine:** choose **BSc**, **MSc** or **PhD** and click **Examine**. This usually takes 20–60 minutes. A progress bar and checklist show which stage the examination is at, and you get a notification and a Dock badge when the report is ready.
@@ -129,6 +131,7 @@ This produces `dist/Laurea 1.2.dmg`, a universal app for Apple silicon and Intel
    - A change that would break the app is rolled back automatically.
    - Push when you want the changes on GitHub.
 8. **Choose the engine:** in **Settings → Examination Engine**, pick Claude or ChatGPT, the model and the thoroughness. New examinations use the current choice.
+9. **Delete an examination:** right-click it in the sidebar and choose **Move to Trash…**, press **Delete** in the sidebar, or use the trash button in the toolbar (**⌘⌫**). Laurea asks for confirmation first; the files go to the Trash, so they can be restored, and the examination is removed from your calibration. A running examination must be stopped first.
 
 ## Where things are stored
 
@@ -136,8 +139,9 @@ This produces `dist/Laurea 1.2.dmg`, a universal app for Apple silicon and Intel
 |---|---|---|
 | Examinations: PDFs, reports (.md and .docx), working notes and logs | `~/Library/Application Support/Laurea/examinations/` | No |
 | App settings, engine log, skill-chat history | `~/Library/Application Support/Laurea/` | No |
-| Your name, institution, default degree and marking weights | `skill/config.json` | No |
-| Your signature | `skill/templates/signature.png` | No |
+| Your name, institution, default degree and marking weights | `config.json` in the skill folder (set in the Setup Assistant or Settings) | No |
+| Your signature | `templates/signature.png` in the skill folder (set in the Setup Assistant or Settings) | No |
+| The examining standards (skill) installed by the app | `~/Library/Application Support/Laurea/skill` (developers: the repository's `skill/`, via the link) | Its own git history |
 | Learned calibration and its history (these name students) | `skill/references/calibration-notes.md` and `calibration-history.json` | No |
 | Your house rules | `skill/references/house-preferences.md` | Yes |
 | The skill itself | `skill/` | Yes |
@@ -186,12 +190,12 @@ skill/                  The examiner skill (Claude Code finds it through the sym
 ### Work in progress
 
 - **ChatGPT engine.** Installing, signing in, listing models and short runs through ChatGPT are tested. A full examination on ChatGPT has not been run yet, and the skill was tuned on Claude, so ChatGPT reports may need some calibration at first.
-- **Setup Assistant.** A guided first-run setup is planned: choosing and installing an engine, signing in, and entering your name, institution, signature and marking weights. Until then, use **Settings** and follow **Setup** above.
+
 
 ## Troubleshooting
 
 - **"The examination engine could not start":** check that the Command Line Tools are installed (`xcode-select -p`), then read `~/Library/Application Support/Laurea/engine.log`.
 - **An examination stops at once with "not set up":** the chosen engine isn't installed or signed in. Open **Settings → Examination Engine** and use **Install** or **Sign In…**, or choose the other engine.
 - **ChatGPT fails with "code-mode host was not found":** Codex is missing its companion program. Click **Install** again in Settings; it fetches both parts.
-- **The signature is missing from the Word file:** put a PNG at `skill/templates/signature.png` and save the report again.
+- **The signature is missing from the Word file:** add one in **Settings → Signature** (or the Setup Assistant) and save the report again. Without a signature, the report leaves a line to sign by hand.
 - **The report checker reports wrong maxima:** the report was written for different weights from the examination's `scheme.json`. Revise the report, or run the examination again.

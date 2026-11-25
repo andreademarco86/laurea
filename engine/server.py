@@ -748,6 +748,7 @@ def run_claude(eid, prompt, kind):
     def register(p):
         with LOCK:
             RUNNING[eid] = p
+        set_status(d, pid=p.pid, engine_pid=os.getpid())
     try:
         with open(d / "run.jsonl", "a", encoding="utf-8"):
             pass
@@ -780,6 +781,8 @@ def start_run(eid, prompt, kind):
     with LOCK:
         if eid in RUNNING:
             raise RuntimeError("already running")
+    # mark as running before replying, so the app shows progress immediately
+    set_status(exam_dir(eid), state="running", run_kind=kind, started=now(), message="")
     threading.Thread(target=run_claude, args=(eid, prompt, kind), daemon=True).start()
 
 
@@ -1443,8 +1446,16 @@ def main():
         ensure_helpers()
     except Exception as e:
         print(f"helpers: {e}", file=sys.stderr)
-    for d in EXAMS.iterdir():  # runs cannot survive a restart
-        if d.is_dir() and status(d).get("state") == "running":
+    def alive(pid):
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except (OSError, TypeError, ValueError):
+            return False
+
+    for d in EXAMS.iterdir():  # a run whose engine and assistant have both stopped cannot resume
+        st = status(d) if d.is_dir() else {}
+        if st.get("state") == "running" and not (alive(st.get("engine_pid")) or alive(st.get("pid"))):
             set_status(d, state="interrupted", message="The app was closed while this was running. Run it again.")
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     port = srv.server_address[1]

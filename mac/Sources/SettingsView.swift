@@ -12,12 +12,7 @@ struct SettingsView: View {
                 TextField("Name", text: Binding(get: { s.wrappedValue.examiner_name ?? "" }, set: { s.wrappedValue.examiner_name = $0; scheduleSave() }))
                 TextField("Institution", text: Binding(get: { s.wrappedValue.institution ?? "" }, set: { s.wrappedValue.institution = $0; scheduleSave() }))
                 TextField("Default degree", text: Binding(get: { s.wrappedValue.degree_default ?? "" }, set: { s.wrappedValue.degree_default = $0; scheduleSave() }))
-                LabeledContent("Signature") {
-                    if let img = NSImage(contentsOf: model.backend.signatureURL) {
-                        Image(nsImage: img).resizable().scaledToFit().frame(height: 36)
-                            .padding(4).background(.white, in: .rect(cornerRadius: 5))
-                    }
-                }
+                SignatureField()
             }
             MarkingSchemeSection(scheme: Binding(
                 get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },

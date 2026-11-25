@@ -49,8 +49,9 @@ final class AppModel {
     var detail: ExamDetail?
     var draft: ReportDraft?
     var dirty = false
-    var slider: Double = 0
+    var slider: Double = 0          // position, -1 (harshest) ... +1 (most generous)
     var sliderBase: [Int]?
+    var sliderDelta = 0             // marks added or removed by the slider
     var note = ""
     var banner: Banner?
     var progress: ProgressInfo?
@@ -63,6 +64,23 @@ final class AppModel {
     var showRevise = false
     var reviseText = ""
     var showDeleteConfirm = false
+    var deleteTargetID: String?
+
+    /// Ask before moving an examination (default: the selected one) to the Trash.
+    func confirmDelete(_ id: String? = nil) {
+        guard let target = id ?? selectedExamID else { return }
+        if exams.first(where: { $0.id == target })?.state == "running" {
+            errorMessage = "Stop this examination before moving it to the Trash."
+            return
+        }
+        deleteTargetID = target
+        showDeleteConfirm = true
+    }
+
+    var deleteTargetName: String {
+        guard let id = deleteTargetID, let e = exams.first(where: { $0.id == id }) else { return "this examination" }
+        return e.displayName
+    }
     var errorMessage: String?
 
     // Skill chat
@@ -90,6 +108,7 @@ final class AppModel {
             try await backend.start()
             engineReady = true
             SystemIntegration.requestNotifications()
+            Task { await checkSetupNeeded() }
             await refreshList()
             await loadSettings()
             Snapshot.runIfRequested(self)
@@ -114,6 +133,11 @@ final class AppModel {
         let before = Dictionary(uniqueKeysWithValues: exams.map { ($0.id, $0.state) })
         for e in list where before[e.id] == "running" && e.state != "running" { SystemIntegration.notifyReady(e) }
         if list != exams { exams = list }
+        // keep the main screen in step with the sidebar (e.g. a run that started or finished elsewhere)
+        if let id = selectedExamID, let d = detail, let e = list.first(where: { $0.id == id }), e.state != d.state, !dirty {
+            await load(id, keepBanner: true)
+            if e.state == "running" { startPolling(id) }
+        }
         SystemIntegration.updateDockBadge(running: list.filter { $0.state == "running" }.count)
     }
 
@@ -139,7 +163,7 @@ final class AppModel {
         selection = item
         pollTask?.cancel()
         detail = nil; draft = nil; dirty = false; banner = nil; progress = nil
-        slider = 0; sliderBase = nil; showPDF = false
+        slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
         switch item {
         case .exam(let id): await load(id)
         case .calibration: await loadCalibration()
@@ -156,7 +180,7 @@ final class AppModel {
             draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
             note = d.calibration?.note ?? ""
             dirty = false
-            slider = 0; sliderBase = nil
+            slider = 0; sliderBase = nil; sliderDelta = 0
             if !keepBanner { banner = nil }
             if let l = d.status.level, let lv = Level(rawValue: l) { newLevel = lv }
             if d.state == "running" { startPolling(id) }
@@ -255,15 +279,20 @@ final class AppModel {
         guard var d = draft else { return }
         d.criteria[index].mark = max(0, min(d.criteria[index].spec.max, value))
         draft = d
-        slider = 0; sliderBase = nil
+        slider = 0; sliderBase = nil; sliderDelta = 0
         dirty = true
     }
 
     func applySlider(_ value: Double) {
         guard var d = draft else { return }
         if sliderBase == nil { sliderBase = d.criteria.map(\.mark) }
-        slider = value.rounded()
-        let marks = distribute(sliderBase!, delta: Int(slider), maxima: d.criteria.map(\.spec.max))
+        slider = max(-1, min(1, value))
+        // Progressive response: fine control near the centre, reaching 0 or full marks at the ends.
+        let base = sliderBase!
+        let room = slider >= 0 ? Double(d.dissertationMax - base.reduce(0, +)) : Double(base.reduce(0, +))
+        let delta = Int((slider.sign == .minus ? -1 : 1) * pow(abs(slider), 2.2) * room)
+        sliderDelta = delta
+        let marks = distribute(base, delta: delta, maxima: d.criteria.map(\.spec.max))
         for i in d.criteria.indices { d.criteria[i].mark = marks[i] }
         draft = d
         dirty = true
@@ -347,11 +376,14 @@ final class AppModel {
     }
 
     func deleteSelected() async {
-        guard let id = selectedExamID else { return }
+        guard let id = deleteTargetID ?? selectedExamID else { return }
+        deleteTargetID = nil
         do {
             try await backend.post("/api/exams/\(id)/delete")
-            dirty = false
-            await select(nil)
+            if id == selectedExamID {
+                dirty = false
+                await select(nil)
+            }
             await refreshList()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -431,6 +463,63 @@ final class AppModel {
             await loadSkillChat()
             await loadSkillHistory()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    // MARK: Setup Assistant and signature
+
+    var showSetup = false
+    var setupStep = 0
+    var signatureVersion = 0
+    var signatureDropping = false
+
+    var setupCompletedBefore: Bool { UserDefaults.standard.bool(forKey: "setupComplete") }
+    var activeEngineReady: Bool { engines?.providers[activeEngine.rawValue]?.signed_in == true }
+    var hasSignature: Bool { _ = signatureVersion; return FileManager.default.fileExists(atPath: backend.signatureURL.path) }
+    var signatureImage: NSImage? { _ = signatureVersion; return NSImage(contentsOf: backend.signatureURL) }
+
+    func openSetup() {
+        setupStep = 0
+        showSetup = true
+        Task { await loadEngines() }
+    }
+
+    func completeSetup() {
+        UserDefaults.standard.set(true, forKey: "setupComplete")
+        showSetup = false
+        setupStep = 0
+    }
+
+    /// Shown on first launch, or when the chosen engine is not ready to examine.
+    func checkSetupNeeded() async {
+        await loadEngines()
+        if ProcessInfo.processInfo.environment["DE_SNAPSHOT_DIR"] != nil { return }
+        if !setupCompletedBefore || !activeEngineReady {
+            setupStep = setupCompletedBefore ? 1 : 0
+            showSetup = true
+        }
+    }
+
+    func chooseSignature() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.png, .jpeg, .tiff, .heic, .image]
+        panel.message = "Choose an image of your signature (ideally on a white or transparent background)"
+        panel.prompt = "Use Signature"
+        if panel.runModal() == .OK, let url = panel.url { saveSignature(from: url) }
+    }
+
+    func saveSignature(from url: URL) {
+        guard let img = NSImage(contentsOf: url), let tiff = img.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) else {
+            errorMessage = "That file isn't an image Laurea can read. Try a PNG or JPEG."
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(at: backend.signatureURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try png.write(to: backend.signatureURL, options: .atomic)
+            signatureVersion += 1
+        } catch {
+            errorMessage = "Couldn't save the signature: \(error.localizedDescription)"
+        }
     }
 
     // MARK: Examination engines

@@ -1,7 +1,7 @@
 {
   "examiner_name": "",
   "institution": "",
-  "degree_default": "MSc in Artificial Intelligence",
+  "degree_default": "",
   "output_formats": [
     "md",
     "docx"

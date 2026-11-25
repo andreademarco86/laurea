@@ -16,7 +16,10 @@ final class Backend: @unchecked Sendable {
     static let shared = Backend()
 
     let home = FileManager.default.homeDirectoryForCurrentUser
-    var dataDir: URL { home.appendingPathComponent("Library/Application Support/Laurea") }
+    var dataDir: URL {
+        if let custom = ProcessInfo.processInfo.environment["LAUREA_DATA_DIR"] { return URL(fileURLWithPath: custom) }
+        return home.appendingPathComponent("Library/Application Support/Laurea")
+    }
     var examsDir: URL { dataDir.appendingPathComponent("examinations") }
     var skillDir: URL { home.appendingPathComponent(".claude/skills/dissertation-examiner") }
     var calibrationNotes: URL { skillDir.appendingPathComponent("references/calibration-notes.md") }
@@ -35,8 +38,25 @@ final class Backend: @unchecked Sendable {
         return candidates.first { fm.isExecutableFile(atPath: $0) }
     }
 
+    /// First run on a new Mac: install the bundled skill (no personal data) and link it where Claude Code finds skills.
+    func ensureSkillInstalled() throws {
+        let fm = FileManager.default
+        let link = home.appendingPathComponent(".claude/skills/dissertation-examiner")
+        if fm.fileExists(atPath: link.path) { return }  // already installed (or a developer's linked copy)
+        guard let bundled = Bundle.main.url(forResource: "skill", withExtension: nil) else { return }
+        let dest = dataDir.appendingPathComponent("skill")
+        if !fm.fileExists(atPath: dest.path) {
+            try fm.createDirectory(at: dataDir, withIntermediateDirectories: true)
+            try fm.copyItem(at: bundled, to: dest)
+        }
+        try fm.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if (try? fm.destinationOfSymbolicLink(atPath: link.path)) != nil { try? fm.removeItem(at: link) }  // dangling link
+        try fm.createSymbolicLink(at: link, withDestinationURL: dest)
+    }
+
     func start() async throws {
         if base != nil { return }
+        try ensureSkillInstalled()
         guard let script = Bundle.main.url(forResource: "server", withExtension: "py") else { throw BackendError.missing("The examination engine (server.py)") }
         guard let python = Self.findPython() else { throw BackendError.missing("Python 3") }
         try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
@@ -49,6 +69,7 @@ final class Backend: @unchecked Sendable {
         var env = ProcessInfo.processInfo.environment
         env["DE_PORT"] = "0"
         env["DE_DATA"] = dataDir.path
+        if let res = Bundle.main.resourcePath { env["DE_RESOURCES"] = res }
         env["DE_PARENT_PID"] = String(ProcessInfo.processInfo.processIdentifier)
         p.environment = env
         let out = Pipe()
