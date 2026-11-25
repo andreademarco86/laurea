@@ -16,7 +16,7 @@ final class Backend: @unchecked Sendable {
     static let shared = Backend()
 
     let home = FileManager.default.homeDirectoryForCurrentUser
-    var dataDir: URL { home.appendingPathComponent("DissertationExaminer") }
+    var dataDir: URL { home.appendingPathComponent("Laurea") }
     var examsDir: URL { dataDir.appendingPathComponent("examinations") }
     var skillDir: URL { home.appendingPathComponent(".claude/skills/dissertation-examiner") }
     var calibrationNotes: URL { skillDir.appendingPathComponent("references/calibration-notes.md") }
@@ -64,7 +64,7 @@ final class Backend: @unchecked Sendable {
                 while true {
                     let chunk = h.availableData
                     if chunk.isEmpty {
-                        cont.resume(throwing: BackendError.failed("The examination engine stopped while starting. See ~/DissertationExaminer/engine.log."))
+                        cont.resume(throwing: BackendError.failed("The examination engine stopped while starting. See ~/Laurea/engine.log."))
                         return
                     }
                     buf.append(chunk)

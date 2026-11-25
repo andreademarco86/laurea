@@ -1,6 +1,6 @@
-# Examiner Report
+# Laurea
 
-A native macOS app that drafts examiner's reports for **BSc, MSc and PhD** dissertations in ML/AI, with particular depth in computer vision and in ML for astronomy. It uses **Claude Opus 5.5** through Claude Code. The examiner reviews, calibrates, signs and exports the report as a Word document.
+**Laurea** is a native macOS app that drafts examiner's reports for **BSc, MSc and PhD** dissertations in ML/AI, with particular depth in computer vision and in ML for astronomy. It uses **Claude Opus 5.5** through Claude Code. The examiner reviews, calibrates, signs and exports the report as a Word document.
 
 Every report follows the same structure:
 
@@ -76,7 +76,7 @@ These files are personal and are listed in `.gitignore`, so they are never commi
 bash mac/build.sh
 ```
 
-This produces `dist/Dissertation Examiner 1.1.dmg`. Open it and drag **Dissertation Examiner** to **Applications**. The app is ad-hoc signed, so on another Mac, right-click the app and choose **Open** the first time.
+This produces `dist/Laurea 1.2.dmg`. Open it and drag **Laurea** to **Applications**. The app is ad-hoc signed, so on another Mac, right-click the app and choose **Open** the first time.
 
 ## Using the app
 
@@ -92,7 +92,7 @@ Each skill change is a git commit in this repository. You can review it and undo
 
 ## Privacy
 
-- **Examinations** (the PDFs, reports and Claude's working notes) are stored in `~/DissertationExaminer/examinations/`. They are outside this repository and are never committed.
+- **Examinations** (the PDFs, reports and Claude's working notes) are stored in `~/Laurea/examinations/`. They are outside this repository and are never committed.
 - **Calibration history and notes** name students, so they are not tracked in git either.
 - **Web searches** during an examination use topics, method and dataset names, and the titles of cited papers. The originality screen adds at most 8 short phrases per dissertation. Searches never include the student's name, the supervisor, the institution or the PDF.
 - **Claude's access** during an examination is limited to that examination's folder and the skill's own scripts.
@@ -117,11 +117,11 @@ skill/                The examiner skill, loaded by Claude Code through the syml
 
 - **Skill changes** take effect at the next examination, with no rebuild. Make them through the app's skill chat, or edit the files and commit as usual.
 - **App or engine changes:** run `bash mac/build.sh` and reinstall from the DMG.
-- **Engine log:** `~/DissertationExaminer/engine.log`.
+- **Engine log:** `~/Laurea/engine.log`.
 - **Using the skill without the app:** in Claude Code, run `/dissertation-examiner path/to/thesis.pdf --level msc`.
 
 ## Troubleshooting
 
-- **"The examination engine could not start":** check that `python3` is installed and read `~/DissertationExaminer/engine.log`.
+- **"The examination engine could not start":** check that `python3` is installed and read `~/Laurea/engine.log`.
 - **"Claude Code 2.x not found":** install or update Claude Code (`npm install -g @anthropic-ai/claude-code`) and run `claude` once to sign in.
 - **No Word file:** install pandoc (`brew install pandoc`).

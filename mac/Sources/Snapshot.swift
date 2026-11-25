@@ -17,6 +17,7 @@ enum Snapshot {
                 try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: dir).appendingPathComponent("\(name).png"))
             }
             try? await Task.sleep(for: .seconds(2))
+            await shot("0-welcome")
             if let e = model.exams.first(where: { $0.state == "done" }) {
                 await model.select(.exam(e.id)); await shot("2-report")
                 model.applySlider(5); await shot("3-slider")

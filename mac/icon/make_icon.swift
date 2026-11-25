@@ -47,16 +47,9 @@ for (i, w) in [300, 340, 270, 330, 220, 310].enumerated() {
     let y = 175 - CGFloat(i) * 62
     NSBezierPath(roundedRect: CGRect(x: -165, y: y, width: CGFloat(w), height: 22), xRadius: 11, yRadius: 11).fill()
 }
-// examiner's red tick in the margin
-let tick = NSBezierPath()
-tick.lineWidth = 20
-tick.lineCapStyle = .round
-tick.lineJoinStyle = .round
-tick.move(to: CGPoint(x: -150, y: -215))
-tick.line(to: CGPoint(x: -112, y: -250))
-tick.line(to: CGPoint(x: -40, y: -160))
-color(0xE5484D).setStroke()
-tick.stroke()
+// red margin rule, like a marked manuscript
+color(0xE5484D, 0.55).setFill()
+NSBezierPath(rect: CGRect(x: -185, y: -245, width: 6, height: 490)).fill()
 cg.restoreGState()
 
 // SF Symbols
@@ -67,19 +60,35 @@ func symbol(_ name: String, _ pt: CGFloat, _ colors: [NSColor], at p: CGPoint, w
     img.draw(in: CGRect(x: p.x - s.width / 2, y: p.y - s.height / 2, width: s.width, height: s.height))
 }
 
-// Graduation cap resting on the top corner of the paper
+// Gold laurel medallion: a wreath around a check, bottom right
+let gold = [color(0xFFE08A), color(0xF5B83D), color(0xC98A12)]
+let medal = CGPoint(x: 690, y: 330)
 cg.saveGState()
-cg.setShadow(offset: CGSize(width: 0, height: -10), blur: 18, color: NSColor.black.withAlphaComponent(0.35).cgColor)
-cg.translateBy(x: 650, y: 720)
-cg.rotate(by: 12 * .pi / 180)
-symbol("graduationcap.fill", 250, [color(0x14193F)], at: .zero, weight: .bold)
+cg.setShadow(offset: CGSize(width: 0, height: -12), blur: 24, color: NSColor.black.withAlphaComponent(0.4).cgColor)
+// disc
+let disc = NSBezierPath(ovalIn: CGRect(x: medal.x - 150, y: medal.y - 150, width: 300, height: 300))
+disc.addClip()
+NSGradient(colors: [color(0x2B3A9E), color(0x18205C)])!.draw(in: disc.bounds, angle: -90)
 cg.restoreGState()
-
-// Approval seal
 cg.saveGState()
-cg.setShadow(offset: CGSize(width: 0, height: -10), blur: 20, color: NSColor.black.withAlphaComponent(0.35).cgColor)
-symbol("checkmark.seal.fill", 230, [NSColor.white, color(0x2FBF71)], at: CGPoint(x: 705, y: 285), weight: .bold)
+let ring = NSBezierPath(ovalIn: CGRect(x: medal.x - 150, y: medal.y - 150, width: 300, height: 300))
+ring.lineWidth = 12
+NSColor(patternImage: { () -> NSImage in
+    let im = NSImage(size: NSSize(width: 300, height: 300)); im.lockFocus()
+    NSGradient(colors: gold)!.draw(in: NSRect(x: 0, y: 0, width: 300, height: 300), angle: -90); im.unlockFocus(); return im }()).setStroke()
+color(0xF2B33A).setStroke()
+ring.stroke()
 cg.restoreGState()
+// laurels
+symbol("laurel.leading", 180, [color(0xF7C548)], at: CGPoint(x: medal.x - 78, y: medal.y - 2), weight: .semibold)
+symbol("laurel.trailing", 180, [color(0xF7C548)], at: CGPoint(x: medal.x + 78, y: medal.y - 2), weight: .semibold)
+// check
+let check = NSBezierPath()
+check.lineWidth = 22; check.lineCapStyle = .round; check.lineJoinStyle = .round
+check.move(to: CGPoint(x: medal.x - 30, y: medal.y + 2))
+check.line(to: CGPoint(x: medal.x - 8, y: medal.y - 22))
+check.line(to: CGPoint(x: medal.x + 32, y: medal.y + 28))
+NSColor.white.setStroke(); check.stroke()
 
 NSGraphicsContext.restoreGraphicsState()
 try! rep.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: out))

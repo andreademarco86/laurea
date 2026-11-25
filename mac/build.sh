@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Build "Dissertation Examiner.app" and package it as a DMG.
+# Build "Laurea.app" and package it as a DMG.
 # Usage: bash build.sh            (outputs to ./build and ../dist)
 set -euo pipefail
 cd "$(dirname "$0")"
 
-APP_NAME="Dissertation Examiner"
-EXEC="DissertationExaminer"
-VERSION="${VERSION:-1.1}"
+APP_NAME="Laurea"
+EXEC="Laurea"
+VERSION="${VERSION:-1.2}"
 BUILD="build"
 APP="$BUILD/$APP_NAME.app"
 DIST="../dist"
@@ -48,7 +48,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>$APP_NAME</string>
   <key>CFBundleDisplayName</key><string>$APP_NAME</string>
   <key>CFBundleExecutable</key><string>$EXEC</string>
-  <key>CFBundleIdentifier</key><string>local.dissertation-examiner</string>
+  <key>CFBundleIdentifier</key><string>local.laurea</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$(date +%Y%m%d%H%M)</string>
@@ -58,7 +58,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
-  <key>NSHumanReadableCopyright</key><string>Personal examination tool. Uses Claude Code and the dissertation-examiner skill.</string>
+  <key>NSHumanReadableCopyright</key><string>Laurea: dissertation examination with Claude. Uses Claude Code and the dissertation-examiner skill.</string>
 </dict>
 </plist>
 PLIST

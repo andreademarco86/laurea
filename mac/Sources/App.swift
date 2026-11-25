@@ -1,13 +1,14 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 @main
-struct DissertationExaminerApp: App {
+struct LaureaApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     private let model = AppModel.shared
 
     var body: some Scene {
-        Window("Dissertation Examiner", id: "main") {
+        Window("Laurea", id: "main") {
             ContentView()
                 .environment(model)
                 .frame(minWidth: 940, minHeight: 620)
@@ -15,6 +16,9 @@ struct DissertationExaminerApp: App {
         }
         .defaultSize(width: 1280, height: 860)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("About Laurea") { SystemIntegration.showAbout() }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("New Examination…") { model.chooseAndImport() }
                     .keyboardShortcut("n")
@@ -63,8 +67,17 @@ struct DissertationExaminerApp: App {
     }
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
 
     @MainActor
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {

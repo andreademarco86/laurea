@@ -34,6 +34,13 @@ final class AppModel {
 
     // Sidebar
     var exams: [ExamSummary] = []
+    var search = ""
+    var saveCount = 0
+    var filteredExams: [ExamSummary] {
+        let q = search.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return exams }
+        return exams.filter { ($0.student + " " + $0.title + " " + $0.pdf).lowercased().contains(q) }
+    }
     var selection: SidebarItem?
     var pendingSelection: SidebarItem??
     var showDiscardAlert = false
@@ -82,6 +89,7 @@ final class AppModel {
         do {
             try await backend.start()
             engineReady = true
+            SystemIntegration.requestNotifications()
             await refreshList()
             await loadSettings()
             Snapshot.runIfRequested(self)
@@ -103,7 +111,10 @@ final class AppModel {
 
     func refreshList() async {
         guard engineReady, let list: [ExamSummary] = try? await backend.get("/api/exams") else { return }
+        let before = Dictionary(uniqueKeysWithValues: exams.map { ($0.id, $0.state) })
+        for e in list where before[e.id] == "running" && e.state != "running" { SystemIntegration.notifyReady(e) }
         if list != exams { exams = list }
+        SystemIntegration.updateDockBadge(running: list.filter { $0.state == "running" }.count)
     }
 
     /// Called by the sidebar's selection binding; asks before throwing away edits.
@@ -228,7 +239,6 @@ final class AppModel {
                     if p.state != "running" {
                         await self.refreshList()
                         await self.load(id)
-                        if p.state == "done" { NSApp.requestUserAttention(.informationalRequest) }
                         return
                     }
                 }
@@ -307,6 +317,7 @@ final class AppModel {
                 banner = Banner(kind: issues.isEmpty ? .success : .warning, text: issues.isEmpty ? text : text + "\n• " + issues.joined(separator: "\n• "))
             }
             dirty = false
+            saveCount += 1
             await load(id, keepBanner: true)
             await refreshList()
         } catch {

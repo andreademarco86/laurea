@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dissertation Examiner - examination engine for the macOS app.
+"""Laurea - examination engine for the macOS app.
 
 A localhost JSON API (started by the app, on a free port) that drives Claude Code headlessly with
 the `dissertation-examiner` skill (~/.claude/skills/dissertation-examiner). The skill is read
@@ -388,7 +388,7 @@ def build_cmd(claude, prompt, resume=None):
            "--allowedTools", *allowed,
            "--permission-mode", "dontAsk", "--add-dir", str(SKILL),
            "--append-system-prompt",
-           "You are running unattended inside the Dissertation Examiner app: nobody can answer questions, so never ask; "
+           "You are running unattended inside the Laurea app: nobody can answer questions, so never ask; "
            "make sensible choices and note them in your final message. Run each skill script as one plain command with its "
            f"absolute path, e.g. `python3 {scripts}/extract_pdf.py ...` - no shell variables, cd, &&, ; or pipes (they are "
            "blocked). Read files with the Read/Grep/Glob tools, and view pages via render_pages.py PNGs. Web research is enabled and "
@@ -513,7 +513,7 @@ def write_calibration_notes(entries):
                      f"->{_fmt(sum(e['final'].values()))}{note}")
     hist_txt = "\n".join(lines) or "- (none yet)"
     txt = CALIBRATION.read_text(encoding="utf-8") if CALIBRATION.exists() else (
-        "# Calibration notes (examiner's own)\n\nWritten by the Dissertation Examiner app each time the examiner saves a report "
+        "# Calibration notes (examiner's own)\n\nWritten by the Laurea app each time the examiner saves a report "
         "(do not edit by hand).\nPersonal data: not tracked in git. The examiner's hand-written rules live in house-preferences.md.\n")
 
     def put(txt, tag, body, heading):
@@ -562,8 +562,8 @@ def forget_calibration(eid):
 # ---------------------------------------------------------------- skill editing (chat)
 SKILL_CHAT = ROOT / "skill_chat.json"
 SKILL_RUN = {"proc": None, "status": ""}
-GIT_ID = ["-c", "user.name=Dissertation Examiner", "-c", "user.email=app@localhost"]
-SKILL_SYSTEM = f"""You maintain the examiner skill in the current folder. It is used by the Dissertation Examiner
+GIT_ID = ["-c", "user.name=Laurea", "-c", "user.email=app@localhost"]
+SKILL_SYSTEM = f"""You maintain the examiner skill in the current folder. It is used by the Laurea
 app to draft examiner's reports for BSc, MSc and PhD dissertations. The examiner (your user) talks to you here to adjust
 or ask about the skill. They are an academic, not a programmer: reply in short, plain, friendly prose, no jargon.
 
@@ -777,7 +777,7 @@ def exam_summary(d):
 
 # ---------------------------------------------------------------- HTTP
 class Handler(BaseHTTPRequestHandler):
-    server_version = "DissertationExaminer/1.0"
+    server_version = "Laurea/1.2"
 
     def log_message(self, fmt, *args):
         pass
@@ -1055,7 +1055,7 @@ class Handler(BaseHTTPRequestHandler):
         if method == "POST" and action == "delete":
             if eid in RUNNING:
                 return self.send(409, {"error": "stop the run first"})
-            trash = Path.home() / ".Trash" / f"DissertationExaminer-{eid}"
+            trash = Path.home() / ".Trash" / f"Laurea-{eid}"
             shutil.move(str(d), str(trash))
             forget_calibration(eid)
             return self.send(200, {"ok": True, "moved_to": str(trash)})
@@ -1081,7 +1081,7 @@ def main():
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     port = srv.server_address[1]
     print(f"PORT={port}", flush=True)
-    print(f"Dissertation Examiner engine on http://{HOST}:{port}", flush=True)
+    print(f"Laurea engine on http://{HOST}:{port}", flush=True)
     parent = os.environ.get("DE_PARENT_PID")
     if parent:  # exit together with the Mac app, stopping any Claude run
         def watchdog():

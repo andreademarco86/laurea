@@ -58,7 +58,7 @@ struct SidebarView: View {
                     .tag(SidebarItem.calibration)
             }
             Section("Examinations") {
-                ForEach(model.exams) { exam in
+                ForEach(model.filteredExams) { exam in
                     ExamRow(exam: exam)
                         .tag(SidebarItem.exam(exam.id))
                         .contextMenu {
@@ -70,6 +70,10 @@ struct SidebarView: View {
             }
         }
         .listStyle(.sidebar)
+        .searchable(text: Binding(get: { model.search }, set: { model.search = $0 }), placement: .sidebar, prompt: "Search")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) { Divider(); EngineStatusBar() }.background(.bar)
+        }
         .overlay {
             if model.engineReady && model.exams.isEmpty {
                 ContentUnavailableView {
@@ -101,7 +105,7 @@ struct ExamRow: View {
             HStack(spacing: 6) {
                 StatusBadge(state: exam.state)
                 if let l = exam.level, let lv = Level(rawValue: l), exam.state != "new" {
-                    Text(lv.label).font(.caption2.weight(.medium)).foregroundStyle(.secondary)
+                    LevelCapsule(level: lv)
                 }
                 Spacer()
                 if let t = exam.total {
@@ -124,10 +128,16 @@ struct StatusBadge: View {
         case "error", "interrupted", "cancelled": ("Needs attention", .orange, "exclamationmark.triangle.fill")
         default: ("Not started", .secondary, "circle.dashed")
         }
-        Label(text, systemImage: icon)
-            .font(.caption)
-            .foregroundStyle(color)
-            .labelStyle(.titleAndIcon)
+        HStack(spacing: 4) {
+            if state == "running" {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: icon)
+            }
+            Text(text)
+        }
+        .font(.caption)
+        .foregroundStyle(color)
     }
 }
 
@@ -159,13 +169,7 @@ struct DetailView: View {
                         ProgressView()
                     }
                 case nil:
-                    ContentUnavailableView {
-                        Label("No Examination Selected", systemImage: "graduationcap")
-                    } description: {
-                        Text("Choose an examination in the sidebar, or add a dissertation PDF to start one.")
-                    } actions: {
-                        Button("New Examination…") { model.chooseAndImport() }
-                    }
+                    WelcomeView()
                 }
             }
         }
@@ -273,7 +277,13 @@ struct RunningView: View {
     var body: some View {
         let p = model.progress
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: detail.status.run_kind == "revise" ? "wand.and.sparkles" : "text.magnifyingglass")
+                    .font(.system(size: 30, weight: .medium))
+                    .foregroundStyle(.tint)
+                    .symbolEffect(.pulse, options: .repeating)
+                    .frame(width: 52, height: 52)
+                    .background(Color.accentColor.opacity(0.12), in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(detail.status.run_kind == "revise" ? "Revising the Report" : "Examining the \(Level(rawValue: detail.status.level ?? "msc")?.noun ?? "Dissertation")")
                         .font(.title2.weight(.semibold))
@@ -299,13 +309,16 @@ struct RunningView: View {
                     ForEach(p?.phases ?? []) { ph in
                         HStack(spacing: 10) {
                             Group {
-                                switch ph.state {
-                                case "done": Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                                case "current": ProgressView().controlSize(.small)
-                                default: Image(systemName: "circle").foregroundStyle(.tertiary)
+                                if ph.state == "current" {
+                                    ProgressView().controlSize(.small)
+                                } else {
+                                    Image(systemName: ph.state == "done" ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(ph.state == "done" ? Color.green : Color.secondary.opacity(0.5))
+                                        .contentTransition(.symbolEffect(.replace))
                                 }
                             }
                             .frame(width: 18)
+                            .animation(.default, value: ph.state)
                             Text(ph.label)
                                 .fontWeight(ph.state == "current" ? .semibold : .regular)
                                 .foregroundStyle(ph.state == "pending" ? .secondary : .primary)
@@ -318,8 +331,10 @@ struct RunningView: View {
                 .font(.caption).foregroundStyle(.tertiary)
         }
         .padding(28)
-        .frame(maxWidth: 560)
-        .background(.background.secondary, in: .rect(cornerRadius: 12))
+        .frame(maxWidth: 580)
+        .background(.regularMaterial, in: .rect(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.separator.opacity(0.5)))
+        .shadow(color: .black.opacity(0.08), radius: 20, y: 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

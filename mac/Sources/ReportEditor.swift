@@ -10,6 +10,7 @@ struct ReportEditor: View {
             set: { model.draft = $0; model.dirty = true })
         let detail = model.detail
         Form {
+            Section { ScoreHeader(draft: draft.wrappedValue) }
             if let b = model.banner { BannerSection(banner: b) }
             MarksSections(draft: draft)
 
@@ -76,6 +77,7 @@ struct ReportEditor: View {
             }
         }
         .formStyle(.grouped)
+        .sensoryFeedback(.success, trigger: model.saveCount)
     }
 }
 
@@ -91,6 +93,11 @@ struct MarksSections: View {
             ForEach(Array(draft.criteria.enumerated()), id: \.element.id) { i, c in
                 LabeledContent {
                     HStack(spacing: 10) {
+                        Gauge(value: Double(c.mark), in: 0...Double(c.spec.max)) { EmptyView() }
+                            .gaugeStyle(.accessoryLinearCapacity)
+                            .tint(Gradient(colors: [.blue, .indigo]))
+                            .frame(width: 70)
+                            .animation(.spring(duration: 0.4), value: c.mark)
                         if let p = detail?.proposedMark(c.spec.key) {
                             Text("Claude \(p)")
                                 .font(.caption)
