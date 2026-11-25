@@ -357,6 +357,8 @@ struct EngineStatus: Codable, Hashable {
     let version: String?
     let path: String?
     let installing: InstallState?
+    let sign_in: InstallState?
+    let signed_in: Bool
 }
 
 struct EnginesInfo: Codable {
@@ -367,10 +369,7 @@ struct EnginesInfo: Codable {
 struct ModelOption: Codable, Identifiable, Hashable {
     let id: String
     let name: String
-    let description: String
     let efforts: [String]
-    let default_effort: String?
-    let recommended: Bool
 }
 
 struct ModelsInfo: Codable {
@@ -383,16 +382,11 @@ enum Engine: String, CaseIterable, Identifiable {
     case claude, openai
     var id: String { rawValue }
     var label: String { self == .claude ? "Claude" : "ChatGPT" }
-    var company: String { self == .claude ? "Anthropic" : "OpenAI" }
     var tool: String { self == .claude ? "Claude Code" : "Codex" }
     var icon: String { self == .claude ? "asterisk" : "circle.hexagongrid" }
 
-    var apiKeysURL: URL {
-        URL(string: self == .claude ? "https://platform.claude.com/settings/keys" : "https://platform.openai.com/api-keys")!
-    }
-
     var dataControlsURL: URL {
-        URL(string: self == .claude ? "https://code.claude.com/docs/en/data-usage" : "https://developers.openai.com/api/docs/guides/your-data")!
+        URL(string: self == .claude ? "https://claude.ai/settings/data-privacy-controls" : "https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt")!
     }
 
     static func effortLabel(_ e: String) -> String {

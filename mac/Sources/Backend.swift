@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 enum BackendError: LocalizedError {
     case missing(String)
@@ -126,47 +125,3 @@ final class Backend: @unchecked Sendable {
 }
 
 struct OK: Codable { let ok: Bool? }
-
-
-enum ReportKeychain {
-    private static func query(_ engine: Engine) -> [String: Any] {
-        [kSecClass as String: kSecClassGenericPassword,
-         kSecAttrService as String: "local.laurea.private-api",
-         kSecAttrAccount as String: engine.rawValue,
-         kSecAttrSynchronizable as String: false]
-    }
-
-    static func read(_ engine: Engine) throws -> String? {
-        var match = query(engine)
-        match[kSecReturnData as String] = true
-        match[kSecMatchLimit as String] = kSecMatchLimitOne
-        var value: CFTypeRef?
-        let status = SecItemCopyMatching(match as CFDictionary, &value)
-        if status == errSecItemNotFound { return nil }
-        try check(status)
-        return (value as? Data).flatMap { String(data: $0, encoding: .utf8) }
-    }
-
-    static func save(_ key: String, for engine: Engine) throws {
-        let match = query(engine)
-        let attributes = [kSecValueData as String: Data(key.utf8)]
-        let status = SecItemUpdate(match as CFDictionary, attributes as CFDictionary)
-        if status == errSecItemNotFound {
-            try check(SecItemAdd(match.merging(attributes) { _, value in value } as CFDictionary, nil))
-        } else {
-            try check(status)
-        }
-    }
-
-    static func remove(_ engine: Engine) throws {
-        let status = SecItemDelete(query(engine) as CFDictionary)
-        if status != errSecItemNotFound { try check(status) }
-    }
-
-    private static func check(_ status: OSStatus) throws {
-        guard status == errSecSuccess else {
-            let explanation = SecCopyErrorMessageString(status, nil) as String? ?? "Error \(status)"
-            throw BackendError.failed("Laurea could not access the API key in Keychain. \(explanation)")
-        }
-    }
-}

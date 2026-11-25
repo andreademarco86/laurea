@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-private typealias ViewState<Value> = SwiftUI.State<Value>
-
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -160,49 +158,22 @@ struct SchemeBar: View {
     }
 }
 
-/// Select the provider and its report-only API credential.
+/// Select which signed-in subscription runs examinations and teaching.
 struct EngineSection: View {
     @Environment(AppModel.self) private var model
-    @ViewState private var configuring: Engine?
 
     var body: some View {
         let active = model.activeEngine
         Section {
             ForEach(Engine.allCases) { engine in
-                let status = model.engines?.providers[engine.rawValue]
-                let hasKey = model.configuredKeys.contains(engine)
-                HStack(spacing: 10) {
-                    Button {
-                        Task { await model.setEngine(engine) }
-                    } label: {
-                        Label(engine.label, systemImage: engine == active ? "largecircle.fill.circle" : "circle")
-                            .fontWeight(engine == active ? .semibold : .regular)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(engine == active ? .isSelected : [])
-                    Spacer()
-                    if status?.installing?.state == "running" || status == nil {
-                        ProgressView().controlSize(.small)
-                    } else if status?.installed != true {
-                        Button(status?.installing?.state == "error" ? "Retry Install" : "Install") {
-                            Task { await model.installEngine(engine) }
-                        }
-                    }
-                    if hasKey {
-                        Menu("API Key Saved") {
-                            Button("Replace API Key…") { configuring = engine }
-                            Button("Remove API Key", role: .destructive) { model.removeAPIKey(for: engine) }
-                        }
-                        .fixedSize()
-                    } else {
-                        Button("Add API Key…") { configuring = engine }
-                    }
-                }
+                SubscriptionRow(engine: engine, selected: engine == active)
             }
-            if model.configuredKeys.contains(active) {
+            if model.activeEngineReady {
                 let list = model.models[active.rawValue]?.models ?? []
                 let selected = model.settings.model ?? ""
-                let efforts = active == .claude ? ["low", "medium", "high"] : ["low", "medium", "high", "xhigh"]
+                let availableEfforts = list.first { $0.id == selected }?.efforts ?? []
+                let defaults = active == .claude ? ["low", "medium", "high"] : ["low", "medium", "high", "xhigh"]
+                let efforts = availableEfforts.isEmpty ? defaults : availableEfforts
                 if !list.isEmpty {
                     Picker("Model", selection: Binding(
                         get: { selected },
@@ -214,65 +185,73 @@ struct EngineSection: View {
                             ForEach(list) { Text($0.name).tag($0.id) }
                         }
                 } else if model.loadingModels.contains(active.rawValue) {
-                    LabeledContent("Loading API models") { ProgressView().controlSize(.small) }
+                    LabeledContent("Loading models") { ProgressView().controlSize(.small) }
                 } else if let error = model.models[active.rawValue]?.error {
                     Text(error).font(.caption).foregroundStyle(.secondary)
                 }
                 Picker("Thoroughness", selection: Binding(
                     get: { model.settings.effort ?? "high" },
                     set: { effort in Task { await model.setEngine(active, effort: effort) } })) {
+                        if let current = model.settings.effort, !efforts.contains(current) {
+                            Text(Engine.effortLabel(current)).tag(current)
+                        }
                         ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
                     }
+                Link("\(active.label) data controls", destination: active.dataControlsURL)
             }
         } header: {
             Text("Examination Engine")
         } footer: {
-            Text("Laurea sends report and teaching tasks through the selected provider’s API. API billing and retention apply. Web searches and session history are disabled for these tasks. Your Claude and ChatGPT account settings stay as they are.")
+            Text("Reports and teaching use your signed-in subscription and its usage limits. The provider’s training and retention settings apply to the data sent during each run.")
         }
-        .sheet(item: $configuring) { PrivateAPIKeyView(engine: $0) }
     }
 }
 
-private struct PrivateAPIKeyView: View {
+private struct SubscriptionRow: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @ViewState private var key = ""
-    @ViewState private var confirmed: Bool
     let engine: Engine
-
-    init(engine: Engine) {
-        self.engine = engine
-        _confirmed = ViewState(wrappedValue: engine == .claude)
-    }
+    let selected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("\(engine.label) API Key").font(.headline)
-            Text("Use a dedicated API key for Laurea. macOS Keychain stores the key, and API usage is billed by \(engine.company).")
-                .foregroundStyle(.secondary)
-            SecureField("API key", text: $key)
-            HStack {
-                Link("Manage API keys", destination: engine.apiKeysURL)
-                Spacer()
-                Link("Provider data controls", destination: engine.dataControlsURL)
-            }
-            Toggle(engine == .claude
-                   ? "My Anthropic API organisation has not opted into sharing data for model improvement."
-                   : "This OpenAI API project has data sharing off and uses Modified Abuse Monitoring or Zero Data Retention.",
-                   isOn: $confirmed)
-            Text("Verify your provider’s data controls before saving. Laurea relies on your confirmation.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save API Key") {
-                    if model.saveAPIKey(key, for: engine) { dismiss() }
+        let status = model.engines?.providers[engine.rawValue]
+        let signingIn = status?.sign_in?.state == "running"
+        let installed = status?.installed == true
+        let ready = status?.signed_in == true
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 10) {
+                Button {
+                    Task { await model.setEngine(engine) }
+                } label: {
+                    Label(engine.label, systemImage: selected ? "largecircle.fill.circle" : "circle")
+                        .fontWeight(selected ? .semibold : .regular)
                 }
-                .keyboardShortcut(.defaultAction)
-                .disabled(!confirmed || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+                Spacer()
+                if status?.installing?.state == "running" || status == nil {
+                    ProgressView().controlSize(.small)
+                } else if !installed {
+                    Button(status?.installing?.state == "error" ? "Retry Install" : "Install \(engine.tool)") {
+                        Task { await model.installEngine(engine) }
+                    }
+                } else if signingIn {
+                    ProgressView().controlSize(.small)
+                    Button("Cancel") { Task { await model.cancelSignIn(engine) } }
+                } else if ready {
+                    Menu("Subscription Signed In") {
+                        Button("Sign Out") { Task { await model.signOut(engine) } }
+                            .disabled(model.anyRunning || model.skillBusy)
+                    }
+                    .fixedSize()
+                } else {
+                    Button("Sign In…") { Task { await model.signIn(engine) } }
+                }
+            }
+            if signingIn {
+                Text("Finish signing in in your browser.").font(.caption).foregroundStyle(.secondary)
+            } else if let failure = status?.sign_in, failure.state == "error" {
+                Text(failure.message ?? "Sign-in did not complete.").font(.caption).foregroundStyle(.secondary)
             }
         }
-        .padding(22)
-        .frame(width: 430)
     }
 }

@@ -12,7 +12,7 @@ Its common thread is AI/ML and computational work in numerate sciences. Primary 
 
 Related fields in the same direction are covered too, using the closest checklists plus field-specific checks: for example robotics, embedded and edge AI, bioinformatics, medical imaging, remote sensing, computational chemistry and HCI. The full list, and how to add a field, is in [skill/references/domains.md](skill/references/domains.md).
 
-In **Settings → Examination Engine**, choose Claude (through Claude Code) or ChatGPT (through Codex). Laurea uses a dedicated API key for each configured provider. API usage is billed separately from your Claude or ChatGPT subscription, and Laurea leaves your personal account’s model-training preferences alone.
+In **Settings → Examination Engine**, choose **Claude** (Claude Code) or **ChatGPT** (Codex) and sign in with your existing subscription. Laurea starts each provider's own browser sign-in and runs the examination, report revisions, and teaching in the app. Usage draws from your signed-in plan and follows the provider's allowance and any extra-usage settings. [Claude plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) · [Codex sign-in](https://learn.chatgpt.com/docs/auth?surface=cli)
 
 ## What a report contains
 
@@ -65,14 +65,14 @@ With the defaults, the dissertation is marked out of 90 and the final mark is ou
 |---|---|---|
 | macOS 14 Sonoma or later | The app | |
 | Apple Command Line Tools | Provide Python 3, git and Swift | `xcode-select --install` |
-| **At least one** examination engine and API key | Runs private examinations | **Settings → Examination Engine** |
+| **At least one** signed-in examination engine | Drafts and revises reports | **Settings → Examination Engine** |
 
-| Engine | Installed by the app from | Private API configuration |
+| Engine | Installed by Laurea from | Sign-in |
 |---|---|---|
-| Claude (Claude Code 2.x) | Anthropic’s official installer | An Anthropic API key from an organisation that has kept model-improvement sharing off. [Claude Code data usage](https://code.claude.com/docs/en/data-usage) |
-| ChatGPT (Codex CLI) | OpenAI’s official releases | An OpenAI API key from a project with data sharing off and Modified Abuse Monitoring or Zero Data Retention enabled. This excludes the separate safety-training use that can apply to some standard API accounts. [OpenAI data sharing](https://help.openai.com/en/articles/10306912-sharing-feedback-evaluation-and-fine-tuning-data-and-api-inputs-and-outputs-with-openai) · [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data) |
+| Claude (Claude Code 2.x) | Anthropic’s installer | Your Claude account with Claude Code access |
+| ChatGPT (Codex CLI) | OpenAI’s official releases | Your ChatGPT account with Codex access |
 
-Use **Install** and **Add API Key** for the provider you want. Keys are stored in macOS Keychain. Laurea fetches the model catalog using the selected API key.
+Choose **Install** if the engine is missing, then choose **Sign In…** and complete the provider’s sign-in in your browser. Return to Laurea to choose the model and thoroughness. You can sign in to both and switch between them.
 
 No Python packages, pandoc or Homebrew are needed. The engine and all skill scripts use only Python's standard library, and the Word document is generated in Python. If `pypdf` happens to be installed, PDF text extraction uses it; otherwise it uses macOS's built-in PDFKit.
 
@@ -80,7 +80,7 @@ No Python packages, pandoc or Homebrew are needed. The engine and all skill scri
 
 1. Open `Laurea 1.3.dmg` and drag **Laurea** to **Applications**. The app is signed for local use only, so on another Mac, right-click it and choose **Open** the first time.
 2. Open Laurea. The **Setup Assistant** guides you through the rest:
-   - choose Claude or ChatGPT, install the engine and add its API key.
+   - choose Claude or ChatGPT, install the engine and sign in to your subscription.
    - your name, institution and default degree;
    - your signature: drop an image or choose a file;
    - the marking weights.
@@ -130,14 +130,12 @@ On first launch the **Setup Assistant** guides you through choosing an engine (w
 | Your signature | `examiner/templates/signature.png` | No |
 | Taught standards and undo history | `examiner/standards/` | No |
 | Calibration notes and history | `examiner/references/` | No |
-| API keys | macOS Keychain | No |
+| Subscription login | Provider-managed storage isolated to Laurea’s client configuration under `engine-accounts/` | No |
 | Default skill bundled with the app | Repository `skill/` | Yes |
 
 ## Privacy
 
-Laurea sends the material needed to examine or revise a dissertation to the selected provider’s API. Each run uses a fresh session, with local CLI transcript persistence, web search, external tools and feedback disabled. Revisions use the saved report and local examination files. The model receives numerical calibration offsets for the current level. Laurea keeps the underlying student history and examiner signature on the Mac.
-
-The app requires a dedicated API key and your confirmation that the provider’s data controls are configured. Provider policies determine server-side retention. [Claude Code data usage](https://code.claude.com/docs/en/data-usage) · [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data)
+Laurea sends the material needed for a run to the provider you selected. The signed-in account’s model-training and retention settings apply. Each run starts a fresh session with local provider transcript persistence and external searches disabled. Revisions use the saved report and local examination files. Laurea supplies numerical calibration offsets for the current level and keeps the underlying student history and examiner signature on the Mac. [Claude Code data usage](https://code.claude.com/docs/en/data-usage) · [Codex data controls](https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt)
 
 ## Repository layout
 
@@ -176,7 +174,7 @@ skill/                  The examiner skill bundled with the app.
 ## Troubleshooting
 
 - **"The examination engine could not start":** check that the Command Line Tools are installed (`xcode-select -p`), then read `~/Library/Application Support/Laurea/engine.log`.
-- **An examination stops at once with "not set up":** open **Settings → Examination Engine** to install the engine, add a dedicated API key, or select the other provider.
+- **An examination stops at once with "not set up":** open **Settings → Examination Engine** to install the engine, sign in to your subscription, or select the other provider.
 - **ChatGPT fails with "code-mode host was not found":** Codex is missing its companion program. Click **Install** again in Settings; it fetches both parts.
 - **The signature is missing from the Word file:** add one in **Settings → Signature** (or the Setup Assistant) and save the report again. Without a signature, the report leaves a line to sign by hand.
 - **The report checker reports wrong maxima:** the report was written for different weights from the examination's `scheme.json`. Revise the report, or run the examination again.

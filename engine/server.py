@@ -20,7 +20,6 @@ import sys
 import tempfile
 import threading
 import urllib.parse
-import urllib.request
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,7 +48,7 @@ ENV["PATH"] = os.pathsep.join(EXTRA_PATH + [ENV.get("PATH", "/usr/bin:/bin:/usr/
 for k in ("CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"):
     ENV.pop(k, None)
 
-# Only the credential supplied for this task should reach the assistant process.
+# Provider clients use their own sign-in. Ignore inherited credential and endpoint overrides.
 ASSISTANT_ENV = {k: v for k, v in ENV.items() if k in ("HOME", "PATH", "TMPDIR", "USER", "LOGNAME", "LANG")
                  or k.startswith("LC_")}
 ASSISTANT_ENV.update(CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC="1", CLAUDE_CODE_DISABLE_AUTO_MEMORY="1",
@@ -178,7 +177,7 @@ def find_claude():
                     reverse=True)
     for c in cands:
         try:
-            out = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=20, env=ENV).stdout
+            out = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=20, env=ASSISTANT_ENV).stdout
             m = re.match(r"(\d+)\.(\d+)", out.strip())
             if m and int(m.group(1)) >= 2:
                 return c, out.strip()
@@ -193,7 +192,7 @@ def find_codex():
                          "/usr/local/bin/codex", shutil.which("codex", path=ENV["PATH"])] if c]
     for c in cands:
         try:
-            r = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=20, env=ENV)
+            r = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=20, env=ASSISTANT_ENV)
             if r.returncode == 0 and r.stdout.strip().startswith("codex"):
                 return c, r.stdout.strip()
         except Exception:
@@ -205,7 +204,21 @@ def provider_binary(provider):
     return find_codex() if provider == "openai" else find_claude()
 
 
-INSTALLING = {}  # provider -> {"state": "running" | "done" | "error", "message": str}
+INSTALLING = {}
+SIGN_INS = {}
+SIGN_IN_PROCESSES = {}
+CODEX_SUBSCRIPTION = ['-c', 'forced_login_method="chatgpt"', '-c', 'cli_auth_credentials_store="file"']
+
+
+def provider_home(provider):
+    return ROOT / "engine-accounts" / provider
+
+
+def provider_env(provider):
+    folder = provider_home(provider)
+    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    var = "CODEX_HOME" if provider == "openai" else "CLAUDE_CONFIG_DIR"
+    return {**ASSISTANT_ENV, var: str(folder)}
 
 
 def install_provider(provider):
@@ -243,47 +256,125 @@ def install_provider(provider):
         INSTALLING[provider] = {"state": "error", "message": str(e)}
 
 
+def signed_in_to_plan(provider, path):
+    try:
+        if provider == "openai":
+            check = subprocess.run([path, *CODEX_SUBSCRIPTION, "login", "status"], capture_output=True,
+                                   text=True, env=provider_env(provider), timeout=15, cwd=provider_home(provider))
+            return check.returncode == 0 and "logged in using chatgpt" in (check.stdout + check.stderr).lower()
+        check = subprocess.run([path, "auth", "status", "--json"], capture_output=True, text=True,
+                               env=provider_env(provider), timeout=15, cwd=provider_home(provider))
+        account = json.loads(check.stdout or "{}")
+        return check.returncode == 0 and account.get("loggedIn") is True and account.get("authMethod") == "claude.ai"
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+
+
 def provider_status(provider):
     path, ver = provider_binary(provider)
     return {"name": PROVIDERS[provider], "installed": bool(path), "version": ver, "path": path,
-            "installing": INSTALLING.get(provider)}
+            "installing": INSTALLING.get(provider), "sign_in": SIGN_INS.get(provider),
+            "signed_in": bool(path) and signed_in_to_plan(provider, path)}
 
 
-def private_credential(body):
-    provider = settings().get("provider", "claude")
-    key = body.get("api_key")
-    if body.get("provider") != provider or not isinstance(key, str) or not re.fullmatch(r"sk-[A-Za-z0-9_-]{10,1024}", key):
-        raise ValueError("Add a private API key for the selected engine in Settings → Examination Engine.")
-    return provider, key
-
-
-def list_models(provider, key):
-    if provider == "claude":
-        url = "https://api.anthropic.com/v1/models?limit=100"
-        headers = {"x-api-key": key, "anthropic-version": "2023-06-01"}
-    else:
-        url = "https://api.openai.com/v1/models"
-        headers = {"Authorization": f"Bearer {key}"}
-    # Fixed API origins, with redirects disabled so credentials cannot be forwarded.
-    class NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
+def sign_in_to_provider(provider, path):
+    cmd = ([path, *CODEX_SUBSCRIPTION, "login"] if provider == "openai"
+           else [path, "auth", "login", "--claudeai"])
+    success = False
     try:
-        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-        with opener.open(urllib.request.Request(url, headers=headers), timeout=15) as response:
-            data = json.load(response)
-    except (OSError, ValueError):
-        return {"models": [], "error": "The API model list is unavailable. Check the key and project access."}
-    models = []
-    for model in data.get("data", []):
-        mid = model.get("id", "")
-        if provider == "openai" and (not re.match(r"^(gpt-[56]|o[134])", mid)
-                                     or re.search(r"audio|realtime|transcribe|image|search", mid)):
-            continue
-        models.append({"id": mid, "name": model.get("display_name") or mid, "description": "",
-                       "efforts": [], "recommended": False})
-    return {"models": sorted(models, key=lambda m: m["name"], reverse=True)}
+        with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              env=provider_env(provider), cwd=provider_home(provider)) as proc:
+            with LOCK:
+                SIGN_IN_PROCESSES[provider] = proc
+                if SIGN_INS[provider]["state"] == "cancelled":
+                    proc.terminate()
+            try:
+                success = proc.wait(timeout=300) == 0
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        if success:
+            success = signed_in_to_plan(provider, path)
+    except OSError:
+        pass
+    finally:
+        with LOCK:
+            SIGN_IN_PROCESSES.pop(provider, None)
+            if SIGN_INS[provider]["state"] != "cancelled":
+                SIGN_INS[provider] = {"state": "done" if success else "error",
+                                      "message": "" if success else
+                                      f"{PROVIDERS[provider]} sign-in did not complete. Try again and finish in your browser."}
+
+
+def selected_engine(body):
+    provider = settings().get("provider", "claude")
+    if body.get("provider") != provider:
+        raise ValueError("The selected engine changed. Try again with the current engine.")
+    path, _ = provider_binary(provider)
+    if not path or not signed_in_to_plan(provider, path):
+        raise ValueError(f"Install the engine and sign in to your {PROVIDERS[provider]} subscription in Settings → Examination Engine.")
+    return provider, path
+
+
+def model_catalog(provider, path):
+    """Read the signed-in client's model picker without sending a model prompt."""
+    if provider == "openai":
+        cmd = [path, "app-server", *CODEX_SUBSCRIPTION, "-c", 'mcp_servers={}',
+               "-c", "features.apps=false", "-c", "features.plugins=false"]
+    else:
+        cmd = [path, "-p", "--safe-mode", "--setting-sources", "", "--strict-mcp-config", "--mcp-config",
+               '{"mcpServers":{}}', "--no-session-persistence", "--input-format", "stream-json",
+               "--output-format", "stream-json", "--verbose", "--tools", ""]
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                          env=provider_env(provider), cwd=provider_home(provider), text=True) as proc:
+        timer = threading.Timer(20, proc.kill)
+        timer.start()
+        try:
+            def send(message):
+                proc.stdin.write(json.dumps(message) + "\n")
+                proc.stdin.flush()
+
+            def receive(matches):
+                for line in proc.stdout:
+                    try:
+                        event = json.loads(line)
+                    except ValueError:
+                        continue
+                    if matches(event):
+                        return event
+                return {}
+
+            if provider == "openai":
+                send({"method": "initialize", "id": 1,
+                      "params": {"clientInfo": {"name": "laurea", "title": "Laurea", "version": "1.3"}}})
+                initialized = receive(lambda event: event.get("id") == 1)
+                if not initialized or "error" in initialized:
+                    return []
+                send({"method": "initialized"})
+                send({"method": "model/list", "id": 2, "params": {}})
+                result = receive(lambda event: event.get("id") == 2).get("result") or {}
+                return [{"id": m["model"], "name": m.get("displayName") or m["model"],
+                         "efforts": [eff["reasoningEffort"] for eff in (m.get("supportedReasoningEfforts") or [])
+                                     if eff.get("reasoningEffort")]}
+                        for m in (result.get("data") or []) if m.get("model") and not m.get("hidden")]
+            send({"type": "control_request", "request_id": "laurea-init", "request": {"subtype": "initialize"}})
+            result = receive(lambda event: event.get("type") == "control_response").get("response") or {}
+            return [{"id": m["value"], "name": m.get("displayName") or m["value"], "efforts": m.get("supportedEffortLevels") or []}
+                    for m in ((result.get("response") or {}).get("models") or [])
+                    if m.get("value") not in (None, "default")]
+        finally:
+            timer.cancel()
+            if proc.poll() is None:
+                proc.kill()
+
+
+def list_models(provider, path):
+    try:
+        models = model_catalog(provider, path)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        models = []
+    if not models:
+        return {"models": [], "error": "The model list is unavailable. The engine can still try its default model."}
+    return {"models": list({m["id"]: m for m in models}.values())}
 
 
 def chosen_model(provider):
@@ -563,24 +654,17 @@ def condense_codex(ev):
     return out
 
 
-def run_stream(cmd, cwd, provider, key, on_item, register):
-    """Stream a one-off API session and discard the CLI's state when it exits."""
-    with tempfile.TemporaryDirectory(prefix="laurea-engine-") as state:
-        env = dict(ASSISTANT_ENV)
-        if provider == "openai":
-            env.update(CODEX_HOME=state, CODEX_API_KEY=key)
-        else:
-            env.update(CLAUDE_CONFIG_DIR=state, ANTHROPIC_API_KEY=key, ANTHROPIC_BASE_URL="https://api.anthropic.com")
-        with subprocess.Popen(cmd, cwd=str(cwd), env=env, stdout=subprocess.PIPE, stdin=subprocess.DEVNULL,
-                              stderr=subprocess.STDOUT, text=True, bufsize=1) as proc:
-            register(proc)
-            return read_stream(proc, provider, key, on_item)
+def run_stream(cmd, cwd, provider, on_item, register):
+    """Run the installed provider client with a fresh report session."""
+    with subprocess.Popen(cmd, cwd=str(cwd), env=provider_env(provider), stdout=subprocess.PIPE,
+                          stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True, bufsize=1) as proc:
+        register(proc)
+        return read_stream(proc, provider, on_item)
 
 
-def read_stream(proc, provider, key, on_item):
+def read_stream(proc, provider, on_item):
     final, is_error, last_text, diagnostic = None, False, "", ""
     for line in proc.stdout:
-        line = line.replace(key, "[API key]")
         try:
             ev = json.loads(line)
         except ValueError:
@@ -600,7 +684,7 @@ def read_stream(proc, provider, key, on_item):
     return code, (final if final is not None else last_text) or (diagnostic if code else ""), is_error
 
 
-def private_command(provider, path, cwd, prompt, effort, skill=None):
+def report_command(provider, path, cwd, prompt, effort, skill=None):
     model, _ = chosen_model(provider)
     if provider == "openai":
         filesystem = {":root": "deny", ":minimal": "read", ":tmpdir": "deny", ":slash_tmp": "deny"}
@@ -612,8 +696,7 @@ def private_command(provider, path, cwd, prompt, effort, skill=None):
         entries.append('\":workspace_roots\" = { "." = "write", ".git" = "deny" }')
         cmd = [path, "exec", "--json", "--ephemeral", "--ignore-user-config", "--ignore-rules",
                "--skip-git-repo-check", "--strict-config", "-C", str(cwd),
-               "-c", 'forced_login_method="api"', "-c", 'model_provider="openai"',
-               "-c", 'openai_base_url="https://api.openai.com/v1"',
+               *CODEX_SUBSCRIPTION, "-c", 'model_provider="openai"',
                "-c", 'approval_policy="never"', "-c", 'web_search="disabled"',
                "-c", 'default_permissions="laurea"', "-c", 'permissions.laurea.extends=":workspace"',
                "-c", 'permissions.laurea.filesystem={ ' + ", ".join(entries) + ' }',
@@ -623,7 +706,6 @@ def private_command(provider, path, cwd, prompt, effort, skill=None):
                "-c", 'features.multi_agent=false', "-c", 'features.shell_snapshot=false',
                "-c", 'features.standalone_web_search=false',
                "-c", 'allow_login_shell=false', "-c", 'shell_environment_policy.inherit="core"',
-               "-c", 'shell_environment_policy.exclude=["CODEX_API_KEY"]',
                "-c", f'model_reasoning_effort={json.dumps(effort)}']
         if model:
             cmd += ["-m", model]
@@ -631,7 +713,7 @@ def private_command(provider, path, cwd, prompt, effort, skill=None):
 
     tools = ["Read", "Write", "Edit", "Glob", "Grep"]
     allowed = tools.copy()
-    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve())]
+    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve()), str(provider_home(provider).resolve())]
     denied_reads += [str(d.resolve()) for d in EXAMS.iterdir() if d.is_dir() and d != cwd]
     if skill:
         tools.append("Bash")
@@ -641,12 +723,11 @@ def private_command(provider, path, cwd, prompt, effort, skill=None):
     denied_edits = denied_reads + ([str(skill.resolve())] if skill else [])
     config = {"sandbox": {"enabled": True, "allowUnsandboxedCommands": False, "failIfUnavailable": True,
                           "autoAllowBashIfSandboxed": False, "network": {"allowedDomains": []},
-                          "filesystem": {"denyRead": denied_reads, "denyWrite": denied_edits},
-                          "credentials": {"envVars": [{"name": "ANTHROPIC_API_KEY", "mode": "deny"}]}},
+                          "filesystem": {"denyRead": denied_reads, "denyWrite": denied_edits}},
               "permissions": {"blockReadsOutsideWorkingDirectories": True,
                               "deny": [f"Read(/{p}/**)" for p in denied_reads]
                                       + [f"Edit(/{p}/**)" for p in denied_edits]}}
-    cmd = [path, "-p", "--bare", "--output-format", "stream-json", "--verbose", "--model", model, "--effort", effort,
+    cmd = [path, "-p", "--safe-mode", "--output-format", "stream-json", "--verbose", "--model", model, "--effort", effort,
            "--no-session-persistence", "--disable-slash-commands", "--no-chrome", "--setting-sources", "",
            "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}', "--settings", json.dumps(config),
            "--tools", ",".join(tools), "--allowedTools", ",".join(allowed), "--permission-mode", "dontAsk"]
@@ -727,7 +808,7 @@ def append_progress(d, item):
         f.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
-def run_exam(eid, prompt, kind, provider, key):
+def run_exam(eid, prompt, kind, provider, path):
     d = exam_dir(eid)
     append_progress(d, {"kind": "info", "text": "Starting examination" if kind == "examine" else "Applying your revision request"})
 
@@ -739,15 +820,12 @@ def run_exam(eid, prompt, kind, provider, key):
             set_status(d, pid=p.pid, engine_pid=os.getpid())
 
     try:
-        path, _ = provider_binary(provider)
-        if not path:
-            raise RuntimeError(f"Install {PROVIDERS[provider]}'s engine in Settings → Examination Engine.")
         with tempfile.TemporaryDirectory(prefix="laurea-report-") as work:
             skill = Path(work) / "skill"
             prepare_exam_skill(skill, d)
             _, effort = chosen_model(provider)
-            cmd = private_command(provider, path, d, build_exam_prompt(prompt, skill), effort, skill)
-            code, final, is_error = run_stream(cmd, d, provider, key, lambda it: append_progress(d, it), register)
+            cmd = report_command(provider, path, d, build_exam_prompt(prompt, skill), effort, skill)
+            code, final, is_error = run_stream(cmd, d, provider, lambda it: append_progress(d, it), register)
         if status(d).get("state") == "cancelled":
             return
         rp = report_path(d)
@@ -763,18 +841,18 @@ def run_exam(eid, prompt, kind, provider, key):
             set_status(d, state="error", message=final or f"{PROVIDERS[provider]} stopped (exit code {code}).", finished=now())
     except Exception as e:
         if status(d).get("state") != "cancelled":
-            set_status(d, state="error", message=str(e).replace(key, "[API key]"), finished=now())
+            set_status(d, state="error", message=str(e), finished=now())
     finally:
         with LOCK:
             RUNNING.pop(eid, None)
 
 
-def start_run(eid, prompt, kind, provider, key):
+def start_run(eid, prompt, kind, provider, path):
     d = exam_dir(eid)
     set_status(d, state="running", run_kind=kind, started=now(), message="", assistant=assistant_label(provider),
                session_id=None, session_provider=None, pid=None, engine_pid=os.getpid())
     RUNNING[eid] = None
-    threading.Thread(target=run_exam, args=(eid, prompt, kind, provider, key), daemon=True).start()
+    threading.Thread(target=run_exam, args=(eid, prompt, kind, provider, path), daemon=True).start()
 
 
 # ---------------------------------------------------------------- calibration
@@ -1036,16 +1114,13 @@ def save_chat(chat):
     write_json(SKILL_CHAT, chat)
 
 
-def run_skill_chat(message, provider, key):
+def run_skill_chat(message, provider, path):
     chat = load_chat()
     chat["messages"].append({"role": "user", "text": message, "ts": now()})
     reply = {"role": "assistant", "text": "", "ts": now()}
     chat["messages"].append(reply)
     try:
         save_chat(chat)
-        path, _ = provider_binary(provider)
-        if not path:
-            raise RuntimeError(f"Install {PROVIDERS[provider]}'s engine in Settings → Examination Engine.")
         baseline = standard_files(CURRENT_STANDARDS)
         with tempfile.TemporaryDirectory(prefix="laurea-teaching-", dir=ROOT) as draft:
             work = Path(draft)
@@ -1053,7 +1128,7 @@ def run_skill_chat(message, provider, key):
             previous = [{"role": m["role"], "text": m["text"][:1500]} for m in chat["messages"][:-2][-8:]]
             prompt = (f"{SKILL_SYSTEM}\n\nEarlier conversation, for context: {json.dumps(previous, ensure_ascii=False)}"
                       f"\n\nThe examiner says:\n{message}")
-            cmd = private_command(provider, path, work, prompt, "high")
+            cmd = report_command(provider, path, work, prompt, "high")
             SKILL_RUN["status"] = "Reading your standards…"
 
             def register(proc):
@@ -1062,7 +1137,7 @@ def run_skill_chat(message, provider, key):
                     if SKILL_RUN["stopped"]:
                         proc.terminate()
 
-            code, final, is_error = run_stream(cmd, work, provider, key, lambda item: None, register)
+            code, final, is_error = run_stream(cmd, work, provider, lambda item: None, register)
             revised = standard_files(work)
         with LOCK:
             if SKILL_RUN["stopped"]:
@@ -1079,7 +1154,7 @@ def run_skill_chat(message, provider, key):
                     changes = read_json(STANDARDS / revision / "revision.json", {})
                     reply.update(revision=revision, files=changes["files"], diff=standards_diff(baseline, revised))
     except Exception as e:
-        reply.update(text=str(e).replace(key, "[API key]"), error=True)
+        reply.update(text=str(e), error=True)
     finally:
         with LOCK:
             try:
@@ -1192,16 +1267,11 @@ class Handler(BaseHTTPRequestHandler):
             if parts == ["assistant"] and method == "GET":
                 return self.send(200, {"provider": settings().get("provider", "claude"),
                                        "providers": {k: provider_status(k) for k in PROVIDERS}})
-            if len(parts) == 3 and parts[0] == "engines" and parts[2] == "install" and method == "POST":
-                prov = parts[1]
-                if prov not in PROVIDERS:
-                    return self.send(400, {"error": "unknown engine"})
-                if (INSTALLING.get(prov) or {}).get("state") != "running":
-                    threading.Thread(target=install_provider, args=(prov,), daemon=True).start()
-                return self.send(200, {"ok": True})
-            if parts == ["models"] and method == "POST":
-                provider, key = private_credential(self.body_json())
-                return self.send(200, {"provider": provider, **list_models(provider, key)})
+            if len(parts) == 3 and parts[0] == "engines" and method == "POST":
+                return self.api_engine(parts[1], parts[2])
+            if parts == ["models"] and method == "GET":
+                provider, path = selected_engine({"provider": (q.get("provider") or [""])[0]})
+                return self.send(200, {"provider": provider, **list_models(provider, path)})
             if parts[:1] == ["skill"]:
                 return self.api_skill(method, parts[1:], q)
             if parts == ["exams"] and method == "GET":
@@ -1218,6 +1288,51 @@ class Handler(BaseHTTPRequestHandler):
             self.send(404, {"error": "no such examination"})
         except Exception as e:
             self.send(500, {"error": f"{type(e).__name__}: {e}"})
+
+    def api_engine(self, provider, action):
+        if provider not in PROVIDERS:
+            return self.send(400, {"error": "unknown engine"})
+        if action == "install":
+            with LOCK:
+                if (INSTALLING.get(provider) or {}).get("state") != "running":
+                    INSTALLING[provider] = {"state": "running", "message": "Installing…"}
+                    threading.Thread(target=install_provider, args=(provider,), daemon=True).start()
+            return self.send(200, {"ok": True})
+        if action == "cancel-sign-in":
+            with LOCK:
+                if (SIGN_INS.get(provider) or {}).get("state") == "running":
+                    SIGN_INS[provider] = {"state": "cancelled", "message": ""}
+                    proc = SIGN_IN_PROCESSES.get(provider)
+                    if proc and proc.poll() is None:
+                        proc.terminate()
+            return self.send(200, {"ok": True})
+        if action == "sign-in":
+            path, _ = provider_binary(provider)
+            if not path:
+                return self.send(400, {"error": f"Install {PROVIDERS[provider]}'s engine first."})
+            with LOCK:
+                state = (SIGN_INS.get(provider) or {}).get("state")
+                if state == "running" or provider in SIGN_IN_PROCESSES:
+                    return self.send(409, {"error": "The current sign-in is still finishing."})
+                SIGN_INS[provider] = {"state": "running", "message": "Finish signing in in your browser."}
+                SIGN_IN_PROCESSES[provider] = None
+                threading.Thread(target=sign_in_to_provider, args=(provider, path), daemon=True).start()
+            return self.send(200, {"ok": True})
+        if action == "sign-out":
+            path, _ = provider_binary(provider)
+            if not path:
+                return self.send(400, {"error": "The engine could not be found."})
+            with LOCK:
+                if RUNNING or SKILL_RUN["status"] or provider in SIGN_IN_PROCESSES:
+                    return self.send(409, {"error": "Finish the current task or sign-in before signing out."})
+                cmd = ([path, *CODEX_SUBSCRIPTION, "logout"] if provider == "openai" else [path, "auth", "logout"])
+                result = subprocess.run(cmd, capture_output=True, timeout=15, env=provider_env(provider),
+                                        cwd=provider_home(provider), stdin=subprocess.DEVNULL)
+                if result.returncode != 0 and signed_in_to_plan(provider, path):
+                    return self.send(500, {"error": f"Could not sign out of {PROVIDERS[provider]}."})
+                SIGN_INS.pop(provider, None)
+            return self.send(200, {"ok": True})
+        self.send(404, {"error": "unknown engine action"})
 
     def api_settings(self, method):
         cfg = read_json(SKILL_CONFIG, {})
@@ -1258,6 +1373,13 @@ class Handler(BaseHTTPRequestHandler):
                                    "messages": chat["messages"][-200:]})
         if method == "GET" and action == "history":
             return self.send(200, skill_history(40))
+        subscription = None
+        if method == "POST" and action == "chat":
+            body = self.body_json()
+            msg = (body.get("message") or "").strip()
+            if not msg:
+                return self.send(400, {"error": "empty message"})
+            subscription = selected_engine(body)
         with LOCK:
             if method == "POST" and action == "chat/stop":
                 SKILL_RUN["stopped"] = bool(SKILL_RUN["status"])
@@ -1266,14 +1388,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"ok": True})
             if method == "POST" and SKILL_RUN["status"]:
                 return self.send(409, {"error": "Your examining standards are being updated. Wait until the current change finishes."})
-            if method == "POST" and action == "chat":
-                body = self.body_json()
-                msg = (body.get("message") or "").strip()
-                if not msg:
-                    return self.send(400, {"error": "empty message"})
-                provider, key = private_credential(body)
+            if subscription:
                 SKILL_RUN["status"] = "Starting…"
-                threading.Thread(target=run_skill_chat, args=(msg, provider, key), daemon=True).start()
+                threading.Thread(target=run_skill_chat, args=(msg, *subscription), daemon=True).start()
                 return self.send(200, {"ok": True})
             if method == "POST" and action == "chat/new":
                 save_chat({"messages": []})
@@ -1338,7 +1455,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.file(p, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", download=p.name)
         if method == "POST" and action in ("examine", "revise"):
             body = self.body_json()
-            provider, key = private_credential(body)
+            provider, path = selected_engine(body)
             with LOCK:
                 if eid in RUNNING:
                     return self.send(409, {"error": "This examination is already running."})
@@ -1361,7 +1478,7 @@ class Handler(BaseHTTPRequestHandler):
                     prompt = (f"The examiner asks for this change to `{rp.name}` in the current folder:\n\n{instr}\n\n"
                               "Keep the template structure, verify page references against the available evidence and rerun "
                               "check_report.py and render_report.sh.")
-                start_run(eid, prompt, action, provider, key)
+                start_run(eid, prompt, action, provider, path)
             return self.send(200, {"ok": True})
         if method == "POST" and action == "cancel":
             with LOCK:
@@ -1480,7 +1597,7 @@ def main():
     print(f"PORT={port}", flush=True)
     print(f"Laurea engine on http://{HOST}:{port}", flush=True)
     def stop_assistants():
-        processes = [*RUNNING.values(), SKILL_RUN["proc"]]
+        processes = [*RUNNING.values(), SKILL_RUN["proc"], *SIGN_IN_PROCESSES.values()]
         for proc in processes:
             if proc and proc.poll() is None:
                 proc.terminate()

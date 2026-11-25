@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// First-run Setup Assistant: engine choice and API credentials, examiner details and signature, marking weights.
+/// First-run Setup Assistant: engine choice and subscription sign-in, examiner details and signature, marking weights.
 struct SetupView: View {
     @Environment(AppModel.self) private var model
 
@@ -111,8 +111,8 @@ private struct WelcomeStep: View {
 private struct EngineStep: View {
     var body: some View {
         VStack(spacing: 14) {
-            StepHeader(icon: "lock.shield", title: "Set Up Private Examinations",
-                       subtitle: "Install Claude or Codex and add a private API key for the selected engine.")
+            StepHeader(icon: "person.crop.circle.badge.checkmark", title: "Connect Your Subscription",
+                       subtitle: "Install Claude Code or Codex, then sign in with the account you use for your subscription.")
             Form { EngineSection() }
                 .formStyle(.grouped)
                 .padding(.horizontal, 12)
