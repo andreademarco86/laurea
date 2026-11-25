@@ -2,7 +2,7 @@
 
 Laurea is a macOS app for dissertation examiners. It drafts reports for **BSc, MSc and PhD** dissertations, with suggested marks, page-referenced feedback and viva questions. You review the draft, decide the marks and export a signed Word report.
 
-**[Download Laurea for macOS (.dmg)](https://raw.githubusercontent.com/andreademarco86/laurea/main/downloads/Laurea.dmg)**
+**[Download Laurea 1.0 for macOS (.dmg)](https://raw.githubusercontent.com/andreademarco86/laurea/main/downloads/Laurea.dmg?v=1.0)**
 
 Requires **macOS 14 Sonoma or later** on Apple silicon or Intel, Apple’s Command Line Tools, and a Claude or ChatGPT account with access to Claude Code or Codex. Examination, revision and teaching use your signed-in plan’s allowance and any extra usage enabled on that account. [Claude plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) · [Codex subscription sign-in](https://learn.chatgpt.com/docs/auth?surface=cli)
 
