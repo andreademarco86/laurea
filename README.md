@@ -31,15 +31,26 @@ Every report has the same structure:
 
 Laurea aims for the standard of an external examiner of international standing.
 
-1. **Reads everything.** The engine reads the full text and looks at figures and tables as page images. Tables lose their layout when the text is extracted, so they are judged from the page images.
-2. **Maps the work.** It records the stated aims and research questions, then judges the whole dissertation against them.
-3. **Checks the method against field checklists:**
+1. **Checks integrity first.** It renders every page and checks every word against the pixels beneath it. Text a reader cannot see (white on white, the background's colour, tiny fonts, invisible characters) and text addressed to an AI or a grader are removed from what the engine reads and reported to you first. They never affect a mark.
+2. **Reads everything.** The engine reads the full text and looks at figures and tables as page images. Tables lose their layout when the text is extracted, so they are judged from the page images.
+3. **Maps the work and its claims.** It records the stated aims and research questions, and builds a claims-and-evidence table: each headline claim from the abstract, contributions and conclusions, the table, figure or page that supports it, and a verdict.
+4. **Checks the method against field checklists:**
    - **ML and computer vision:** data leakage, baselines, ablations, metrics and statistical robustness.
-   - **Astronomy:** selection effects, the gap between simulations and real data, calibrated uncertainties.
+   - **Computing and ICT:** requirements, design, testing, measured performance, user studies, embedded hardware.
+   - **Speech and language:** speaker-independent splits, signal processing, field metrics, listening tests.
    - **Physics:** the physical model and when it holds, the numerical method, convergence studies, validation and error analysis.
-4. **Reviews the literature and checks for internal originality signals.** It assesses how the dissertation uses its sources and flags issues visible in the submitted work. Independent citation verification and online phrase searches are unavailable during app runs.
-5. **Marks fairly.** Marks follow the level-specific rubric, your house rules and your learned calibration. Strengths and weaknesses are written in plain, specific prose.
-6. **Verifies itself.** Every page reference is checked against the dissertation, and a checker validates the report's structure and arithmetic.
+   - **Astronomy:** selection effects, the gap between simulations and real data, calibrated uncertainties.
+   - **Related fields:** the field-specific checks listed in `skill/references/domains.md`.
+5. **Checks the numbers.** Every percentage and decimal quoted in the abstract and conclusions is looked up in the results chapters. Any figure the results don't contain is listed for a check against the tables.
+6. **Reviews the literature and checks for internal originality signals.** It assesses how the dissertation uses its sources and flags issues visible in the submitted work. Independent citation verification and online phrase searches are unavailable during app runs. In standalone Claude Code runs with external research enabled, the skill also verifies references against Crossref, OpenAlex and arXiv (sending only titles and identifiers) and inspects linked code repositories without running them.
+7. **Marks with a panel and a chair.** A methods examiner, a field examiner and a sceptical examiner mark each criterion independently, each quoting the rubric descriptor it matches. A chair reconciles their marks. Where the examiners differ by more than 15% of a criterion's maximum, the chair re-reads the decisive pages, and the criterion is reported to you as lower confidence.
+8. **Guards against inflation.** Automated assessors tend to bunch marks in the middle and over-mark weak work, so:
+   - each mark must survive a devil's-advocate case for one band lower;
+   - the whole scale is used;
+   - totals are sanity-checked against typical ranges for the level;
+   - nothing is credited without evidence.
+9. **Follows your standards.** Marks also reflect your house rules and your learned calibration. Strengths and weaknesses are written in plain, specific prose.
+10. **Verifies itself.** Every page reference is checked against the dissertation, and a checker validates the report's structure and arithmetic.
 
 ## Marking scheme
 
@@ -160,6 +171,12 @@ skill/                  The examiner skill bundled with the app.
                           md_to_docx.py       Word writer (standard library only)
                           scheme.py           marking weights
                           add_viva_mark.py    fills in the viva and final marks
+                          numbers_check.py    claimed numbers missing from the results
+                          verify_refs.py      reference verification (Crossref, OpenAlex, arXiv)
+                          repo_probe.py       inspects linked code and data repositories
+                          benchmark.py        agreement between drafts and your final marks
+                          pdftext.swift       PDFKit text extraction and the hidden-text scan
+                          pdfrender.swift     PDFKit page images
 ```
 
 ## Development
@@ -169,7 +186,13 @@ skill/                  The examiner skill bundled with the app.
 - **App or engine changes:** run `bash mac/build.sh`, then reinstall from the DMG.
 - **Run the engine on its own:** `DE_PORT=8765 python3 engine/server.py`. It serves a JSON API on `127.0.0.1`. Requests require the `X-DE-App` header matching `DE_APP_TOKEN` (defaults to `1` for a standalone engine).
 - **Screenshots without Screen Recording permission:** run `DE_SNAPSHOT_DIR=/some/folder mac/build/Laurea.app/Contents/MacOS/Laurea`. The app captures its own main screens to that folder, then quits. Add `DE_SNAPSHOT_DARK=1` for dark mode.
-- **Using the skill without the app:** in Claude Code, run `/dissertation-examiner path/to/thesis.pdf --level msc`.
+- **Using the skill without the app:** in Claude Code, run `/dissertation-examiner path/to/thesis.pdf --level msc`. Standalone runs can enable external research for reference verification and repository checks.
+- **Measuring agreement with your marks:** after saving final reports, run
+  ```bash
+  python3 skill/scripts/benchmark.py "$HOME/Library/Application Support/Laurea/examinations"
+  ```
+  It compares each examination's original draft with your final report. It writes `benchmark.md` next to the examinations, with error, bias, band agreement and rank agreement per criterion and level, plus the change since the previous run. To test a change to your standards, re-examine a few dissertations you've already marked and run it again.
+- **Bundled standards and existing installations:** the app copies the bundled `skill/` into its own examiner folder on first launch, and your Examining Standards teaching builds on that copy. Improvements to `skill/` reach new installations. Existing installations keep the standards they started with, plus your local teaching, until an upgrade step that merges the two is added.
 
 ## Troubleshooting
 
