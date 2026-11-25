@@ -12,7 +12,7 @@ bash mac/build.sh
 
 The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/`. It bundles the tracked examiner skill and precompiled PDFKit helpers. Python’s standard library is sufficient. If `pypdf` or PyMuPDF is installed, the extraction script can also use it.
 
-The published GitHub release asset is named `Laurea.dmg` so the README’s latest-release link continues to work for future versions.
+The README links to `downloads/Laurea.dmg`. Update that file with the verified universal build when publishing a new installer.
 
 ## Repository layout
 
