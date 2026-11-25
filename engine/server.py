@@ -934,7 +934,9 @@ class Handler(BaseHTTPRequestHandler):
             ensure_skill_repo()
             commit_pending("Skill: changes made outside the app")
             subj = git("log", "-n1", "--format=%s", c).stdout.strip()
-            r = git("revert", "--no-edit", c)
+            r = git("revert", "--no-commit", c)
+            if r.returncode == 0:
+                r = git("commit", "-q", "-m", "Skill: undo " + subj.replace("Skill: ", "", 1)[:72])
             if r.returncode != 0:
                 git("revert", "--abort")
                 return self.send(409, {"error": "That change can't be undone on its own because later changes build on it. Undo the later ones first."})

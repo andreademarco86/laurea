@@ -22,6 +22,7 @@ enum Snapshot {
                 model.applySlider(5); await shot("3-slider")
                 model.dirty = false
             }
+            await model.select(.skill); await shot("8-skill")
             // Simulated running examination
             let fake = #"{"id":"fake","state":"running","pdf":"Example.pdf","student":"","title":"","status":{"state":"running","original_name":"Example Thesis.pdf","run_kind":"examine","level":"phd","started":"2026-11-25T13:00:00"},"proposed":{},"page_labels":[]}"#
             let prog = #"{"next":0,"state":"running","run_kind":"examine","started":"2026-11-25T13:00:00","fraction":0.44,"phases":[{"key":"extract","label":"Extract text and page numbers","state":"done"},{"key":"map","label":"Map structure, aims and objectives","state":"done"},{"key":"read","label":"Read chapters, figures and tables","state":"done"},{"key":"evidence","label":"Log evidence and technical issues","state":"current"},{"key":"marks","label":"Decide marks and apply calibration","state":"pending"},{"key":"report","label":"Write the report","state":"pending"},{"key":"verify","label":"Verify page references and checks","state":"pending"},{"key":"word","label":"Produce the Word file","state":"pending"}]}"#
