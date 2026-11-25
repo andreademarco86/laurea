@@ -68,6 +68,13 @@ Rule 2 below ("MSc, not PhD") does not apply at PhD level: novelty is required. 
 
 Judge the ML and the astronomy together. Typical weaknesses that matter: labels from a biased subset applied out of domain, training on simulations with no check on real data, point estimates where calibrated uncertainties are needed, global metrics with no breakdown by magnitude/redshift/SNR, and no comparison with the established non-ML method. See `astro-ml-checklist.md`.
 
+## Computational physics and physics with a computational component
+
+The five criteria and their maxima stay the same; read them in physics terms:
+- (c) Method and Solution: the physical model and its assumptions, the choice and implementation of the numerical method, and (for experimental work) the measurement and analysis design.
+- (d) Testing, Results, Analysis and Evaluation: verification (convergence studies, test problems, conservation checks), validation against experiment or literature, and the treatment of statistical and systematic uncertainties.
+Typical weaknesses that matter: no convergence study, error bars that ignore correlations, results quoted outside the model's regime of validity, verification presented as validation, and "it agrees with the literature" without a quantitative comparison. Machine learning is not expected unless the dissertation uses it; do not penalise a physics dissertation for lacking ML baselines or ablations. See `physics-checklist.md`.
+
 ## Calibration rules (apply every time)
 
 1. **Anchor, then move.** Start each criterion at the "very good" band (a solid, competent MSc) and move up or down only for evidence in the log. Write down which evidence moved it.

@@ -8,7 +8,7 @@ An examiner of international standing does not judge a dissertation only from in
 - Never upload or paste the PDF or long passages anywhere.
 - Topic and bibliographic searches: use topic keywords, method names, dataset names and the titles of **cited** papers.
 - Phrase checks (only if enabled for this run, see below): at most **8** queries, each an exact phrase of **8-14 words** that is distinctive (not generic boilerplate). No numbers that identify the student's data.
-- Prefer scholarly sources: arXiv, Semantic Scholar, ACL Anthology, CVF Open Access, OpenReview, PMLR, NASA ADS (astronomy), IEEE/ACM/Springer landing pages, DBLP, Google Scholar results pages. Use the publication's own page to confirm details.
+- Prefer scholarly sources: arXiv, Semantic Scholar, ACL Anthology, CVF Open Access, OpenReview, PMLR, NASA ADS (astronomy and physics), INSPIRE-HEP (particle and nuclear physics), APS (Physical Review), IOP, AIP and AAS journal pages, IEEE/ACM/Springer landing pages, DBLP, Google Scholar results pages. Use the publication's own page to confirm details.
 - If web access is not available in this run, say so in `external.md` and the final message, and do the internal checks only.
 
 ## A. Currency of the field and missed work (feeds criterion (b), sometimes (c)/(d))
@@ -16,7 +16,7 @@ An examiner of international standing does not judge a dissertation only from in
 1. List the 3-6 core topics of the dissertation (problem, method family, datasets, evaluation setting).
 2. For each, find the seminal works and the most important work of the last 2-3 years (survey papers are a good entry point). Aim for roughly 10-20 searches in total.
 3. Compare with the bibliography. A paper is a **significant omission** only if it is directly relevant and well known (highly cited, a standard baseline or benchmark, or a recent state of the art on the same task). Do not list marginal papers to look thorough.
-4. Check "state of the art" claims and baseline choices against published results on the same benchmark and setting. Outdated baselines (e.g. a 2018 model when stronger, easily available models exist) weaken (c)/(d).
+4. Check "state of the art" claims and baseline choices against published results on the same benchmark and setting. Outdated baselines (e.g. a 2018 model when stronger, easily available models exist) weaken (c)/(d). For physics work, compare the student's key computed or measured quantities with published experimental and computational values for the same system and conditions, and note any unexplained disagreement.
 5. In the report: name the 2-5 most important omissions with author(s), year and venue in the (b) weaknesses (verified to exist), and use one as a viva question if it bears on the method or results.
 
 ## B. Reference verification (feeds (a) and (b); integrity if serious)
