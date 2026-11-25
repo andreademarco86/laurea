@@ -22,20 +22,12 @@ struct SettingsView: View {
             MarkingSchemeSection(scheme: Binding(
                 get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },
                 set: { s.wrappedValue.marking_scheme = $0; if Scheme.isValid($0) { scheduleSave() } }))
-            Section {
-                LabeledContent("Model", value: model.settings.model_label ?? "Opus 5.5")
-                LabeledContent("Claude Code", value: model.settings.claude_version ?? "Not found")
-            } header: {
-                Text("Claude")
-            } footer: {
-                Text("Examinations run on Claude Opus 5.5 and include a literature search, reference checks and a high-level originality screen. Web searches never include the student's name or the PDF.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+            EngineSection()
             Section("Files") {
                 LabeledContent("Examinations") {
                     Button("Show in Finder") { NSWorkspace.shared.open(model.backend.examsDir) }.buttonStyle(.link)
                 }
-                LabeledContent("Examiner skill") {
+                LabeledContent("Examining standards") {
                     Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }.buttonStyle(.link)
                 }
                 LabeledContent("Calibration notes") {
@@ -49,7 +41,7 @@ struct SettingsView: View {
         .formStyle(.grouped)
         .frame(width: 480)
         .fixedSize(horizontal: false, vertical: true)
-        .task { await model.loadSettings() }
+        .task { await model.loadSettings(); await model.loadEngines() }
     }
 
     private func scheduleSave() {
@@ -143,5 +135,100 @@ struct SchemeBar: View {
         }
         .frame(height: 22)
         .accessibilityLabel("Marking scheme proportions")
+    }
+}
+
+/// Choose which signed-in engine examines, and with which model and thoroughness.
+struct EngineSection: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let active = model.activeEngine
+        Section {
+            ForEach(Engine.allCases) { e in
+                EngineRow(engine: e, isActive: e == active)
+            }
+            if let status = model.engines?.providers[active.rawValue], status.signed_in {
+                let list = model.models[active.rawValue]?.models ?? []
+                if model.loadingModels.contains(active.rawValue) && list.isEmpty {
+                    LabeledContent("Model") { ProgressView().controlSize(.small) }
+                } else if !list.isEmpty {
+                    let current = model.currentModel(for: active)
+                    Picker("Model", selection: Binding(
+                        get: { current?.id ?? "" },
+                        set: { id in Task { await model.setEngine(active, model: id) } })) {
+                        ForEach(list) { m in
+                            Text(m.recommended ? "\(m.name) (recommended)" : m.name).tag(m.id)
+                        }
+                    }
+                    if let efforts = current?.efforts, !efforts.isEmpty {
+                        Picker("Thoroughness", selection: Binding(
+                            get: { efforts.contains(model.settings.effort ?? "") ? model.settings.effort! : (current?.default_effort ?? efforts.last!) },
+                            set: { eff in Task { await model.setEngine(active, model: current?.id, effort: eff) } })) {
+                            ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Examination Engine")
+        } footer: {
+            Text("Uses your own subscription on this Mac. You can be signed in to both and switch at any time; each examination includes a literature search, reference checks and a high-level originality screen. Web searches never include the student's name or the PDF.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct EngineRow: View {
+    @Environment(AppModel.self) private var model
+    let engine: Engine
+    let isActive: Bool
+
+    var body: some View {
+        let st = model.engines?.providers[engine.rawValue]
+        let account = model.models[engine.rawValue]?.account
+        HStack(spacing: 12) {
+            Button {
+                if st?.signed_in == true { Task { await model.setEngine(engine) } }
+            } label: {
+                Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(st?.signed_in != true)
+            .help(st?.signed_in == true ? "Use \(engine.label) for examinations" : "Install and sign in first")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(engine.label).fontWeight(isActive ? .semibold : .regular)
+                Group {
+                    if st == nil {
+                        Text("Checking…")
+                    } else if st?.installing?.state == "running" {
+                        Text("Installing \(engine.tool)…")
+                    } else if st?.installed != true {
+                        Text(st?.installing?.state == "error" ? "Install failed. \(st?.installing?.message ?? "")" : "Not installed")
+                    } else if st?.signed_in != true {
+                        Text("Not signed in")
+                    } else if let email = account?.email {
+                        Text([email, account?.plan.map { $0.capitalized }].compactMap { $0 }.joined(separator: " · "))
+                    } else {
+                        Text("Signed in")
+                    }
+                }
+                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
+            Spacer()
+            if st?.installing?.state == "running" {
+                ProgressView().controlSize(.small)
+            } else if st != nil && st?.installed != true {
+                Button("Install") { Task { await model.installEngine(engine) } }
+            } else if st?.installed == true && st?.signed_in != true {
+                Button("Sign In…") { model.signIn(engine) }
+            } else if st?.signed_in == true {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            }
+        }
+        .contentShape(.rect)
+        .onTapGesture { if st?.signed_in == true { Task { await model.setEngine(engine) } } }
     }
 }

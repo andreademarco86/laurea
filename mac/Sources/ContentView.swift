@@ -37,7 +37,7 @@ struct ContentView: View {
         .confirmationDialog("Move this examination to the Trash?", isPresented: $model.showDeleteConfirm) {
             Button("Move to Trash", role: .destructive) { Task { await model.deleteSelected() } }
         } message: {
-            Text("The PDF, the report and Claude's notes are moved to the Trash. You can restore them from there.")
+            Text("The PDF, the report and the working notes are moved to the Trash. You can restore them from there.")
         }
         .sheet(isPresented: $model.showRevise) { ReviseSheet() }
     }
@@ -52,7 +52,7 @@ struct SidebarView: View {
         let selection = Binding<SidebarItem?>(get: { model.selection }, set: { model.requestSelection($0) })
         List(selection: selection) {
             Section {
-                Label("Examiner Skill", systemImage: "brain.head.profile")
+                Label("Examining Standards", systemImage: "text.book.closed")
                     .tag(SidebarItem.skill)
                 Label("Calibration", systemImage: "dial.medium")
                     .tag(SidebarItem.calibration)
@@ -203,8 +203,8 @@ struct ExamToolbar: ToolbarContent {
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
             if model.draft != nil && detail.state != "running" {
-                Button { model.showRevise = true } label: { Label("Ask Claude to Revise", systemImage: "wand.and.sparkles") }
-                    .help("Describe a change and let Claude edit the report (⇧⌘R)")
+                Button { model.showRevise = true } label: { Label("Revise Report", systemImage: "pencil.line") }
+                    .help("Describe a change to the report (⇧⌘R)")
                 Button { model.exportWord() } label: {
                     Label("Export Report", systemImage: "square.and.arrow.up")
                 }
@@ -246,7 +246,7 @@ struct StartView: View {
                 }
                 .frame(maxWidth: 560)
             } else {
-                Text("Claude Opus 5.5 reads the whole dissertation, checks it against the current literature and the marking criteria, screens references and originality, and drafts the examiner's report for you to review.")
+                Text("Laurea reads the whole dissertation, checks it against the current literature and the marking criteria, screens references and originality, and drafts the examiner's report for you to review.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 460)
             }
             Picker("Level", selection: $model.newLevel) {
@@ -254,7 +254,7 @@ struct StartView: View {
             }
             .pickerStyle(.segmented)
             .frame(width: 240)
-            .help("BSc, MSc or PhD: Claude's expectations and your calibration depend on the level")
+            .help("BSc, MSc or PhD: the expected standard and your calibration depend on the level")
             Button { Task { await model.examine() } } label: {
                 Text(detail.state == "new" ? "Examine \(model.newLevel.noun)" : "Run Again").frame(minWidth: 180)
             }
@@ -283,7 +283,7 @@ struct RunningView: View {
         let p = model.progress
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
-                Image(systemName: detail.status.run_kind == "revise" ? "wand.and.sparkles" : "text.magnifyingglass")
+                Image(systemName: detail.status.run_kind == "revise" ? "pencil.line" : "text.magnifyingglass")
                     .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(.tint)
                     .symbolEffect(.pulse, options: .repeating)
@@ -299,7 +299,7 @@ struct RunningView: View {
             }
             if detail.status.run_kind == "revise" {
                 ProgressView().progressViewStyle(.linear)
-                Text("Claude is applying your request…").foregroundStyle(.secondary)
+                Text("Applying your request…").foregroundStyle(.secondary)
             } else {
                 ProgressView(value: p?.fraction ?? 0.02)
                     .progressViewStyle(.linear)
@@ -378,8 +378,8 @@ struct ReviseSheet: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 12) {
-            Text("Ask Claude to Revise the Report").font(.headline)
-            Text("Describe the change. Claude edits the report, re-checks the page references and updates the Word document.")
+            Text("Revise the Report").font(.headline)
+            Text("Describe the change. The report is revised, its page references are re-checked and the Word document is updated.")
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $model.reviseText)
                 .font(.body)

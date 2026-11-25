@@ -77,6 +77,18 @@ The five criteria and their maxima stay the same; read them in physics terms:
 - (d) Testing, Results, Analysis and Evaluation: verification (convergence studies, test problems, conservation checks), validation against experiment or literature, and the treatment of statistical and systematic uncertainties.
 Typical weaknesses that matter: no convergence study, error bars that ignore correlations, results quoted outside the model's regime of validity, verification presented as validation, and "it agrees with the literature" without a quantitative comparison. Machine learning is not expected unless the dissertation uses it; do not penalise a physics dissertation for lacking ML baselines or ablations. See `physics-checklist.md`.
 
+## Computing, ICT and engineering
+
+(c) Method and Solution covers requirements, design and implementation; (d) covers testing and the measured evaluation (functional tests, performance, user studies, security). Reward engineering quality and honest evaluation; development-heavy BSc projects can score highly without research novelty. Typical weaknesses that matter: requirements that are never tested, testing only the "happy path", performance claims with no measurements, user studies with a handful of friends and no protocol, and no comparison with existing systems. See `computing-checklist.md`.
+
+## Speech, language and audio processing
+
+Judge the signal processing, the linguistics and the ML together. Typical weaknesses that matter: speakers shared between training and test, WER without stated text normalisation, comparisons with published numbers on different test sets or normalisation, quality claims without a proper listening test, pretrained models that may have seen the test data, and missing consent or data-protection handling for voice data. See `speech-language-checklist.md`.
+
+## Other related fields
+
+For a related field listed in `domains.md`, read the criteria the same way: (c) is the field's method or design, (d) its validation and evaluation. Apply the field-specific checks there, and do not penalise the absence of methods the field does not use.
+
 ## Calibration rules (apply every time)
 
 1. **Anchor, then move.** Start each criterion at the "very good" band (a solid, competent MSc) and move up or down only for evidence in the log. Write down which evidence moved it.

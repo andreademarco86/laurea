@@ -163,9 +163,52 @@ def provider_binary(provider):
     return find_codex() if provider == "openai" else find_claude()
 
 
+INSTALLING = {}  # provider -> {"state": "running" | "done" | "error", "message": str}
+
+
+def install_provider(provider):
+    """Install Claude Code (Anthropic's native installer) or Codex (OpenAI's official release) for this user."""
+    INSTALLING[provider] = {"state": "running", "message": "Installing…"}
+    try:
+        if provider == "claude":
+            r = subprocess.run(["/bin/bash", "-c", "curl -fsSL https://claude.ai/install.sh | bash"],
+                               capture_output=True, text=True, env=ENV, timeout=1200)
+            ok = find_claude()[0] is not None
+            msg = "" if ok else (r.stderr or r.stdout).strip()[-400:]
+        else:
+            arch = "aarch64" if os.uname().machine == "arm64" else "x86_64"
+            APP_BIN.mkdir(parents=True, exist_ok=True)
+            r = None
+            # Codex ships as the CLI plus a companion host program; both must sit side by side.
+            for prog in ("codex", "codex-code-mode-host"):
+                name = f"{prog}-{arch}-apple-darwin"
+                tgz = APP_SUPPORT / f"{name}.tar.gz"
+                r = subprocess.run(["/usr/bin/curl", "-fsSL", "-o", str(tgz),
+                                    f"https://github.com/openai/codex/releases/latest/download/{name}.tar.gz"],
+                                   capture_output=True, text=True, env=ENV, timeout=1200)
+                if r.returncode == 0:
+                    r = subprocess.run(["/usr/bin/tar", "-xzf", str(tgz), "-C", str(APP_BIN)], capture_output=True, text=True)
+                tgz.unlink(missing_ok=True)
+                if (APP_BIN / name).exists():
+                    os.replace(APP_BIN / name, APP_BIN / prog)
+                    os.chmod(APP_BIN / prog, 0o755)
+                if r.returncode != 0:
+                    break
+            ok = find_codex()[0] is not None
+            msg = "" if ok else (r.stderr or "Download failed.").strip()[-400:]
+        INSTALLING[provider] = {"state": "done" if ok else "error", "message": msg}
+    except Exception as e:
+        INSTALLING[provider] = {"state": "error", "message": str(e)}
+
+
+def login_command(provider, path):
+    return f"'{path}' login" if provider == "openai" else f"'{path}' auth login"
+
+
 def provider_status(provider):
     path, ver = provider_binary(provider)
-    out = {"name": PROVIDERS[provider], "installed": bool(path), "version": ver, "path": path, "signed_in": False}
+    out = {"name": PROVIDERS[provider], "installed": bool(path), "version": ver, "path": path, "signed_in": False,
+           "installing": INSTALLING.get(provider), "login_command": login_command(provider, path) if path else None}
     if not path:
         return out
     try:
@@ -854,11 +897,14 @@ SKILL_RUN = {"proc": None, "status": ""}
 GIT_ID = ["-c", "user.name=Laurea", "-c", "user.email=app@localhost"]
 SKILL_SYSTEM = f"""You maintain the examiner skill in the current folder. It is used by the Laurea
 app to draft examiner's reports for BSc, MSc and PhD dissertations. The examiner (your user) talks to you here to adjust
-or ask about the skill. They are an academic, not a programmer: reply in short, plain, friendly prose, no jargon.
+or ask about the skill. They are an academic, not a programmer: reply in short, plain, friendly prose, no jargon. You speak for Laurea's
+examining standards: never mention Claude, Anthropic, AI, language models or "the skill"; call it "your examining standards".
 
 When they ask for a change, make the smallest careful edit that achieves it, in the file where it belongs:
 - SKILL.md: workflow and writing style; references/marking-rubric.md: bands, levels and calibration rules;
   references/ml-cv-checklist.md and references/astro-ml-checklist.md: technical checks;
+  references/computing-checklist.md and references/speech-language-checklist.md: further technical checks;
+  references/domains.md: which fields are covered and which checklists apply (add new fields here, following its template);
   references/external-research.md: literature search, reference checks and originality screening;
   references/house-preferences.md: the examiner's own standing rules (most "always/never" requests belong here);
   templates/examiner-report.md: report layout.
@@ -1152,6 +1198,13 @@ class Handler(BaseHTTPRequestHandler):
             if parts == ["assistant"] and method == "GET":
                 return self.send(200, {"provider": settings().get("provider", "claude"),
                                        "providers": {k: provider_status(k) for k in PROVIDERS}})
+            if len(parts) == 3 and parts[0] == "engines" and parts[2] == "install" and method == "POST":
+                prov = parts[1]
+                if prov not in PROVIDERS:
+                    return self.send(400, {"error": "unknown engine"})
+                if (INSTALLING.get(prov) or {}).get("state") != "running":
+                    threading.Thread(target=install_provider, args=(prov,), daemon=True).start()
+                return self.send(200, {"ok": True})
             if parts == ["models"] and method == "GET":
                 prov = (q.get("provider") or [settings().get("provider", "claude")])[0]
                 if prov not in PROVIDERS:

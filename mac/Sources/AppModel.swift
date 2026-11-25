@@ -433,6 +433,83 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    // MARK: Examination engines
+
+    var engines: EnginesInfo?
+    var models: [String: ModelsInfo] = [:]
+    var loadingModels: Set<String> = []
+    private var enginePoll: Task<Void, Never>?
+
+    var activeEngine: Engine { Engine(rawValue: settings.provider ?? "claude") ?? .claude }
+
+    func loadEngines() async {
+        engines = try? await backend.get("/api/assistant")
+        for e in Engine.allCases where engines?.providers[e.rawValue]?.signed_in == true && models[e.rawValue] == nil {
+            await loadModels(e)
+        }
+    }
+
+    func loadModels(_ e: Engine, refresh: Bool = false) async {
+        loadingModels.insert(e.rawValue)
+        defer { loadingModels.remove(e.rawValue) }
+        if let m: ModelsInfo = try? await backend.get("/api/models?provider=\(e.rawValue)\(refresh ? "&refresh=1" : "")") {
+            models[e.rawValue] = m
+        }
+    }
+
+    /// Model and thoroughness actually used for `e` (falls back to the recommended model and its default).
+    func currentModel(for e: Engine) -> ModelOption? {
+        let list = models[e.rawValue]?.models ?? []
+        if e == activeEngine, let id = settings.model, !id.isEmpty, let m = list.first(where: { $0.id == id }) { return m }
+        return list.first(where: \.recommended) ?? list.first
+    }
+
+    func setEngine(_ e: Engine, model: String? = nil, effort: String? = nil) async {
+        var m = model
+        var eff = effort ?? settings.effort ?? "high"
+        if m == nil {
+            if e != activeEngine { m = "" } else { m = settings.model ?? "" }
+        }
+        let option = (models[e.rawValue]?.models ?? []).first { $0.id == m } ?? (models[e.rawValue]?.models ?? []).first(where: \.recommended)
+        if let option, !option.efforts.isEmpty, !option.efforts.contains(eff) { eff = option.default_effort ?? option.efforts.last! }
+        struct Body: Encodable { let provider, model, effort: String }
+        if let r: SettingsInfo = try? await backend.send("PUT", "/api/settings", Body(provider: e.rawValue, model: m ?? "", effort: eff)) {
+            settings = r
+        }
+    }
+
+    func installEngine(_ e: Engine) async {
+        try? await backend.post("/api/engines/\(e.rawValue)/install")
+        watchEngines()
+    }
+
+    /// Opens Terminal with the engine's own sign-in command, then watches until sign-in completes.
+    func signIn(_ e: Engine) {
+        guard let cmd = engines?.providers[e.rawValue]?.login_command else { return }
+        let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
+        let script = "tell application \"Terminal\"\nactivate\ndo script \"\(escaped)\"\nend tell"
+        var err: NSDictionary?
+        NSAppleScript(source: script)?.executeAndReturnError(&err)
+        if err != nil { errorMessage = "Couldn't open Terminal to sign in. Run this in Terminal: \(cmd)" }
+        watchEngines()
+    }
+
+    private func watchEngines() {
+        enginePoll?.cancel()
+        enginePoll = Task { [weak self] in
+            for _ in 0..<200 {
+                try? await Task.sleep(for: .seconds(3))
+                guard let self, !Task.isCancelled else { return }
+                let before = self.engines
+                await self.loadEngines()
+                let busy = self.engines?.providers.values.contains { $0.installing?.state == "running" } ?? false
+                let changed = before?.providers != self.engines?.providers
+                if changed { for e in Engine.allCases where self.engines?.providers[e.rawValue]?.signed_in == true { await self.loadModels(e, refresh: true) } }
+                if !busy && changed { return }
+            }
+        }
+    }
+
     // MARK: Settings
 
     func loadSettings() async {

@@ -70,7 +70,7 @@ struct ReportEditor: View {
 
             if let msg = detail?.status.message, !msg.isEmpty {
                 Section {
-                    DisclosureGroup("Claude's note on this report") {
+                    DisclosureGroup("Notes on this draft") {
                         Text(msg).textSelection(.enabled).font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
                     }
                 }
@@ -99,10 +99,10 @@ struct MarksSections: View {
                             .frame(width: 70)
                             .animation(.spring(duration: 0.4), value: c.mark)
                         if let p = detail?.proposedMark(c.spec.key) {
-                            Text("Claude \(p)")
+                            Text("Proposed \(p)")
                                 .font(.caption)
                                 .foregroundStyle(p == c.mark ? Color.secondary : Color.orange)
-                                .help(p == c.mark ? "Claude's proposed mark" : "You changed this from Claude's \(p)")
+                                .help(p == c.mark ? "Proposed mark" : "You changed this from the proposed \(p)")
                         }
                         Text("\(c.mark)").font(.body.weight(.semibold)).monospacedDigit().frame(minWidth: 22, alignment: .trailing)
                         Text("/ \(c.spec.max)").foregroundStyle(.secondary).monospacedDigit().frame(minWidth: 30, alignment: .leading)
@@ -124,7 +124,7 @@ struct MarksSections: View {
                 Text("More generous").font(.caption)
             }
             if let pt = model.proposedTotal {
-                LabeledContent("Claude's proposal", value: "\(pt) / \(draft.dissertationMax)")
+                LabeledContent("Proposed mark", value: "\(pt) / \(draft.dissertationMax)")
                 LabeledContent("Your adjustment") {
                     let d = draft.total - pt
                     Text(d == 0 ? "None" : Fmt.signed(Double(d)) + " marks")
@@ -140,7 +140,7 @@ struct MarksSections: View {
                     return "(\(s.key)) \(Fmt.signed(v))"
                 }
                 if !nonZero.isEmpty {
-                    Label("Claude already applied your learned offsets: \(nonZero.joined(separator: ", "))", systemImage: "dial.medium")
+                    Label("Your learned calibration is already included: \(nonZero.joined(separator: ", "))", systemImage: "dial.medium")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

@@ -33,7 +33,7 @@ struct CalibrationView: View {
                         RuleMark(x: .value("Zero", 0)).foregroundStyle(.secondary)
                     }
                     .chartXScale(domain: -max(3, maxAbs(cal)) ... max(3, maxAbs(cal)))
-                    .chartXAxisLabel("Marks Claude adds to its evidence-based mark")
+                    .chartXAxisLabel("Marks added to the evidence-based mark")
                     .frame(height: 220)
                     .padding(.vertical, 6)
                     LabeledContent("Total offset", value: "\(Fmt.signed(cal.total, digits: 1)) / \(cal.dissertation_max ?? 90)")
@@ -41,14 +41,14 @@ struct CalibrationView: View {
                     ContentUnavailableView {
                         Label("Nothing Learned Yet", systemImage: "dial.medium")
                     } description: {
-                        Text("Examine \(model.calibrationLevel == .msc ? "an" : "a") \(model.calibrationLevel.label) \(model.calibrationLevel.noun.lowercased()), adjust Claude's marks with the slider or per criterion, and save. The difference becomes the offset Claude applies next time.")
+                        Text("Examine \(model.calibrationLevel == .msc ? "an" : "a") \(model.calibrationLevel.label) \(model.calibrationLevel.noun.lowercased()), adjust the proposed marks with the slider or per criterion, and save. The difference becomes the offset applied next time.")
                     }
                 }
             } header: {
                 Text("Learned Offsets")
             } footer: {
                 if let cal, cal.n > 0 {
-                    Text("Learned from \(cal.n) examination\(cal.n == 1 ? "" : "s"). Offsets stay cautious with few examples and firm up as you examine more. Claude skips an offset when the evidence clearly contradicts it.")
+                    Text("Learned from \(cal.n) examination\(cal.n == 1 ? "" : "s"). Offsets stay cautious with few examples and firm up as you examine more. An offset is skipped when the evidence clearly contradicts it.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -61,7 +61,7 @@ struct CalibrationView: View {
                             .opacity(e.include == false ? 0.3 : 1)
                     }
                     .chartXAxis(.hidden)
-                    .chartYAxisLabel("Your total − Claude's")
+                    .chartYAxisLabel("Your total − proposed")
                     .frame(height: 140)
                     .padding(.vertical, 6)
 
@@ -92,13 +92,13 @@ struct CalibrationView: View {
                 Button("Open Calibration Notes") { model.openCalibrationNotes() }
                     .buttonStyle(.link)
             } footer: {
-                Text("The notes file is what Claude reads to apply your calibration. To add standing rules, use Examiner Skill.")
+                Text("The notes file holds your learned calibration. To add standing rules, use Examining Standards.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .navigationTitle("Calibration")
-        .navigationSubtitle("How your marks differ from Claude's")
+        .navigationSubtitle("How your marks differ from the proposals")
         .task { await model.loadCalibration() }
     }
 

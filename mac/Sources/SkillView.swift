@@ -1,15 +1,15 @@
 import AppKit
 import SwiftUI
 
-/// Chat with Claude to change (or ask about) the examiner skill. Every change is versioned and can be undone.
+/// Conversation for changing (or asking about) the examining standards (the skill). Every change is versioned and can be undone.
 struct SkillView: View {
     @Environment(AppModel.self) private var model
 
     static let suggestions = [
         "Be stricter about reproducibility: penalise missing code or data release in (c) and (d).",
         "Add a house rule: always ask one viva question about ethics and data protection.",
-        "How does the skill mark a PhD thesis differently from an MSc dissertation?",
-        "What does the skill check for in astronomy theses?",
+        "How is a PhD thesis marked differently from an MSc dissertation?",
+        "What is checked in astronomy and physics theses?",
     ]
 
     var body: some View {
@@ -46,8 +46,8 @@ struct SkillView: View {
             Divider()
             Composer()
         }
-        .navigationTitle("Examiner Skill")
-        .navigationSubtitle("Change how Claude examines, in plain words")
+        .navigationTitle("Examining Standards")
+        .navigationSubtitle("How dissertations are examined, in plain words")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
@@ -59,15 +59,15 @@ struct SkillView: View {
                         }
                     }
                     Divider()
-                    Button("Show Skill in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }
+                    Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }
                 } label: {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }
-                .help("Every change to the skill, with undo")
+                .help("Every change to your standards, with undo")
                 Button { Task { await model.newSkillConversation() } } label: {
                     Label("New Conversation", systemImage: "square.and.pencil")
                 }
-                .help("Start a fresh conversation (the skill keeps its changes)")
+                .help("Start a fresh conversation (your standards keep their changes)")
                 .disabled(model.skillBusy)
             }
         }
@@ -80,11 +80,11 @@ private struct Intro: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(spacing: 12) {
-                Image(systemName: "brain.head.profile")
+                Image(systemName: "text.book.closed")
                     .font(.system(size: 30)).foregroundStyle(.tint)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Teach the Examiner").font(.title2.weight(.semibold))
-                    Text("Tell Claude how you want dissertations examined. It updates the skill that every future examination uses.")
+                    Text("Describe how you want dissertations examined. Every future examination follows your standards.")
                         .foregroundStyle(.secondary)
                 }
             }
@@ -132,7 +132,7 @@ private struct MessageView: View {
                 .frame(maxWidth: .infinity)
         default:
             HStack(alignment: .top, spacing: 10) {
-                Image(systemName: message.error == true ? "exclamationmark.triangle.fill" : "sparkles")
+                Image(systemName: message.error == true ? "exclamationmark.triangle.fill" : "graduationcap.fill")
                     .foregroundStyle(message.error == true ? Color.orange : Color.accentColor)
                     .frame(width: 28, height: 28)
                     .background(.background.secondary, in: .circle)
@@ -171,7 +171,7 @@ private struct ChangeCard: View {
                 Spacer()
                 Button("Undo") { Task { await model.undoSkillChange(commit) } }
                     .controlSize(.small)
-                    .help("Put the skill back the way it was before this change")
+                    .help("Put your standards back the way they were before this change")
             }
             DisclosureGroup("Show changes") {
                 ScrollView([.vertical, .horizontal]) {
@@ -219,7 +219,7 @@ private struct Composer: View {
         @Bindable var model = model
         HStack(alignment: .bottom, spacing: 10) {
             TextField("Message", text: $model.skillInput,
-                      prompt: Text("Ask Claude to change or explain how dissertations are examined…"), axis: .vertical)
+                      prompt: Text("Describe a change, or ask how dissertations are examined…"), axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...8)
                 .padding(.horizontal, 12).padding(.vertical, 9)

@@ -36,7 +36,7 @@ struct LaureaApp: App {
                 Button("Examine Dissertation") { Task { await model.examine() } }
                     .keyboardShortcut("r")
                     .disabled(model.detail == nil || model.detail?.state == "running" || model.draft != nil)
-                Button("Ask Claude to Revise…") { model.showRevise = true }
+                Button("Revise Report…") { model.showRevise = true }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(model.draft == nil || model.detail?.state == "running")
                 Divider()
@@ -46,7 +46,7 @@ struct LaureaApp: App {
                 Button("Show in Finder") { model.revealInFinder() }
                     .disabled(model.detail == nil)
                 Divider()
-                Button("Examiner Skill") { model.requestSelection(.skill) }
+                Button("Examining Standards") { model.requestSelection(.skill) }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                 Button("Calibration") { model.requestSelection(.calibration) }
                     .keyboardShortcut("k", modifiers: [.command, .shift])
@@ -106,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             let a = NSAlert()
             a.alertStyle = .warning
             a.messageText = "An examination is still in progress."
-            a.informativeText = "Quitting stops Claude. You can run the examination again later."
+            a.informativeText = "Quitting stops the examination. You can run it again later."
             a.addButton(withTitle: "Cancel")
             a.addButton(withTitle: "Quit Anyway")
             if a.runModal() == .alertFirstButtonReturn { return .terminateCancel }

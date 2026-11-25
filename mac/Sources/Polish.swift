@@ -17,14 +17,14 @@ struct WelcomeView: View {
                 VStack(spacing: 8) {
                     Text("Welcome to Laurea")
                         .font(.system(size: 34, weight: .bold))
-                    Text("Fair, thorough examiner's reports, drafted by Claude and finished by you.")
+                    Text("Fair, thorough examiner's reports, ready for your review and signature.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 VStack(alignment: .leading, spacing: 20) {
                     FeatureRow(icon: "doc.text.magnifyingglass", tint: .blue, title: "Reads every page",
-                               text: "Figures, tables and results included, judged against ML, computer vision, astronomy and computational physics standards.")
+                               text: "Figures, tables and results included, judged by the standards of its field: AI, computing, speech and language, physics or astronomy.")
                     FeatureRow(icon: "books.vertical.fill", tint: .orange, title: "Knows the field",
                                text: "Searches the current literature, verifies references and screens for originality.")
                     FeatureRow(icon: "dial.medium.fill", tint: .green, title: "Learns your standard",
@@ -125,7 +125,7 @@ struct ScoreHeader: View {
                 HStack(spacing: 8) {
                     LevelCapsule(level: level)
                     if let pt = model.proposedTotal {
-                        Pill(text: "Claude proposed \(pt)", icon: "sparkles", tint: .secondary)
+                        Pill(text: "Proposed \(pt)", icon: "doc.text", tint: .secondary)
                     }
                     if model.dirty {
                         Pill(text: "Edited", icon: "pencil", tint: .orange)
@@ -180,7 +180,7 @@ struct EngineStatusBar: View {
                 Circle()
                     .fill(model.engineError != nil ? Color.red : model.engineReady ? Color.green : Color.orange)
                     .frame(width: 7, height: 7)
-                Text(model.engineError != nil ? "Engine stopped" : model.engineReady ? "Claude Opus 5.5 · Ready" : "Starting…")
+                Text(model.engineError != nil ? "Engine stopped" : model.engineReady ? "Ready" : "Starting…")
             }
             Spacer()
         }
@@ -217,7 +217,7 @@ enum SystemIntegration {
     @MainActor
     static func showAbout() {
         let credits = NSMutableAttributedString(
-            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations in ML, AI and computational physics.\n\nDrafted by Claude Opus 5.5 with the dissertation-examiner skill. Finished, calibrated and signed by you.",
+            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations in AI, computing and the computational sciences.\n\nReviewed, calibrated and signed by you.",
             attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
         let p = NSMutableParagraphStyle(); p.alignment = .center
         credits.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: credits.length))

@@ -158,6 +158,8 @@ struct SettingsInfo: Codable {
     var skill_updated: String?
     var data_path: String?
     var marking_scheme: [String: Int]?
+    var provider: String?
+    var model: String?
     var default_scheme: [String: Int]?
 }
 
@@ -335,4 +337,56 @@ struct SkillCommit: Codable, Identifiable, Hashable {
     let date: String
     let message: String
     var undoable: Bool?
+}
+
+// MARK: - Examination engines (Claude Code / Codex)
+
+struct InstallState: Codable, Hashable {
+    let state: String
+    let message: String?
+}
+
+struct EngineStatus: Codable, Hashable {
+    let name: String
+    let installed: Bool
+    let version: String?
+    let path: String?
+    let signed_in: Bool
+    let installing: InstallState?
+    let login_command: String?
+}
+
+struct EnginesInfo: Codable {
+    let provider: String
+    let providers: [String: EngineStatus]
+}
+
+struct ModelOption: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let description: String
+    let efforts: [String]
+    let default_effort: String?
+    let recommended: Bool
+}
+
+struct ModelsInfo: Codable {
+    struct Account: Codable { let email: String?; let plan: String? }
+    let provider: String
+    let account: Account?
+    let models: [ModelOption]
+    let error: String?
+}
+
+enum Engine: String, CaseIterable, Identifiable {
+    case claude, openai
+    var id: String { rawValue }
+    var label: String { self == .claude ? "Claude" : "ChatGPT" }
+    var company: String { self == .claude ? "Anthropic" : "OpenAI" }
+    var tool: String { self == .claude ? "Claude Code" : "Codex" }
+    var icon: String { self == .claude ? "asterisk" : "circle.hexagongrid" }
+
+    static func effortLabel(_ e: String) -> String {
+        ["low": "Light", "medium": "Standard", "high": "Thorough", "xhigh": "Very thorough", "max": "Maximum", "ultra": "Ultra"][e] ?? e.capitalized
+    }
 }
