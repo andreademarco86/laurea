@@ -1,0 +1,16 @@
+# Build output
+mac/build/
+dist/
+*.dmg
+
+# Personal data: never commit (signature, settings, calibration naming students)
+skill/config.json
+skill/templates/signature.png
+skill/references/calibration-notes.md
+skill/references/calibration-history.json
+
+# Generated
+skill/scripts/bin/
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Structural checks for an examiner's report written from templates/examiner-report.md.
+
+Usage: python3 check_report.py <report.md> [--meta <work_dir>/meta.json]
+Exit code 1 if any ERROR is found. WARNINGs should be reviewed but do not fail.
+"""
+import json
+import re
+import sys
+
+MAX = {"a": 10, "b": 20, "c": 25, "d": 25, "e": 10}
+errors, warnings = [], []
+PAGE_REF = re.compile(r"(?<![A-Za-z])pp?\.[ \t]?((?:\d{1,4}|[ivxlc]{1,7})(?:[ \t]?[-–][ \t]?(?:\d{1,4}|[ivxlc]{1,7}))?)(?![\w])", re.I)
+
+
+def section(text, start_pat, end_pat=r"^## "):
+    m = re.search(start_pat, text, re.M)
+    if not m:
+        return None
+    rest = text[m.end():]
+    e = re.search(end_pat, rest, re.M)
+    return rest[: e.start()] if e else rest
+
+
+def bullets(block):
+    return [l for l in block.splitlines() if re.match(r"^\s*[-*]\s+\S", l)]
+
+
+def main():
+    args = sys.argv[1:]
+    if not args:
+        sys.exit(__doc__)
+    path = args[0]
+    meta = None
+    if "--meta" in args:
+        with open(args[args.index("--meta") + 1], encoding="utf-8") as f:
+            meta = json.load(f)
+    text = open(path, encoding="utf-8").read()
+
+    # Unfilled template slots
+    left = re.findall(r"\{\{[^}]*\}\}", text)
+    if left:
+        errors.append(f"{len(left)} unfilled template placeholder(s), e.g. {left[0]}")
+
+    # Header fields
+    for field in ("Student name", "Dissertation title", "Examiner"):
+        m = re.search(rf"\*\*{field}\*\*\s*\|\s*(.*?)\s*\|", text)
+        if not m or not m.group(1).strip():
+            errors.append(f"header field '{field}' missing or empty")
+    m = re.search(r"\*\*Recommended dissertation mark\*\*\s*\|\s*\*\*(\d+)\s*/\s*90\*\*", text)
+    header_total = int(m.group(1)) if m else None
+    if header_total is None:
+        errors.append("recommended mark '**N / 90**' not found in header")
+    if not re.search(r"\*\*Viva mark\*\*\s*\|\s*(?:_+|\*\*[\d.]+)\s*/\s*10", text):
+        errors.append("viva mark row ('______ / 10' or a filled-in mark) missing")
+    if not re.search(r"\*\*Final mark\*\*\s*\|\s*(?:_+|\*\*[\d.]+)\s*/\s*100", text):
+        errors.append("final mark row ('______ / 100' or a filled-in mark) missing")
+
+    # Summary
+    summ = section(text, r"^## 1\. Summary\s*$")
+    if summ is None:
+        errors.append("section '## 1. Summary' missing")
+    else:
+        words = re.findall(r"[A-Za-z0-9][\w'’.%/-]*", re.sub(r"[*_`#>]", " ", summ))
+        n = len(words)
+        if n > 250:
+            errors.append(f"summary has {n} words (> 250)")
+        elif n < 150:
+            warnings.append(f"summary has only {n} words; aim for 200-250")
+        else:
+            print(f"summary: {n} words")
+
+    # Criterion marks
+    marks = {}
+    for k in MAX:
+        h = re.search(rf"^### \({k}\)[^\n]*?[-–—]\s*(\d+)\s*/\s*(\d+)\s*$", text, re.M)
+        if not h:
+            errors.append(f"criterion ({k}) heading with 'N/{MAX[k]}' not found")
+            continue
+        mark, mx = int(h.group(1)), int(h.group(2))
+        if mx != MAX[k]:
+            errors.append(f"criterion ({k}) is out of {mx}, expected {MAX[k]}")
+        if not 0 <= mark <= MAX[k]:
+            errors.append(f"criterion ({k}) mark {mark} outside 0-{MAX[k]}")
+        marks[k] = mark
+        row = re.search(rf"^\|\s*\({k}\)[^|]*\|\s*\**{MAX[k]}\**\s*\|\s*\**(\d+)\**\s*\|", text, re.M)
+        if row and int(row.group(1)) != mark:
+            errors.append(f"criterion ({k}): table says {row.group(1)}, heading says {mark}")
+        body = section(text, rf"^### \({k}\).*$", r"^#{2,3} ")
+        st = section(body or "", r"^\*\*Strengths\*\*\s*$", r"^\*\*Weaknesses\*\*")
+        wk = section(body or "", r"^\*\*Weaknesses\*\*\s*$", r"^#{2,3} |\Z")
+        for name, blk in (("strengths", st), ("weaknesses", wk)):
+            if blk is None:
+                errors.append(f"criterion ({k}): '**{name.capitalize()}**' block missing")
+                continue
+            bl = bullets(blk)
+            if not 2 <= len(bl) <= 3:
+                errors.append(f"criterion ({k}): {len(bl)} {name}, expected 2-3")
+            for b in bl:
+                if not PAGE_REF.search(b):
+                    warnings.append(f"criterion ({k}) {name} point has no page ref: {b.strip()[:70]}...")
+    if len(marks) == 5:
+        total = sum(marks.values())
+        print("marks: " + ", ".join(f"({k}) {v}/{MAX[k]}" for k, v in marks.items()) + f" -> {total}/90")
+        if header_total is not None and header_total != total:
+            errors.append(f"header total {header_total} != sum of criteria {total}")
+        trow = re.search(r"^\|\s*\*\*Total\*\*\s*\|\s*\**90\**\s*\|\s*\**(\d+)\**\s*\|", text, re.M)
+        if not trow or int(trow.group(1)) != total:
+            errors.append(f"table Total row missing or != {total}")
+
+    # Viva questions
+    qs = section(text, r"^## 3\. Viva questions\s*$")
+    if qs is None:
+        errors.append("section '## 3. Viva questions' missing")
+    else:
+        qn = re.findall(r"^\*\*Q\d+\.", qs, re.M)
+        if not 3 <= len(qn) <= 5:
+            errors.append(f"{len(qn)} viva questions, expected 3-5")
+        exp = len(re.findall(r"Expected / acceptable answer", qs))
+        if exp < len(qn):
+            errors.append(f"{len(qn) - exp} viva question(s) without an expected/acceptable answer")
+
+    # Minor corrections
+    mc = section(text, r"^## 4\. Minor corrections\s*$")
+    if mc is None:
+        errors.append("section '## 4. Minor corrections' missing")
+    else:
+        items = re.findall(r"^\s*\d+\.\s+\S.*$", mc, re.M)
+        if not 5 <= len(items) <= 10:
+            errors.append(f"{len(items)} minor corrections, expected 5-10")
+        for it in items:
+            if not PAGE_REF.search(it):
+                warnings.append(f"correction without page ref: {it.strip()[:70]}")
+
+    # Filler / AI-sounding phrasing (style warnings)
+    SLOP = [r"\bdelv\w*", r"\bshowcas\w*", r"\bleverag(e|es|ed|ing)\b", r"\bcomprehensive\b", r"\bholistic\b",
+            r"\bmeticulous\w*", r"\bseamless\w*", r"\bpivotal\b", r"\bcrucial role\b", r"\ba testament to\b",
+            r"\bin the realm of\b", r"\blandscape\b", r"\btapestry\b", r"\bunderscor\w*", r"\bit is worth noting\b",
+            r"\bit is important to note\b", r"\boverall,? the dissertation\b", r"\bnot only\b.{0,80}\bbut also\b",
+            r"\bcutting[- ]edge\b", r"\bstate[- ]of[- ]the[- ]art\b(?![^.]*\b(table|fig|p\.))", r"^\s*[-*]?\s*(Furthermore|Moreover|Additionally),",
+            r"!(?!\[)", r"\bnavigat\w* the\b", r"\bintricate\b", r"\bnuanced\b", r"\bmultifaceted\b"]
+    body = re.sub(r"^\|.*$", "", text, flags=re.M)  # skip header table
+    hits = {}
+    for pat in SLOP:
+        for m in re.finditer(pat, body, re.I | re.M):
+            hits.setdefault(m.group(0).strip()[:30].lower(), 0)
+            hits[m.group(0).strip()[:30].lower()] += 1
+    if hits:
+        warnings.append("filler/AI-sounding phrasing, rewrite plainly: " + ", ".join(f"'{k}' x{v}" for k, v in hits.items()))
+    long_s = [s_ for s_ in re.split(r"(?<=[.?])\s+", re.sub(r"\s+", " ", body)) if len(s_.split()) > 40]
+    if long_s:
+        warnings.append(f"{len(long_s)} sentence(s) over 40 words, e.g. '{long_s[0][:80]}...'")
+
+    # Declaration
+    for f in ("Signature:", "Date:"):
+        if f not in text:
+            errors.append(f"'{f}' placeholder missing")
+
+    # Page references exist in the PDF
+    if meta:
+        labels = {str(l).lower() for l in meta.get("page_labels", []) if l}
+        bad = set()
+        for m in PAGE_REF.finditer(text):
+            for part in re.split(r"[ \t]?[-–][ \t]?", m.group(1)):
+                if part.lower() not in labels:
+                    bad.add(part)
+        for m in re.finditer(r"PDF p\.\s?(\d+)", text):
+            if int(m.group(1)) > meta.get("page_count", 0):
+                bad.add("PDF p." + m.group(1))
+        if bad:
+            errors.append("cited pages not found among the PDF's printed page numbers: " + ", ".join(sorted(bad)))
+
+    for w in warnings:
+        print("WARNING:", w)
+    for e in errors:
+        print("ERROR:", e)
+    print("OK" if not errors else f"{len(errors)} error(s)")
+    sys.exit(1 if errors else 0)
+
+
+if __name__ == "__main__":
+    main()
