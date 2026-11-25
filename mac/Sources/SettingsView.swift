@@ -237,8 +237,13 @@ private struct PrivateAPIKeyView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @ViewState private var key = ""
-    @ViewState private var confirmed = false
+    @ViewState private var confirmed: Bool
     let engine: Engine
+
+    init(engine: Engine) {
+        self.engine = engine
+        _confirmed = ViewState(wrappedValue: engine == .claude)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -255,7 +260,7 @@ private struct PrivateAPIKeyView: View {
                    ? "My Anthropic API organisation has not opted into sharing data for model improvement."
                    : "This OpenAI API project has data sharing off and uses Modified Abuse Monitoring or Zero Data Retention.",
                    isOn: $confirmed)
-            Text("Laurea relies on your confirmation of the provider’s settings.")
+            Text("Verify your provider’s data controls before saving. Laurea relies on your confirmation.")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()
