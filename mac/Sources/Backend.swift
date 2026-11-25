@@ -1,4 +1,5 @@
 import Foundation
+import Security
 
 enum BackendError: LocalizedError {
     case missing(String)
@@ -21,13 +22,15 @@ final class Backend: @unchecked Sendable {
         return home.appendingPathComponent("Library/Application Support/Laurea")
     }
     var examsDir: URL { dataDir.appendingPathComponent("examinations") }
-    var skillDir: URL { home.appendingPathComponent(".claude/skills/dissertation-examiner") }
-    var calibrationNotes: URL { skillDir.appendingPathComponent("references/calibration-notes.md") }
-    var signatureURL: URL { skillDir.appendingPathComponent("templates/signature.png") }
+    var examinerDir: URL { dataDir.appendingPathComponent("examiner") }
+    var skillDir: URL { examinerDir.appendingPathComponent("standards/current") }
+    var calibrationNotes: URL { examinerDir.appendingPathComponent("references/calibration-notes.md") }
+    var signatureURL: URL { examinerDir.appendingPathComponent("templates/signature.png") }
 
     private(set) var base: String?
     private var process: Process?
-    private let lock = NSLock()
+    private let appToken = UUID().uuidString
+    private let session = URLSession(configuration: .ephemeral)
 
     static func findPython() -> String? {
         let fm = FileManager.default
@@ -38,25 +41,8 @@ final class Backend: @unchecked Sendable {
         return candidates.first { fm.isExecutableFile(atPath: $0) }
     }
 
-    /// First run on a new Mac: install the bundled skill (no personal data) and link it where Claude Code finds skills.
-    func ensureSkillInstalled() throws {
-        let fm = FileManager.default
-        let link = home.appendingPathComponent(".claude/skills/dissertation-examiner")
-        if fm.fileExists(atPath: link.path) { return }  // already installed (or a developer's linked copy)
-        guard let bundled = Bundle.main.url(forResource: "skill", withExtension: nil) else { return }
-        let dest = dataDir.appendingPathComponent("skill")
-        if !fm.fileExists(atPath: dest.path) {
-            try fm.createDirectory(at: dataDir, withIntermediateDirectories: true)
-            try fm.copyItem(at: bundled, to: dest)
-        }
-        try fm.createDirectory(at: link.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if (try? fm.destinationOfSymbolicLink(atPath: link.path)) != nil { try? fm.removeItem(at: link) }  // dangling link
-        try fm.createSymbolicLink(at: link, withDestinationURL: dest)
-    }
-
     func start() async throws {
         if base != nil { return }
-        try ensureSkillInstalled()
         guard let script = Bundle.main.url(forResource: "server", withExtension: "py") else { throw BackendError.missing("The examination engine (server.py)") }
         guard let python = Self.findPython() else { throw BackendError.missing("Python 3") }
         try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
@@ -68,6 +54,7 @@ final class Backend: @unchecked Sendable {
         p.arguments = ["-u", script.path]
         var env = ProcessInfo.processInfo.environment
         env["DE_PORT"] = "0"
+        env["DE_APP_TOKEN"] = appToken
         env["DE_DATA"] = dataDir.path
         if let res = Bundle.main.resourcePath { env["DE_RESOURCES"] = res }
         env["DE_PARENT_PID"] = String(ProcessInfo.processInfo.processIdentifier)
@@ -113,10 +100,10 @@ final class Backend: @unchecked Sendable {
         guard let base, let url = URL(string: base + path) else { throw BackendError.failed("The examination engine is not running.") }
         var req = URLRequest(url: url, timeoutInterval: timeout)
         req.httpMethod = method
-        req.setValue("1", forHTTPHeaderField: "X-DE-App")
+        req.setValue(appToken, forHTTPHeaderField: "X-DE-App")
         headers.forEach { req.setValue($1, forHTTPHeaderField: $0) }
         req.httpBody = body
-        let (d, resp) = try await URLSession.shared.data(for: req)
+        let (d, resp) = try await session.data(for: req)
         if let http = resp as? HTTPURLResponse, http.statusCode >= 400 {
             let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String
             throw BackendError.failed(msg ?? "Request failed (\(http.statusCode)).")
@@ -139,3 +126,47 @@ final class Backend: @unchecked Sendable {
 }
 
 struct OK: Codable { let ok: Bool? }
+
+
+enum ReportKeychain {
+    private static func query(_ engine: Engine) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "local.laurea.private-api",
+         kSecAttrAccount as String: engine.rawValue,
+         kSecAttrSynchronizable as String: false]
+    }
+
+    static func read(_ engine: Engine) throws -> String? {
+        var match = query(engine)
+        match[kSecReturnData as String] = true
+        match[kSecMatchLimit as String] = kSecMatchLimitOne
+        var value: CFTypeRef?
+        let status = SecItemCopyMatching(match as CFDictionary, &value)
+        if status == errSecItemNotFound { return nil }
+        try check(status)
+        return (value as? Data).flatMap { String(data: $0, encoding: .utf8) }
+    }
+
+    static func save(_ key: String, for engine: Engine) throws {
+        let match = query(engine)
+        let attributes = [kSecValueData as String: Data(key.utf8)]
+        let status = SecItemUpdate(match as CFDictionary, attributes as CFDictionary)
+        if status == errSecItemNotFound {
+            try check(SecItemAdd(match.merging(attributes) { _, value in value } as CFDictionary, nil))
+        } else {
+            try check(status)
+        }
+    }
+
+    static func remove(_ engine: Engine) throws {
+        let status = SecItemDelete(query(engine) as CFDictionary)
+        if status != errSecItemNotFound { try check(status) }
+    }
+
+    private static func check(_ status: OSStatus) throws {
+        guard status == errSecSuccess else {
+            let explanation = SecCopyErrorMessageString(status, nil) as String? ?? "Error \(status)"
+            throw BackendError.failed("Laurea could not access the API key in Keychain. \(explanation)")
+        }
+    }
+}

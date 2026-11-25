@@ -255,7 +255,7 @@ struct StartView: View {
                 }
                 .frame(maxWidth: 560)
             } else {
-                Text("Laurea reads the whole dissertation, checks it against the current literature and the marking criteria, screens references and originality, and drafts the examiner's report for you to review.")
+                Text("Laurea reads the whole dissertation, assesses the evidence against the marking criteria, and drafts an examiner’s report for you to review.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 460)
             }
             Picker("Level", selection: $model.newLevel) {
@@ -423,16 +423,26 @@ struct PDFInspector: View {
         VStack(spacing: 0) {
             if let url = model.pdfURL {
                 PDFKitView(url: url, labels: model.detail?.page_labels ?? [], target: model.pdfTarget, currentLabel: Binding(get: { model.pdfCurrentLabel }, set: { model.pdfCurrentLabel = $0 }))
-                HStack {
-                    Text(model.pdfCurrentLabel.isEmpty ? "" : "Page \(model.pdfCurrentLabel)").font(.caption).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Open in Preview") { NSWorkspace.shared.open(url) }.buttonStyle(.link).font(.caption)
-                }
-                .padding(.horizontal, 10).padding(.vertical, 6)
+                PDFFooter(url: url)
             } else {
                 ContentUnavailableView("No PDF", systemImage: "doc")
             }
         }
+    }
+}
+
+private struct PDFFooter: View {
+    @Environment(AppModel.self) private var model
+    let url: URL
+
+    var body: some View {
+        HStack {
+            Text(model.pdfCurrentLabel.isEmpty ? "" : "Page \(model.pdfCurrentLabel)")
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Button("Open in Preview") { NSWorkspace.shared.open(url) }.buttonStyle(.link).font(.caption)
+        }
+        .padding(.horizontal, 10).padding(.vertical, 6)
     }
 }
 
@@ -449,16 +459,23 @@ struct PDFKitView: NSViewRepresentable {
         v.autoScales = true
         v.displayMode = .singlePageContinuous
         v.backgroundColor = .windowBackgroundColor
-        v.document = PDFDocument(url: url)
         context.coordinator.observe(v)
         return v
     }
 
     func updateNSView(_ v: PDFView, context: Context) {
-        context.coordinator.parent = self
-        if v.document?.documentURL != url { v.document = PDFDocument(url: url) }
-        if let t = target, t.token != context.coordinator.lastToken {
-            context.coordinator.lastToken = t.token
+        let coordinator = context.coordinator
+        let labelsChanged = coordinator.parent.labels != labels
+        coordinator.parent = self
+        if coordinator.loadedURL != url {
+            coordinator.loadedURL = url
+            v.document = PDFDocument(url: url)
+            coordinator.scheduleLabelUpdate(for: v)
+        } else if labelsChanged {
+            coordinator.scheduleLabelUpdate(for: v)
+        }
+        if let t = target, t.token != coordinator.lastToken {
+            coordinator.lastToken = t.token
             go(v, to: t.label)
         }
     }
@@ -477,14 +494,34 @@ struct PDFKitView: NSViewRepresentable {
     final class Coordinator: NSObject {
         var parent: PDFKitView
         var lastToken: UUID?
+        var loadedURL: URL?
+        private var observer: NSObjectProtocol?
+        private var labelUpdatePending = false
+
         init(_ p: PDFKitView) { parent = p }
 
-        func observe(_ v: PDFView) {
-            NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: v, queue: .main) { [weak self, weak v] _ in
-                guard let self, let page = v?.currentPage, let doc = v?.document else { return }
-                let i = doc.index(for: page)
-                let lab = i < self.parent.labels.count && !self.parent.labels[i].isEmpty ? self.parent.labels[i] : (page.label ?? "\(i + 1)")
-                self.parent.currentLabel = lab
+        deinit {
+            if let observer { NotificationCenter.default.removeObserver(observer) }
+        }
+
+        func observe(_ view: PDFView) {
+            observer = NotificationCenter.default.addObserver(forName: .PDFViewPageChanged, object: view, queue: .main) {
+                [weak self, weak view] _ in
+                if let view { self?.scheduleLabelUpdate(for: view) }
+            }
+        }
+
+        func scheduleLabelUpdate(for view: PDFView) {
+            guard !labelUpdatePending else { return }
+            labelUpdatePending = true
+            DispatchQueue.main.async { [weak self, weak view] in
+                guard let self else { return }
+                self.labelUpdatePending = false
+                guard let view, let page = view.currentPage, let doc = view.document else { return }
+                let index = doc.index(for: page)
+                let labels = self.parent.labels
+                let label = labels.indices.contains(index) && !labels[index].isEmpty ? labels[index] : (page.label ?? "\(index + 1)")
+                if label != self.parent.currentLabel { self.parent.currentLabel = label }
             }
         }
     }

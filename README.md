@@ -12,7 +12,7 @@ Its common thread is AI/ML and computational work in numerate sciences. Primary 
 
 Related fields in the same direction are covered too, using the closest checklists plus field-specific checks: for example robotics, embedded and edge AI, bioinformatics, medical imaging, remote sensing, computational chemistry and HCI. The full list, and how to add a field, is in [skill/references/domains.md](skill/references/domains.md).
 
-The examining is done by an AI engine on the examiner's own subscription, chosen in **Settings → Examination Engine**: **Claude** (through Claude Code) or **ChatGPT** (through OpenAI's Codex). You can be signed in to both and switch at any time, and pick any model and thoroughness your account offers. The app's interface and the reports themselves don't mention the engine.
+In **Settings → Examination Engine**, choose Claude (through Claude Code) or ChatGPT (through Codex). Laurea uses a dedicated API key for each configured provider. API usage is billed separately from your Claude or ChatGPT subscription, and Laurea leaves your personal account’s model-training preferences alone.
 
 ## What a report contains
 
@@ -37,10 +37,7 @@ Laurea aims for the standard of an external examiner of international standing.
    - **ML and computer vision:** data leakage, baselines, ablations, metrics and statistical robustness.
    - **Astronomy:** selection effects, the gap between simulations and real data, calibrated uncertainties.
    - **Physics:** the physical model and when it holds, the numerical method, convergence studies, validation and error analysis.
-4. **Looks outside the dissertation.**
-   - It searches the literature for important recent and missed work.
-   - It spot-checks that cited references exist and say what is claimed.
-   - It screens for originality at a high level. This is not a replacement for Turnitin, and the report never accuses anyone; a serious concern is raised with you first, with the evidence.
+4. **Reviews the literature and checks for internal originality signals.** It assesses how the dissertation uses its sources and flags issues visible in the submitted work. Independent citation verification and online phrase searches are unavailable during app runs.
 5. **Marks fairly.** Marks follow the level-specific rubric, your house rules and your learned calibration. Strengths and weaknesses are written in plain, specific prose.
 6. **Verifies itself.** Every page reference is checked against the dissertation, and a checker validates the report's structure and arithmetic.
 
@@ -68,16 +65,14 @@ With the defaults, the dissertation is marked out of 90 and the final mark is ou
 |---|---|---|
 | macOS 14 Sonoma or later | The app | |
 | Apple Command Line Tools | Provide Python 3, git and Swift | `xcode-select --install` |
-| **At least one** examination engine, signed in | Does the examining | Install and sign in from **Settings → Examination Engine** (details below) |
+| **At least one** examination engine and API key | Runs private examinations | **Settings → Examination Engine** |
 
-Examination engines (one is enough, both are fine):
+| Engine | Installed by the app from | Private API configuration |
+|---|---|---|
+| Claude (Claude Code 2.x) | Anthropic’s official installer | An Anthropic API key from an organisation that has kept model-improvement sharing off. [Claude Code data usage](https://code.claude.com/docs/en/data-usage) |
+| ChatGPT (Codex CLI) | OpenAI’s official releases | An OpenAI API key from a project with data sharing off and Modified Abuse Monitoring or Zero Data Retention enabled. This excludes the separate safety-training use that can apply to some standard API accounts. [OpenAI data sharing](https://help.openai.com/en/articles/10306912-sharing-feedback-evaluation-and-fine-tuning-data-and-api-inputs-and-outputs-with-openai) · [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data) |
 
-| Engine | Subscription | Installed by the app from | Signs in with |
-|---|---|---|---|
-| Claude (Claude Code 2.x) | Claude Pro or Max | Anthropic's installer (`claude.ai/install.sh`) | `claude auth login` |
-| ChatGPT (Codex CLI) | ChatGPT Plus or Pro | OpenAI's official GitHub release, into `~/Library/Application Support/Laurea/bin` | `codex login` |
-
-In Settings, each engine shows whether it is installed and signed in, with **Install** and **Sign In…** buttons. Sign-in opens Terminal with the engine's own sign-in command, which completes in your browser. If you're already signed in to Claude Code or Codex on this Mac, Laurea uses that sign-in. The model list comes live from your account.
+Use **Install** and **Add API Key** for the provider you want. Keys are stored in macOS Keychain. Laurea fetches the model catalog using the selected API key.
 
 No Python packages, pandoc or Homebrew are needed. The engine and all skill scripts use only Python's standard library, and the Word document is generated in Python. If `pypdf` happens to be installed, PDF text extraction uses it; otherwise it uses macOS's built-in PDFKit.
 
@@ -85,12 +80,12 @@ No Python packages, pandoc or Homebrew are needed. The engine and all skill scri
 
 1. Open `Laurea 1.3.dmg` and drag **Laurea** to **Applications**. The app is signed for local use only, so on another Mac, right-click it and choose **Open** the first time.
 2. Open Laurea. The **Setup Assistant** guides you through the rest:
-   - choose Claude and/or ChatGPT, then install and sign in from the app;
+   - choose Claude or ChatGPT, install the engine and add its API key.
    - your name, institution and default degree;
    - your signature: drop an image or choose a file;
    - the marking weights.
 
-Laurea starts blank: the app contains no examiner details. On first run it installs its examining standards (the skill) to `~/Library/Application Support/Laurea/skill` and links them where Claude Code finds skills. Your details, signature, calibration and examinations stay on your Mac.
+On first launch, Laurea installs examining standards into `~/Library/Application Support/Laurea/examiner`. For upgrades, the app copies compatible standards, examiner settings, signature and calibration from the previous installation, including an old skill linked to a checkout. The previous files and history remain at their original locations.
 
 ## Building from source (developers)
 
@@ -100,12 +95,6 @@ git clone https://github.com/andreademarco86/laurea.git ~/Work/Laurea
 
 ```bash
 cd ~/Work/Laurea
-```
-
-To work on the skill in place (instead of the copy the app installs), link the repository's `skill/` folder before the first launch:
-
-```bash
-mkdir -p ~/.claude/skills && ln -sfn "$PWD/skill" ~/.claude/skills/dissertation-examiner
 ```
 
 Build the app and DMG:
@@ -127,9 +116,7 @@ On first launch the **Setup Assistant** guides you through choosing an engine (w
 5. **After the viva:** enter the viva mark, and the final mark fills in. Turn the date on.
 6. **Save and export:** **⌘S** saves and updates the Word file. **⇧⌘E** exports it. **⇧⌘R** revises the report from your description.
 7. **Teach the examiner:** in **Examining Standards** (**⇧⌘L**), describe in plain words how you want dissertations examined. For example: "Be stricter about reproducibility" or "Always ask one viva question on ethics".
-   - Each change becomes a git commit in this repository, which you can review and undo from **History**.
-   - A change that would break the app is rolled back automatically.
-   - Push when you want the changes on GitHub.
+   - Laurea validates each draft and saves changes in a local version you can review and undo from **History**.
 8. **Choose the engine:** in **Settings → Examination Engine**, pick Claude or ChatGPT, the model and the thoroughness. New examinations use the current choice.
 9. **Delete an examination:** right-click it in the sidebar and choose **Move to Trash…**, press **Delete** in the sidebar, or use the trash button in the toolbar (**⌘⌫**). Laurea asks for confirmation first; the files go to the Trash, so they can be restored, and the examination is removed from your calibration. A running examination must be stopped first.
 
@@ -139,19 +126,18 @@ On first launch the **Setup Assistant** guides you through choosing an engine (w
 |---|---|---|
 | Examinations: PDFs, reports (.md and .docx), working notes and logs | `~/Library/Application Support/Laurea/examinations/` | No |
 | App settings, engine log, skill-chat history | `~/Library/Application Support/Laurea/` | No |
-| Your name, institution, default degree and marking weights | `config.json` in the skill folder (set in the Setup Assistant or Settings) | No |
-| Your signature | `templates/signature.png` in the skill folder (set in the Setup Assistant or Settings) | No |
-| The examining standards (skill) installed by the app | `~/Library/Application Support/Laurea/skill` (developers: the repository's `skill/`, via the link) | Its own git history |
-| Learned calibration and its history (these name students) | `skill/references/calibration-notes.md` and `calibration-history.json` | No |
-| Your house rules | `skill/references/house-preferences.md` | Yes |
-| The skill itself | `skill/` | Yes |
+| Your name, institution, default degree and marking weights | `examiner/config.json` under Laurea’s Application Support folder | No |
+| Your signature | `examiner/templates/signature.png` | No |
+| Taught standards and undo history | `examiner/standards/` | No |
+| Calibration notes and history | `examiner/references/` | No |
+| API keys | macOS Keychain | No |
+| Default skill bundled with the app | Repository `skill/` | Yes |
 
 ## Privacy
 
-- Examinations, calibration data, your signature and your settings stay on your Mac and are never committed.
-- Web searches during an examination use topics, method and dataset names, and the titles of cited papers. The originality screen adds at most 8 short phrases per dissertation. Searches never include the student's name, the supervisor, the institution or the PDF.
-- During an examination, the engine can only work in that examination's folder and run the skill's own scripts.
-- The dissertation is treated as data, never as instructions. Hidden text aimed at an AI grader is reported to you, not obeyed.
+Laurea sends the material needed to examine or revise a dissertation to the selected provider’s API. Each run uses a fresh session, with local CLI transcript persistence, web search, external tools and feedback disabled. Revisions use the saved report and local examination files. The model receives numerical calibration offsets for the current level. Laurea keeps the underlying student history and examiner signature on the Mac.
+
+The app requires a dedicated API key and your confirmation that the provider’s data controls are configured. Provider policies determine server-side retention. [Claude Code data usage](https://code.claude.com/docs/en/data-usage) · [OpenAI API data controls](https://developers.openai.com/api/docs/guides/your-data)
 
 ## Repository layout
 
@@ -163,7 +149,7 @@ mac/Sources/            SwiftUI app: welcome screen, sidebar, report editor, PDF
                         calibration, skill chat and settings.
 mac/build.sh            Builds the universal app and the DMG; also generates the icon.
 mac/icon/               Draws the app icon.
-skill/                  The examiner skill (Claude Code finds it through the symlink).
+skill/                  The examiner skill bundled with the app.
   SKILL.md                workflow, standards and writing style
   references/             domains.md (fields covered, which checklists apply, how to add one),
                           marking rubric (BSc/MSc/PhD), checklists for ML/vision, computing/ICT,
@@ -180,22 +166,17 @@ skill/                  The examiner skill (Claude Code finds it through the sym
 
 ## Development
 
-- **Skill changes** take effect at the next examination, with no rebuild. Make them in the app's Examining Standards, or edit the files and commit as usual. Before each standards change, the app commits any pending skill edits as "Skill: changes made outside the app", so each change can be undone on its own.
+- **Examining Standards** changes apply to the next examination. To work on the bundled defaults, edit `skill/`, rebuild, and test with an isolated `LAUREA_DATA_DIR`.
 - **Adding a field:** follow the template at the end of `skill/references/domains.md`, or ask for it in Examining Standards.
 - **App or engine changes:** run `bash mac/build.sh`, then reinstall from the DMG.
-- **Run the engine on its own:** `DE_PORT=8765 python3 engine/server.py`. It serves a JSON API on `127.0.0.1`. Every request other than a GET must include the header `X-DE-App: 1`.
+- **Run the engine on its own:** `DE_PORT=8765 python3 engine/server.py`. It serves a JSON API on `127.0.0.1`. Requests require the `X-DE-App` header matching `DE_APP_TOKEN` (defaults to `1` for a standalone engine).
 - **Screenshots without Screen Recording permission:** run `DE_SNAPSHOT_DIR=/some/folder mac/build/Laurea.app/Contents/MacOS/Laurea`. The app captures its own main screens to that folder, then quits. Add `DE_SNAPSHOT_DARK=1` for dark mode.
 - **Using the skill without the app:** in Claude Code, run `/dissertation-examiner path/to/thesis.pdf --level msc`.
-
-### Work in progress
-
-- **ChatGPT engine.** Installing, signing in, listing models and short runs through ChatGPT are tested. A full examination on ChatGPT has not been run yet, and the skill was tuned on Claude, so ChatGPT reports may need some calibration at first.
-
 
 ## Troubleshooting
 
 - **"The examination engine could not start":** check that the Command Line Tools are installed (`xcode-select -p`), then read `~/Library/Application Support/Laurea/engine.log`.
-- **An examination stops at once with "not set up":** the chosen engine isn't installed or signed in. Open **Settings → Examination Engine** and use **Install** or **Sign In…**, or choose the other engine.
+- **An examination stops at once with "not set up":** open **Settings → Examination Engine** to install the engine, add a dedicated API key, or select the other provider.
 - **ChatGPT fails with "code-mode host was not found":** Codex is missing its companion program. Click **Install** again in Settings; it fetches both parts.
 - **The signature is missing from the Word file:** add one in **Settings → Signature** (or the Setup Assistant) and save the report again. Without a signature, the report leaves a line to sign by hand.
 - **The report checker reports wrong maxima:** the report was written for different weights from the examination's `scheme.json`. Revise the report, or run the examination again.

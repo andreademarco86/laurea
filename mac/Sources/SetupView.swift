@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// First-run Setup Assistant: engine choice and sign-in, examiner details and signature, marking weights.
+/// First-run Setup Assistant: engine choice and API credentials, examiner details and signature, marking weights.
 struct SetupView: View {
     @Environment(AppModel.self) private var model
 
@@ -109,98 +109,14 @@ private struct WelcomeStep: View {
 }
 
 private struct EngineStep: View {
-    @Environment(AppModel.self) private var model
-
     var body: some View {
-        VStack(spacing: 16) {
-            StepHeader(icon: "cpu", title: "Choose Your Examination Engine",
-                       subtitle: "Laurea works with your own subscription. Sign in to one or both, then choose which one examines. You can switch at any time in Settings.")
-            HStack(spacing: 14) {
-                ForEach(Engine.allCases) { e in EngineCard(engine: e) }
-            }
-            .padding(.horizontal, 28)
-            if model.activeEngineReady {
-                let active = model.activeEngine
-                let list = model.models[active.rawValue]?.models ?? []
-                if !list.isEmpty {
-                    let current = model.currentModel(for: active)
-                    Form {
-                        Picker("Model", selection: Binding(get: { current?.id ?? "" },
-                                                           set: { id in Task { await model.setEngine(active, model: id) } })) {
-                            ForEach(list) { m in Text(m.recommended ? "\(m.name) (recommended)" : m.name).tag(m.id) }
-                        }
-                        if let efforts = current?.efforts, !efforts.isEmpty {
-                            Picker("Thoroughness", selection: Binding(
-                                get: { efforts.contains(model.settings.effort ?? "") ? model.settings.effort! : (current?.default_effort ?? efforts.last!) },
-                                set: { eff in Task { await model.setEngine(active, model: current?.id, effort: eff) } })) {
-                                ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
-                            }
-                        }
-                    }
-                    .formStyle(.grouped)
-                    .scrollDisabled(true)
-                    .frame(height: 130)
-                    .padding(.horizontal, 12)
-                } else if model.loadingModels.contains(active.rawValue) {
-                    ProgressView("Loading your models…").controlSize(.small)
-                }
-            }
-            Spacer(minLength: 0)
+        VStack(spacing: 14) {
+            StepHeader(icon: "lock.shield", title: "Set Up Private Examinations",
+                       subtitle: "Install Claude or Codex and add a private API key for the selected engine.")
+            Form { EngineSection() }
+                .formStyle(.grouped)
+                .padding(.horizontal, 12)
         }
-    }
-}
-
-private struct EngineCard: View {
-    @Environment(AppModel.self) private var model
-    let engine: Engine
-
-    var body: some View {
-        let st = model.engines?.providers[engine.rawValue]
-        let selected = model.activeEngine == engine
-        let account = model.models[engine.rawValue]?.account
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text(engine.label).font(.title3.weight(.semibold))
-                Spacer()
-                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
-                    .foregroundStyle(selected ? Color.accentColor : Color.secondary.opacity(0.5))
-            }
-            Text("by \(engine.company)").font(.caption).foregroundStyle(.secondary)
-            Spacer(minLength: 2)
-            Group {
-                if st == nil {
-                    Label("Checking…", systemImage: "hourglass")
-                } else if st?.installing?.state == "running" {
-                    HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Installing…") }
-                } else if st?.installed != true {
-                    VStack(alignment: .leading, spacing: 6) {
-                        if st?.installing?.state == "error" {
-                            Text("Install failed. Try again.").foregroundStyle(.orange)
-                        }
-                        Button("Install") { Task { await model.installEngine(engine) } }
-                    }
-                } else if st?.signed_in != true {
-                    Button("Sign In…") { model.signIn(engine) }
-                } else {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label("Signed in", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
-                        if let email = account?.email {
-                            Text([email, account?.plan.map { $0.capitalized }].compactMap { $0 }.joined(separator: " · "))
-                                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                        }
-                    }
-                }
-            }
-            .font(.callout)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-        .background(.background.secondary, in: .rect(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(selected ? Color.accentColor : Color.secondary.opacity(0.2), lineWidth: selected ? 2 : 1))
-        .contentShape(.rect)
-        .onTapGesture { if st?.signed_in == true { Task { await model.setEngine(engine) } } }
-        .animation(.default, value: selected)
     }
 }
 

@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+private typealias ViewState<Value> = SwiftUI.State<Value>
+
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
 
@@ -136,97 +138,114 @@ struct SchemeBar: View {
     }
 }
 
-/// Choose which signed-in engine examines, and with which model and thoroughness.
+/// Select the provider and its report-only API credential.
 struct EngineSection: View {
     @Environment(AppModel.self) private var model
+    @ViewState private var configuring: Engine?
 
     var body: some View {
         let active = model.activeEngine
         Section {
-            ForEach(Engine.allCases) { e in
-                EngineRow(engine: e, isActive: e == active)
-            }
-            if let status = model.engines?.providers[active.rawValue], status.signed_in {
-                let list = model.models[active.rawValue]?.models ?? []
-                if model.loadingModels.contains(active.rawValue) && list.isEmpty {
-                    LabeledContent("Model") { ProgressView().controlSize(.small) }
-                } else if !list.isEmpty {
-                    let current = model.currentModel(for: active)
-                    Picker("Model", selection: Binding(
-                        get: { current?.id ?? "" },
-                        set: { id in Task { await model.setEngine(active, model: id) } })) {
-                        ForEach(list) { m in
-                            Text(m.recommended ? "\(m.name) (recommended)" : m.name).tag(m.id)
+            ForEach(Engine.allCases) { engine in
+                let status = model.engines?.providers[engine.rawValue]
+                let hasKey = model.configuredKeys.contains(engine)
+                HStack(spacing: 10) {
+                    Button {
+                        Task { await model.setEngine(engine) }
+                    } label: {
+                        Label(engine.label, systemImage: engine == active ? "largecircle.fill.circle" : "circle")
+                            .fontWeight(engine == active ? .semibold : .regular)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(engine == active ? .isSelected : [])
+                    Spacer()
+                    if status?.installing?.state == "running" || status == nil {
+                        ProgressView().controlSize(.small)
+                    } else if status?.installed != true {
+                        Button(status?.installing?.state == "error" ? "Retry Install" : "Install") {
+                            Task { await model.installEngine(engine) }
                         }
                     }
-                    if let efforts = current?.efforts, !efforts.isEmpty {
-                        Picker("Thoroughness", selection: Binding(
-                            get: { efforts.contains(model.settings.effort ?? "") ? model.settings.effort! : (current?.default_effort ?? efforts.last!) },
-                            set: { eff in Task { await model.setEngine(active, model: current?.id, effort: eff) } })) {
-                            ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
+                    if hasKey {
+                        Menu("API Key Saved") {
+                            Button("Replace API Key…") { configuring = engine }
+                            Button("Remove API Key", role: .destructive) { model.removeAPIKey(for: engine) }
                         }
+                        .fixedSize()
+                    } else {
+                        Button("Add API Key…") { configuring = engine }
                     }
                 }
+            }
+            if model.configuredKeys.contains(active) {
+                let list = model.models[active.rawValue]?.models ?? []
+                let selected = model.settings.model ?? ""
+                let efforts = active == .claude ? ["low", "medium", "high"] : ["low", "medium", "high", "xhigh"]
+                if !list.isEmpty {
+                    Picker("Model", selection: Binding(
+                        get: { selected },
+                        set: { id in Task { await model.setEngine(active, model: id) } })) {
+                            Text("Engine default").tag("")
+                            if !selected.isEmpty && !list.contains(where: { $0.id == selected }) {
+                                Text(selected).tag(selected)
+                            }
+                            ForEach(list) { Text($0.name).tag($0.id) }
+                        }
+                } else if model.loadingModels.contains(active.rawValue) {
+                    LabeledContent("Loading API models") { ProgressView().controlSize(.small) }
+                } else if let error = model.models[active.rawValue]?.error {
+                    Text(error).font(.caption).foregroundStyle(.secondary)
+                }
+                Picker("Thoroughness", selection: Binding(
+                    get: { model.settings.effort ?? "high" },
+                    set: { effort in Task { await model.setEngine(active, effort: effort) } })) {
+                        ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
+                    }
             }
         } header: {
             Text("Examination Engine")
         } footer: {
-            Text("Uses your own subscription on this Mac. You can be signed in to both and switch at any time; each examination includes a literature search, reference checks and a high-level originality screen. Web searches never include the student's name or the PDF.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text("Laurea sends report and teaching tasks through the selected provider’s API. API billing and retention apply. Web searches and session history are disabled for these tasks. Your Claude and ChatGPT account settings stay as they are.")
         }
+        .sheet(item: $configuring) { PrivateAPIKeyView(engine: $0) }
     }
 }
 
-struct EngineRow: View {
+private struct PrivateAPIKeyView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dismiss) private var dismiss
+    @ViewState private var key = ""
+    @ViewState private var confirmed = false
     let engine: Engine
-    let isActive: Bool
 
     var body: some View {
-        let st = model.engines?.providers[engine.rawValue]
-        let account = model.models[engine.rawValue]?.account
-        HStack(spacing: 12) {
-            Button {
-                if st?.signed_in == true { Task { await model.setEngine(engine) } }
-            } label: {
-                Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isActive ? Color.accentColor : Color.secondary)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("\(engine.label) API Key").font(.headline)
+            Text("Use a dedicated API key for Laurea. macOS Keychain stores the key, and API usage is billed by \(engine.company).")
+                .foregroundStyle(.secondary)
+            SecureField("API key", text: $key)
+            HStack {
+                Link("Manage API keys", destination: engine.apiKeysURL)
+                Spacer()
+                Link("Provider data controls", destination: engine.dataControlsURL)
             }
-            .buttonStyle(.plain)
-            .disabled(st?.signed_in != true)
-            .help(st?.signed_in == true ? "Use \(engine.label) for examinations" : "Install and sign in first")
-            VStack(alignment: .leading, spacing: 2) {
-                Text(engine.label).fontWeight(isActive ? .semibold : .regular)
-                Group {
-                    if st == nil {
-                        Text("Checking…")
-                    } else if st?.installing?.state == "running" {
-                        Text("Installing \(engine.tool)…")
-                    } else if st?.installed != true {
-                        Text(st?.installing?.state == "error" ? "Install failed. \(st?.installing?.message ?? "")" : "Not installed")
-                    } else if st?.signed_in != true {
-                        Text("Not signed in")
-                    } else if let email = account?.email {
-                        Text([email, account?.plan.map { $0.capitalized }].compactMap { $0 }.joined(separator: " · "))
-                    } else {
-                        Text("Signed in")
-                    }
+            Toggle(engine == .claude
+                   ? "My Anthropic API organisation has not opted into sharing data for model improvement."
+                   : "This OpenAI API project has data sharing off and uses Modified Abuse Monitoring or Zero Data Retention.",
+                   isOn: $confirmed)
+            Text("Laurea relies on your confirmation of the provider’s settings.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Save API Key") {
+                    if model.saveAPIKey(key, for: engine) { dismiss() }
                 }
-                .font(.caption).foregroundStyle(.secondary).lineLimit(2)
-            }
-            Spacer()
-            if st?.installing?.state == "running" {
-                ProgressView().controlSize(.small)
-            } else if st != nil && st?.installed != true {
-                Button("Install") { Task { await model.installEngine(engine) } }
-            } else if st?.installed == true && st?.signed_in != true {
-                Button("Sign In…") { model.signIn(engine) }
-            } else if st?.signed_in == true {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                .keyboardShortcut(.defaultAction)
+                .disabled(!confirmed || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .contentShape(.rect)
-        .onTapGesture { if st?.signed_in == true { Task { await model.setEngine(engine) } } }
+        .padding(22)
+        .frame(width: 430)
     }
 }

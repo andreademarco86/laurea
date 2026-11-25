@@ -23,7 +23,7 @@ struct SkillView: View {
                             Intro()
                         }
                         ForEach(chat?.messages ?? []) { m in
-                            MessageView(message: m).id(m.id)
+                            MessageView(message: m).equatable().id(m.id)
                         }
                         if chat?.running == true || model.skillSending {
                             HStack(spacing: 8) {
@@ -39,8 +39,7 @@ struct SkillView: View {
                     .frame(maxWidth: 780)
                     .frame(maxWidth: .infinity)
                 }
-                .onChange(of: chat?.messages.count) { withAnimation { proxy.scrollTo("bottom") } }
-                .onChange(of: chat?.running) { withAnimation { proxy.scrollTo("bottom") } }
+                .onChange(of: chat?.messages.count) { proxy.scrollTo("bottom") }
                 .onAppear { proxy.scrollTo("bottom") }
             }
             Divider()
@@ -54,7 +53,7 @@ struct SkillView: View {
                     if model.skillHistory.isEmpty { Text("No changes yet") }
                     ForEach(model.skillHistory) { c in
                         Menu("\(c.date)  ·  \(c.message.replacingOccurrences(of: "Skill: ", with: ""))") {
-                            Button("Undo This Change") { Task { await model.undoSkillChange(c.commit) } }
+                            Button("Undo This Change") { Task { await model.undoSkillChange(c.revision) } }
                                 .disabled(c.undoable == false)
                         }
                     }
@@ -88,7 +87,7 @@ private struct Intro: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Text("Every change is saved as a version you can review and undo from History. Changes that would stop the app working are undone automatically.")
+            Text("Your selected engine processes teaching messages. Laurea saves validated changes and undo history on this Mac.")
                 .font(.callout).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(SkillView.suggestions, id: \.self) { s in
@@ -111,8 +110,7 @@ private struct Intro: View {
     }
 }
 
-private struct MessageView: View {
-    @Environment(AppModel.self) private var model
+private struct MessageView: View, Equatable {
     let message: SkillMessage
 
     var body: some View {
@@ -142,8 +140,8 @@ private struct MessageView: View {
                     } else {
                         Text(Self.markdown(message.text)).textSelection(.enabled)
                     }
-                    if let files = message.files, !files.isEmpty, let commit = message.commit {
-                        ChangeCard(files: files, commit: commit, diff: message.diff ?? "")
+                    if let files = message.files, !files.isEmpty, let revision = message.revision {
+                        ChangeCard(files: files, revision: revision, diff: message.diff ?? "")
                     }
                 }
                 Spacer(minLength: 40)
@@ -159,7 +157,7 @@ private struct MessageView: View {
 private struct ChangeCard: View {
     @Environment(AppModel.self) private var model
     let files: [String]
-    let commit: String
+    let revision: String
     let diff: String
     @SwiftUI.Environment(\.colorScheme) private var scheme
 
@@ -169,7 +167,7 @@ private struct ChangeCard: View {
                 Label("Updated \(files.map { ($0 as NSString).lastPathComponent }.joined(separator: ", "))", systemImage: "checkmark.seal.fill")
                     .font(.callout).foregroundStyle(.green)
                 Spacer()
-                Button("Undo") { Task { await model.undoSkillChange(commit) } }
+                Button("Undo") { Task { await model.undoSkillChange(revision) } }
                     .controlSize(.small)
                     .help("Put your standards back the way they were before this change")
             }
@@ -196,7 +194,7 @@ private struct ChangeCard: View {
             let line = String(raw)
             if line.hasPrefix("diff --git") || line.hasPrefix("index ") || line.hasPrefix("--- ") || line.hasPrefix("+++ ") {
                 if line.hasPrefix("+++ ") {
-                    var a = AttributedString("\n" + line.replacingOccurrences(of: "+++ b/", with: "") + "\n")
+                    var a = AttributedString("\n" + String(line.dropFirst(4)) + "\n")
                     a.font = .system(size: 11, weight: .bold, design: .monospaced)
                     out += a
                 }

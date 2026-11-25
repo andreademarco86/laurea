@@ -86,7 +86,7 @@ final class AppModel {
     // Skill chat
     var skillChat: SkillChat?
     var skillInput = ""
-    var skillHistory: [SkillCommit] = []
+    var skillHistory: [SkillRevision] = []
     var skillSending = false
     private var skillPoll: Task<Void, Never>?
 
@@ -108,14 +108,14 @@ final class AppModel {
             try await backend.start()
             engineReady = true
             SystemIntegration.requestNotifications()
+            await loadSettings()
             Task { await checkSetupNeeded() }
             await refreshList()
-            await loadSettings()
             Snapshot.runIfRequested(self)
             listTask = Task { [weak self] in
                 while !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(5))
-                    await self?.refreshList()
+                    if let self, self.anyRunning { await self.refreshList() }
                 }
             }
         } catch {
@@ -222,9 +222,10 @@ final class AppModel {
 
     func examine() async {
         guard let id = selectedExamID else { return }
-        struct Body: Encodable { let level: String }
         do {
-            let _: OK = try await backend.send("POST", "/api/exams/\(id)/examine", Body(level: newLevel.rawValue))
+            var body = try privateRequest(for: activeEngine)
+            body["level"] = newLevel.rawValue
+            let _: OK = try await backend.send("POST", "/api/exams/\(id)/examine", body)
             await refreshList()
             await load(id)
             startPolling(id)
@@ -240,11 +241,12 @@ final class AppModel {
 
     func revise() async {
         guard let id = selectedExamID else { return }
-        struct Body: Encodable { let instruction: String }
         let text = reviseText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         do {
-            let _: OK = try await backend.send("POST", "/api/exams/\(id)/revise", Body(instruction: text))
+            var body = try privateRequest(for: activeEngine)
+            body["instruction"] = text
+            let _: OK = try await backend.send("POST", "/api/exams/\(id)/revise", body)
             reviseText = ""
             await refreshList()
             await load(id)
@@ -259,7 +261,7 @@ final class AppModel {
                 guard let self else { return }
                 if let p: ProgressInfo = try? await self.backend.get("/api/exams/\(id)/progress?since=999999") {
                     guard self.selectedExamID == id else { return }
-                    self.progress = p
+                    if self.progress != p { self.progress = p }
                     if p.state != "running" {
                         await self.refreshList()
                         await self.load(id)
@@ -422,11 +424,12 @@ final class AppModel {
     func sendSkillMessage(_ text: String? = nil) async {
         let msg = (text ?? skillInput).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !msg.isEmpty, !skillBusy else { return }
-        struct Body: Encodable { let message: String }
         skillSending = true
         defer { skillSending = false }
         do {
-            let _: OK = try await backend.send("POST", "/api/skill/chat", Body(message: msg))
+            var body = try privateRequest(for: activeEngine)
+            body["message"] = msg
+            let _: OK = try await backend.send("POST", "/api/skill/chat", body)
             skillInput = ""
             await loadSkillChat()
             startSkillPolling()
@@ -456,10 +459,9 @@ final class AppModel {
         await loadSkillChat()
     }
 
-    func undoSkillChange(_ commit: String) async {
-        struct Body: Encodable { let commit: String }
+    func undoSkillChange(_ revision: String) async {
         do {
-            let _: OK = try await backend.send("POST", "/api/skill/undo", Body(commit: commit))
+            let _: OK = try await backend.send("POST", "/api/skill/undo", ["revision": revision])
             await loadSkillChat()
             await loadSkillHistory()
         } catch { errorMessage = error.localizedDescription }
@@ -473,7 +475,9 @@ final class AppModel {
     var signatureDropping = false
 
     var setupCompletedBefore: Bool { UserDefaults.standard.bool(forKey: "setupComplete") }
-    var activeEngineReady: Bool { engines?.providers[activeEngine.rawValue]?.signed_in == true }
+    var activeEngineReady: Bool {
+        engines?.providers[activeEngine.rawValue]?.installed == true && configuredKeys.contains(activeEngine)
+    }
     var hasSignature: Bool { _ = signatureVersion; return FileManager.default.fileExists(atPath: backend.signatureURL.path) }
     var signatureImage: NSImage? { _ = signatureVersion; return NSImage(contentsOf: backend.signatureURL) }
 
@@ -526,6 +530,8 @@ final class AppModel {
 
     var engines: EnginesInfo?
     var models: [String: ModelsInfo] = [:]
+    var configuredKeys: Set<Engine> = []
+    private var loadedKeys = false
     var loadingModels: Set<String> = []
     private var enginePoll: Task<Void, Never>?
 
@@ -533,53 +539,70 @@ final class AppModel {
 
     func loadEngines() async {
         engines = try? await backend.get("/api/assistant")
-        for e in Engine.allCases where engines?.providers[e.rawValue]?.signed_in == true && models[e.rawValue] == nil {
-            await loadModels(e)
+        if !loadedKeys {
+            configuredKeys = Set(Engine.allCases.filter { (try? ReportKeychain.read($0)) != nil })
+            loadedKeys = true
+        }
+        await loadModels()
+    }
+
+    func privateRequest(for engine: Engine) throws -> [String: String] {
+        guard let key = try ReportKeychain.read(engine) else {
+            throw BackendError.failed("Add a private API key for \(engine.label) in Settings → Examination Engine.")
+        }
+        return ["provider": engine.rawValue, "api_key": key]
+    }
+
+    func saveAPIKey(_ key: String, for engine: Engine) -> Bool {
+        let value = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard value.range(of: #"^sk-[A-Za-z0-9_-]{10,1024}$"#, options: .regularExpression) != nil else {
+            errorMessage = "Enter an API key from \(engine.company)'s developer platform."
+            return false
+        }
+        do {
+            try ReportKeychain.save(value, for: engine)
+            configuredKeys.insert(engine)
+            models[engine.rawValue] = nil
+            Task { await loadModels() }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
         }
     }
 
-    func loadModels(_ e: Engine, refresh: Bool = false) async {
+    func removeAPIKey(for engine: Engine) {
+        do {
+            try ReportKeychain.remove(engine)
+            configuredKeys.remove(engine)
+            models[engine.rawValue] = nil
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func loadModels() async {
+        let e = activeEngine
+        guard configuredKeys.contains(e), models[e.rawValue] == nil, !loadingModels.contains(e.rawValue) else { return }
         loadingModels.insert(e.rawValue)
         defer { loadingModels.remove(e.rawValue) }
-        if let m: ModelsInfo = try? await backend.get("/api/models?provider=\(e.rawValue)\(refresh ? "&refresh=1" : "")") {
-            models[e.rawValue] = m
-        }
-    }
-
-    /// Model and thoroughness actually used for `e` (falls back to the recommended model and its default).
-    func currentModel(for e: Engine) -> ModelOption? {
-        let list = models[e.rawValue]?.models ?? []
-        if e == activeEngine, let id = settings.model, !id.isEmpty, let m = list.first(where: { $0.id == id }) { return m }
-        return list.first(where: \.recommended) ?? list.first
+        do {
+            let result: ModelsInfo = try await backend.send("POST", "/api/models", privateRequest(for: e))
+            if configuredKeys.contains(e) { models[e.rawValue] = result }
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func setEngine(_ e: Engine, model: String? = nil, effort: String? = nil) async {
-        var m = model
-        var eff = effort ?? settings.effort ?? "high"
-        if m == nil {
-            if e != activeEngine { m = "" } else { m = settings.model ?? "" }
-        }
-        let option = (models[e.rawValue]?.models ?? []).first { $0.id == m } ?? (models[e.rawValue]?.models ?? []).first(where: \.recommended)
-        if let option, !option.efforts.isEmpty, !option.efforts.contains(eff) { eff = option.default_effort ?? option.efforts.last! }
+        let changed = e != activeEngine
         struct Body: Encodable { let provider, model, effort: String }
-        if let r: SettingsInfo = try? await backend.send("PUT", "/api/settings", Body(provider: e.rawValue, model: m ?? "", effort: eff)) {
-            settings = r
-        }
+        let choice = Body(provider: e.rawValue, model: model ?? (changed ? "" : settings.model ?? ""),
+                          effort: effort ?? (changed ? "high" : settings.effort ?? "high"))
+        do {
+            settings = try await backend.send("PUT", "/api/settings", choice)
+            await loadModels()
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func installEngine(_ e: Engine) async {
         try? await backend.post("/api/engines/\(e.rawValue)/install")
-        watchEngines()
-    }
-
-    /// Opens Terminal with the engine's own sign-in command, then watches until sign-in completes.
-    func signIn(_ e: Engine) {
-        guard let cmd = engines?.providers[e.rawValue]?.login_command else { return }
-        let escaped = cmd.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"")
-        let script = "tell application \"Terminal\"\nactivate\ndo script \"\(escaped)\"\nend tell"
-        var err: NSDictionary?
-        NSAppleScript(source: script)?.executeAndReturnError(&err)
-        if err != nil { errorMessage = "Couldn't open Terminal to sign in. Run this in Terminal: \(cmd)" }
         watchEngines()
     }
 
@@ -593,7 +616,6 @@ final class AppModel {
                 await self.loadEngines()
                 let busy = self.engines?.providers.values.contains { $0.installing?.state == "running" } ?? false
                 let changed = before?.providers != self.engines?.providers
-                if changed { for e in Engine.allCases where self.engines?.providers[e.rawValue]?.signed_in == true { await self.loadModels(e, refresh: true) } }
                 if !busy && changed { return }
             }
         }
@@ -606,12 +628,12 @@ final class AppModel {
     }
 
     func saveSettings() async {
-        struct Body: Encodable { let examiner_name, institution, degree_default, effort: String; let marking_scheme: [String: Int]? }
+        struct Body: Encodable { let examiner_name, institution, degree_default: String; let marking_scheme: [String: Int]? }
         let s = settings
         let scheme = s.marking_scheme.flatMap { Scheme.isValid($0) ? $0 : nil }
         let r: SettingsInfo? = try? await backend.send("PUT", "/api/settings",
             Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "", degree_default: s.degree_default ?? "",
-                 effort: s.effort ?? "high", marking_scheme: scheme))
+                 marking_scheme: scheme))
         if let r {
             // keep an in-progress (not yet valid) weights edit on screen
             let editing = settings.marking_scheme

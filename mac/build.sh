@@ -71,7 +71,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
   <key>NSSupportsAutomaticGraphicsSwitching</key><true/>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
-  <key>NSHumanReadableCopyright</key><string>Laurea: dissertation examination with Claude. Uses Claude Code and the dissertation-examiner skill.</string>
+  <key>NSHumanReadableCopyright</key><string>Laurea dissertation examination.</string>
 </dict>
 </plist>
 PLIST

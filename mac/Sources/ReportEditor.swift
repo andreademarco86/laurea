@@ -27,7 +27,7 @@ struct ReportEditor: View {
                     .font(.body)
                     .frame(minHeight: 170)
                     .scrollContentBackground(.hidden)
-                RefChips(text: draft.wrappedValue.summary)
+                RefChips(text: draft.wrappedValue.summary).equatable()
             } header: {
                 HStack {
                     Text("Summary")
@@ -228,7 +228,7 @@ struct LabeledField: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.caption).foregroundStyle(.secondary)
             TextField(label, text: $text, prompt: Text(prompt), axis: .vertical).labelsHidden()
-            RefChips(text: text)
+            RefChips(text: text).equatable()
         }
     }
 }
@@ -307,7 +307,7 @@ struct BulletList: View {
                 Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
                 VStack(alignment: .leading, spacing: 3) {
                     TextField("Item", text: b, prompt: Text(prompt), axis: .vertical).labelsHidden()
-                    RefChips(text: item.text)
+                    RefChips(text: item.text).equatable()
                 }
                 Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: {
                     Image(systemName: "minus.circle")
@@ -323,9 +323,11 @@ struct BulletList: View {
 }
 
 /// Clickable printed-page references that open the dissertation at that page.
-struct RefChips: View {
+struct RefChips: View, Equatable {
     @Environment(AppModel.self) private var model
     let text: String
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.text == rhs.text }
 
     var body: some View {
         let refs = pageRefs(in: text)

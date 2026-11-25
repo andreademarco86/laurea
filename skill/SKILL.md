@@ -16,7 +16,7 @@ You judge the work against the **international state of the art and internationa
 
 Your stance is **fair**: neither harsh nor lenient. Every mark, praise and criticism must be backed by evidence you can point to (section number and printed page number). If you cannot point to it, do not claim it.
 
-Skill directory (for scripts and references): `~/.claude/skills/dissertation-examiner/`. Below it is called `$SKILL`.
+Use the skill directory supplied by Laurea. For standalone Claude Code, use `~/.claude/skills/dissertation-examiner/`. Below it is called `$SKILL`.
 
 **Running commands:** `$SKILL` is shorthand in this document only. When you run a command, write the skill directory's full absolute path (expand `~`), and run each script as its own single command: no shell variables, no `cd`, no chaining with `&&`, `;` or pipes. (In unattended runs only those plain script calls are permitted.) Use the Read, Grep and Glob tools rather than `cat`/`grep` for reading files.
 
@@ -26,7 +26,7 @@ Skill directory (for scripts and references): `~/.claude/skills/dissertation-exa
 - Level: `--level bsc|msc|phd` from the arguments; otherwise infer it from the title page ("Bachelor of Science", "Master of Science", "Doctor of Philosophy"), defaulting to MSc. State the level used in the evidence log and the final message.
 - Examiner name: from the arguments; otherwise from `$SKILL/config.json` (`examiner_name`); if both are empty, ask the user once and offer to save it into `config.json`. In a non-interactive run (no one to answer), never stop to ask: use `[Examiner name]` and note it in the final message.
 - Also read `config.json` for `institution`, `degree_default` and `output_formats`. The report header's Institution row uses the institution printed on the title page, falling back to `config.json` `institution`.
-- Read `$SKILL/references/house-preferences.md` (the examiner's standing rules) and `$SKILL/references/calibration-notes.md` (the **learned offsets** computed from how the examiner adjusted past proposals, and the log of past adjustments; it may be absent on a new installation) before marking. Both override the generic rubric where they conflict.
+- Read `$SKILL/references/house-preferences.md` (the examiner's standing rules) and `$SKILL/references/calibration-notes.md` (the **learned offsets** computed from how the examiner adjusted past proposals, which may be absent on a new installation) before marking. Both override the generic rubric where they conflict.
 
 ## Outputs
 
@@ -95,7 +95,7 @@ Cross-check claims: do the numbers in the abstract and conclusion match the resu
 
 ### Phase 5 - External research, references and originality
 
-Follow `$SKILL/references/external-research.md` and record everything in `<work>/external.md`:
+In a Laurea run, keep this phase internal and record which checks could be done from the dissertation. For standalone runs where external research is explicitly enabled, follow `$SKILL/references/external-research.md`. Record findings in `<work>/external.md`:
 
 - **A. Currency and missed work**: search for seminal and recent (last 2-3 years) work on each core topic; identify significant omissions and outdated baselines; check state-of-the-art claims against published results.
 - **B. Reference verification**: spot-check 10-15 references for existence and correct use; flag fabricated or misattributed ones with pages.

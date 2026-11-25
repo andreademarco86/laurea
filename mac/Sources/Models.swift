@@ -122,15 +122,14 @@ struct ExamDetail: Codable {
     func proposedMark(_ k: String) -> Int? { (proposed[k] ?? nil).map { Int($0.rounded()) } }
 }
 
-struct Phase: Codable, Identifiable {
+struct Phase: Codable, Identifiable, Equatable {
     var id: String { key }
     let key: String
     let label: String
     let state: String
 }
 
-struct ProgressInfo: Codable {
-    let next: Int
+struct ProgressInfo: Codable, Equatable {
     let state: String
     let run_kind: String?
     let started: String?
@@ -273,11 +272,15 @@ enum Fmt {
 }
 
 /// Printed page references such as "p. 38", "pp. 41-47", "p. iv".
+private let pageReferencePattern = try? NSRegularExpression(
+    pattern: #"(?<![A-Za-z])pp?\.\s?((?:\d{1,4}|[ivxlc]{1,7}))(?:\s?[-–]\s?(?:\d{1,4}|[ivxlc]{1,7}))?(?![\w])"#,
+    options: .caseInsensitive
+)
+
 func pageRefs(in text: String) -> [String] {
-    let pattern = #"(?<![A-Za-z])pp?\.\s?((?:\d{1,4}|[ivxlc]{1,7}))(?:\s?[-–]\s?(?:\d{1,4}|[ivxlc]{1,7}))?(?![\w])"#
-    guard let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return [] }
     var out: [String] = []
-    for m in re.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+    let matches = pageReferencePattern?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []
+    for m in matches {
         if let r = Range(m.range(at: 1), in: text) {
             let s = String(text[r])
             if !out.contains(s) { out.append(s) }
@@ -320,7 +323,7 @@ struct SkillMessage: Codable, Identifiable, Hashable {
     let text: String
     let ts: String?
     let files: [String]?
-    let commit: String?
+    let revision: String?
     let diff: String?
     let error: Bool?
 }
@@ -331,9 +334,9 @@ struct SkillChat: Codable {
     let messages: [SkillMessage]
 }
 
-struct SkillCommit: Codable, Identifiable, Hashable {
-    var id: String { commit }
-    let commit: String
+struct SkillRevision: Codable, Identifiable, Hashable {
+    var id: String { revision }
+    let revision: String
     let date: String
     let message: String
     var undoable: Bool?
@@ -351,9 +354,7 @@ struct EngineStatus: Codable, Hashable {
     let installed: Bool
     let version: String?
     let path: String?
-    let signed_in: Bool
     let installing: InstallState?
-    let login_command: String?
 }
 
 struct EnginesInfo: Codable {
@@ -371,9 +372,7 @@ struct ModelOption: Codable, Identifiable, Hashable {
 }
 
 struct ModelsInfo: Codable {
-    struct Account: Codable { let email: String?; let plan: String? }
     let provider: String
-    let account: Account?
     let models: [ModelOption]
     let error: String?
 }
@@ -385,6 +384,14 @@ enum Engine: String, CaseIterable, Identifiable {
     var company: String { self == .claude ? "Anthropic" : "OpenAI" }
     var tool: String { self == .claude ? "Claude Code" : "Codex" }
     var icon: String { self == .claude ? "asterisk" : "circle.hexagongrid" }
+
+    var apiKeysURL: URL {
+        URL(string: self == .claude ? "https://platform.claude.com/settings/keys" : "https://platform.openai.com/api-keys")!
+    }
+
+    var dataControlsURL: URL {
+        URL(string: self == .claude ? "https://code.claude.com/docs/en/data-usage" : "https://developers.openai.com/api/docs/guides/your-data")!
+    }
 
     static func effortLabel(_ e: String) -> String {
         ["low": "Light", "medium": "Standard", "high": "Thorough", "xhigh": "Very thorough", "max": "Maximum", "ultra": "Ultra"][e] ?? e.capitalized
