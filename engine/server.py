@@ -345,7 +345,7 @@ def model_catalog(provider, path):
 
             if provider == "openai":
                 send({"method": "initialize", "id": 1,
-                      "params": {"clientInfo": {"name": "laurea", "title": "Laurea", "version": "1.3"}}})
+                      "params": {"clientInfo": {"name": "laurea", "title": "Laurea", "version": "1.0"}}})
                 initialized = receive(lambda event: event.get("id") == 1)
                 if not initialized or "error" in initialized:
                     return []
