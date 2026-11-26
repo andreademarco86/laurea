@@ -14,13 +14,13 @@ Requires **macOS 14 Sonoma or later** on Apple silicon or Intel, Apple’s Comma
 4. In the Setup Assistant, choose **Claude** or **ChatGPT**, click **Install** if needed and click **Sign In…**. Complete the provider’s sign-in in your browser, then return to Laurea.
 5. Set your name, institution, marking weights and optional signature. You can change these later in **Settings**.
 
-If you already use Laurea, quit it and replace the copy in **Applications**. Existing examinations and examiner preferences are stored separately in Application Support. This release preserves your installed examining standards and teaching history. The bundled defaults are used for fresh installations.
+If you already use Laurea, quit it and replace the copy in **Applications**. Existing examinations and examiner preferences are stored separately in Application Support. This release preserves your installed examining standards and teaching history. Improvements to Laurea’s own tools, such as the hidden-text scan and cropped figure views, apply to existing installations automatically; changes to the bundled standards apply to fresh installations.
 
 ## Review a dissertation
 
 1. Drop a PDF into Laurea or press **⌘N**. Choose **BSc**, **MSc** or **PhD** and click **Examine**.
 2. Open the draft when it’s ready. Click a page reference to check it against the dissertation in the PDF panel. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. Press **⇧⌘R** to request a revision.
-3. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report: if the declaration has no date, Laurea dates it today before exporting. You can set or change the date yourself under **Declaration**, or turn it off to sign and date by hand.
+3. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report: if the declaration has no date, Laurea dates it today before exporting. You can set or change the date yourself under **Declaration**, or turn it off to sign and date by hand. Export always uses a Word file produced from the current report; if it can’t be produced, nothing is exported.
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
@@ -36,7 +36,7 @@ Open **Internal notes** at the bottom of the report editor to see the three exam
 
 Laurea covers AI and machine learning, computing and ICT, speech and language processing, physics, astronomy, and related computational fields. Its bundled workflow checks for hidden text, links headline claims to evidence, and uses several marking passes to reconcile scores against the rubric. [Full list of supported fields](skill/references/domains.md)
 
-In **Examining Standards** (**⇧⌘L**), describe a standing preference, such as asking a viva question about reproducibility. Teaching history is saved on your Mac and can be undone. **Calibration** (**⇧⌘K**) learns separately for each degree level and criterion. An adjustment needs at least three agreeing examinations. Recent decisions carry more weight, and the evidence in the current dissertation takes priority. Use **Evidence for learned offsets** to see how many examinations support each adjustment.
+In **Examining Standards** (**⇧⌘L**), describe a standing preference, such as asking a viva question about reproducibility. Teaching history is saved on your Mac and can be undone. **Calibration** (**⇧⌘K**) learns separately for each degree level and criterion. An adjustment needs at least three examinations in which you changed that mark in the same direction. Marks you accept unchanged don’t count towards that minimum, but can strengthen an adjustment that points the same way. Recent decisions carry more weight, and the evidence in the current dissertation takes priority. Use **Evidence for learned offsets** to see how many examinations support each adjustment.
 
 ## Dissertation data
 
@@ -47,5 +47,6 @@ Laurea sends the material needed for each examination or revision to your select
 - **The engine cannot start.** Install Apple’s Command Line Tools. The engine log is at `~/Library/Application Support/Laurea/engine.log`.
 - **Examination stops before starting.** Open **Settings → Examination Engine** and check that the selected engine is installed and signed in.
 - **The Word export is missing your signature.** Add it in **Settings → Examiner** and save the report again.
+- **Export says the Word document could not be produced.** Read the message at the top of the report, fix any problem it lists, save with **⌘S**, then export again.
 
 [Build from source and development guide](DEVELOPMENT.md)

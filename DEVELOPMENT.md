@@ -12,7 +12,13 @@ bash mac/build.sh
 
 The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/`. It bundles the tracked examiner skill and precompiled PDFKit helpers. Python’s standard library is sufficient. If `pypdf` or PyMuPDF is installed, the extraction script can also use it.
 
-Attach the verified universal disk image to its tagged GitHub Release as `Laurea.dmg`. The README download link uses this filename to serve the latest release.
+### Release checklist
+
+1. On `development`, run `bash dev/check.sh --build`. All checks must pass.
+2. Smoke-test the built app with a fresh data directory (see below): set up an engine, examine one short PDF, edit and save, export an undated report, export with the date turned off, and switch examinations during an export.
+3. Update `CHANGELOG.md` and the version in `mac/build.sh`.
+4. Merge `development` into `main`, tag the merge `vX.Y` and push the tag.
+5. Create the GitHub Release from the tag, using the changelog entry as the notes. Upload `dist/Laurea X.Y.dmg` **renamed to `Laurea.dmg`**: the README download link uses that filename to serve the latest release.
 
 ## Repository layout
 
