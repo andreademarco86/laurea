@@ -46,6 +46,16 @@ check("scheme not totalling 100 rejected", not sv.valid_scheme({**custom, "viva"
 out = sv.write_report(r, custom)
 check("custom scheme written into the report", "**62 / 85**" in out and "/ 15" in out)
 
+# Grading scales
+check("both grading presets are valid", all(sv.valid_grading_scale(g) for g in sv.GRADING_PRESETS))
+um = next(g for g in sv.GRADING_PRESETS if g["name"] == "University of Malta")
+text = sv.describe_grading_scale(um)
+check("the University of Malta scale is described with its ranges", "B 70-79%" in text and "F 0-44%" in text, text[:120])
+bad = {"name": "x", "bands": [{"grade": "A", "min": 50, "meaning": ""}, {"grade": "B", "min": 60, "meaning": ""}, {"grade": "C", "min": 0, "meaning": ""}]}
+check("a scale with rising bounds is rejected", not sv.valid_grading_scale(bad))
+check("a scale that does not reach 0% is rejected",
+      not sv.valid_grading_scale({"name": "x", "bands": [{"grade": "A", "min": 50}, {"grade": "B", "min": 10}]}))
+
 # Calibration: three agreeing examiner adjustments learn an offset; accepted offsets count at half weight
 today = sv.dt.date.today().isoformat()
 

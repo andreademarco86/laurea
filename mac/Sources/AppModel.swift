@@ -684,17 +684,20 @@ final class AppModel {
     }
 
     func saveSettings() async {
-        struct Body: Encodable { let examiner_name, institution: String; let marking_scheme: [String: Int]?; let summary_words: Int? }
+        struct Body: Encodable { let examiner_name, institution: String; let marking_scheme: [String: Int]?; let summary_words: Int?
+                                 let grading_scale: GradingScale? }
         let s = settings
         let scheme = s.marking_scheme.flatMap { Scheme.isValid($0) ? $0 : nil }
         let r: SettingsInfo? = try? await backend.send("PUT", "/api/settings",
             Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "",
-                 marking_scheme: scheme, summary_words: s.summary_words))
+                 marking_scheme: scheme, summary_words: s.summary_words,
+                 grading_scale: s.grading_scale.flatMap { $0.isValid ? $0 : nil }))
         if let r {
-            // keep an in-progress (not yet valid) weights edit on screen
-            let editing = settings.marking_scheme
+            // keep in-progress (not yet valid) weight and scale edits on screen
+            let editing = settings.marking_scheme, editingScale = settings.grading_scale
             settings = r
             if let editing, !Scheme.isValid(editing) { settings.marking_scheme = editing }
+            if let editingScale, !editingScale.isValid { settings.grading_scale = editingScale }
         }
     }
 }

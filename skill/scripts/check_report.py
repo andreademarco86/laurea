@@ -81,6 +81,8 @@ def main():
         paragraphs = [p for p in re.split(r"\n\s*\n", summ.strip()) if p.strip()]
         if len(paragraphs) < 3:
             warnings.append(f"summary has {len(paragraphs)} paragraph(s); end with a separate short summative assessment")
+        elif len(re.findall(r"[.?](?:\s|$)", paragraphs[-1].strip())) < 4:
+            warnings.append("the summary's final summative paragraph is too short; write four to six plain sentences")
         elif PAGE_REF.search(paragraphs[-1]):
             warnings.append("the summary's final paragraph is the summative assessment: leave out page references")
         # The summary refers to "the candidate", never to the student by name.

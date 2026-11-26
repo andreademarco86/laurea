@@ -25,6 +25,10 @@ struct SettingsView: View {
                 MarkingSchemeSection(scheme: Binding(
                     get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },
                     set: { s.wrappedValue.marking_scheme = $0; if Scheme.isValid($0) { scheduleSave() } }))
+                GradingScaleSection(scale: Binding(
+                    get: { s.wrappedValue.grading_scale ?? s.wrappedValue.grading_presets?.first ?? GradingScale(name: "", bands: []) },
+                    set: { s.wrappedValue.grading_scale = $0; if $0.isValid { scheduleSave() } }),
+                                    presets: s.wrappedValue.grading_presets ?? [])
                 Section {
                     LabeledContent("Summary length") {
                         HStack(spacing: 8) {
@@ -143,6 +147,69 @@ struct MarkingSchemeSection: View {
             }
         } label: {
             Text(label).lineLimit(1)
+        }
+    }
+}
+
+/// The institution's grading scale. The examiners decide a grade for each criterion, then a mark within its range.
+struct GradingScaleSection: View {
+    @Binding var scale: GradingScale
+    let presets: [GradingScale]
+
+    var body: some View {
+        Section {
+            Picker("Institution scale", selection: Binding(
+                get: { presets.first { $0.bands == scale.bands }?.name ?? "Custom" },
+                set: { name in if let p = presets.first(where: { $0.name == name }) { scale = p } })) {
+                    ForEach(presets, id: \.name) { Text($0.name).tag($0.name) }
+                    if !presets.contains(where: { $0.bands == scale.bands }) { Text("Custom").tag("Custom") }
+                }
+            ForEach(scale.bands.indices, id: \.self) { i in
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    TextField("Grade", text: Binding(get: { scale.bands[i].grade },
+                                                     set: { scale.bands[i].grade = $0; scale.name = "Custom" }))
+                        .labelsHidden().frame(width: 92)
+                    Group {
+                        if i == scale.bands.count - 1 {
+                            Text("0")
+                        } else {
+                            TextField("From", value: Binding(get: { scale.bands[i].min },
+                                                             set: { scale.bands[i].min = $0; scale.name = "Custom" }), format: .number)
+                                .labelsHidden().multilineTextAlignment(.trailing)
+                        }
+                    }
+                    .monospacedDigit().frame(width: 34, alignment: .trailing)
+                    Text("– \(scale.top(i))%").monospacedDigit().foregroundStyle(.secondary).frame(width: 52, alignment: .leading)
+                    TextField("Meaning", text: Binding(get: { scale.bands[i].meaning },
+                                                       set: { scale.bands[i].meaning = $0; scale.name = "Custom" }),
+                              prompt: Text("What this grade means"), axis: .vertical)
+                        .labelsHidden()
+                    Button(role: .destructive) {
+                        scale.bands.remove(at: i); scale.name = "Custom"
+                        if let last = scale.bands.indices.last { scale.bands[last].min = 0 }
+                    } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).foregroundStyle(.secondary)
+                        .disabled(scale.bands.count <= 2)
+                        .help("Remove this grade")
+                }
+            }
+            Button {
+                // Split the lowest band: the new grade sits just above the bottom one.
+                let lowTop = scale.top(scale.bands.count - 1)
+                scale.bands.insert(GradingScale.Band(grade: "New", min: max(1, lowTop / 2), meaning: ""), at: scale.bands.count - 1)
+                scale.name = "Custom"
+            } label: { Label("Add Grade", systemImage: "plus.circle") }
+                .buttonStyle(.borderless)
+                .disabled(scale.bands.count >= 10)
+            if !scale.isValid {
+                Label("Each grade needs a unique name, and the lower bounds must fall from highest to 0%.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+        } header: {
+            Text("Grading Scale")
+        } footer: {
+            Text("The examiners decide the grade the evidence supports for each criterion, then give a mark within its range. Mark the usual starting grade in its meaning. Laurea shows the grade beside the total; the report gives marks only. Applies to new examinations.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 }

@@ -149,6 +149,7 @@ struct ExamDetail: Codable {
     let scheme: [String: Int]?
     let summary_words: Int?
     let panel: PanelFeedback?
+    let grading_scale: GradingScale?
     /// Exact quotes behind the report's strengths and weaknesses, keyed by evidenceKey(point).
     let quotes: [String: String]?
 
@@ -188,6 +189,32 @@ struct CalibrationInfo: Codable {
     let total: Double
 }
 
+/// An institution's grading scale: bands as percentages of the maximum, highest first, the last starting at 0.
+struct GradingScale: Codable, Equatable {
+    struct Band: Codable, Equatable {
+        var grade: String
+        var min: Int
+        var meaning: String
+    }
+    var name: String
+    var bands: [Band]
+
+    var isValid: Bool {
+        let mins = bands.map(\.min), grades = bands.map { $0.grade.trimmingCharacters(in: .whitespaces) }
+        return (2...10).contains(bands.count) && (mins.first ?? 101) <= 100 && mins.last == 0
+            && zip(mins, mins.dropFirst()).allSatisfy { $0 > $1 }
+            && grades.allSatisfy { !$0.isEmpty && $0.count <= 24 } && Set(grades).count == grades.count
+            && bands.allSatisfy { $0.meaning.count <= 300 }
+    }
+
+    /// Upper bound of band i (the next band up starts one point above it).
+    func top(_ i: Int) -> Int { i == 0 ? 100 : bands[i - 1].min - 1 }
+
+    func grade(percent: Double) -> String? {
+        bands.first { percent.rounded(.down) >= Double($0.min) }?.grade
+    }
+}
+
 struct SettingsInfo: Codable {
     var examiner_name: String?
     var institution: String?
@@ -202,6 +229,8 @@ struct SettingsInfo: Codable {
     var provider: String?
     var model: String?
     var default_scheme: [String: Int]?
+    var grading_scale: GradingScale?
+    var grading_presets: [GradingScale]?
 }
 
 struct SaveResult: Codable {

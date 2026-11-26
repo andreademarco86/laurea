@@ -17,7 +17,7 @@ Mark as an external examiner of international standing would: against what stron
 
 Convert the percentage to whole marks for the criterion's maximum in the current marking scheme (see SKILL.md). Example with the default maxima: "Very good" is 6/10 for (a), 12-13/20 for (b) and 15-17/25 for (c) or (d).
 
-These bands only guide the mark for each criterion. The report gives the marks obtained, never a pass/fail verdict, grade or classification.
+When the run instructions give the examiner's grading scale, use that scale instead of these bands, the starting band in rule 1 and the typical totals below. These bands only guide the mark for each criterion. The report gives the marks obtained, never a pass/fail verdict, grade or classification.
 
 ## Criterion descriptors
 

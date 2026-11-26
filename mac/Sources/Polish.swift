@@ -124,6 +124,13 @@ struct ScoreHeader: View {
                     .lineLimit(3)
                 HStack(spacing: 8) {
                     LevelCapsule(level: level)
+                    if let scale = model.detail?.grading_scale, draft.dissertationMax > 0 {
+                        let pct = Double(draft.total) * 100 / Double(draft.dissertationMax)
+                        if let grade = scale.grade(percent: pct) {
+                            Pill(text: "\(Int(pct.rounded(.down)))% · \(grade)", icon: "graduationcap", tint: .accentColor)
+                                .help("Grade on the \(scale.name) scale. The report itself gives marks only.")
+                        }
+                    }
                     if let pt = model.proposedTotal {
                         Pill(text: "Proposed \(pt)", icon: "doc.text", tint: .secondary)
                     }

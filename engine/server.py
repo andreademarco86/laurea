@@ -118,6 +118,71 @@ def diss_max(s):
     return 100 - s["viva"]
 
 
+# Institution grading scales. Bands are percentages of each criterion's maximum (and of the total), highest first.
+GRADING_PRESETS = [
+    {"name": "International", "bands": [
+        {"grade": "Outstanding", "min": 85, "meaning": "Publishable-quality work in this aspect; very little to fault. Rare."},
+        {"grade": "Excellent", "min": 70, "meaning": "Strong, rigorous and critical; minor gaps only."},
+        {"grade": "Very good", "min": 60, "meaning": "Solid and competent, with some moderate weaknesses. The usual starting point."},
+        {"grade": "Good", "min": 50, "meaning": "Adequate: core requirements met, with clear weaknesses."},
+        {"grade": "Weak", "min": 40, "meaning": "Partly meets requirements; significant gaps."},
+        {"grade": "Inadequate", "min": 0, "meaning": "Falls well short of what is expected at this level."}]},
+    {"name": "University of Malta", "bands": [
+        {"grade": "A", "min": 80, "meaning": "Excellent: rigorous, insightful work with very little to fault."},
+        {"grade": "B", "min": 70, "meaning": "Very good: solid, competent work with some moderate weaknesses. The usual starting point."},
+        {"grade": "C", "min": 55, "meaning": "Good: core requirements met, with clear weaknesses."},
+        {"grade": "D", "min": 50, "meaning": "Satisfactory: only just meets the requirements; significant weaknesses."},
+        {"grade": "E", "min": 45, "meaning": "Weak: below the dissertation pass mark; significant gaps."},
+        {"grade": "F", "min": 0, "meaning": "Fail: falls well short of what is expected at this level."}]},
+]
+
+
+def valid_grading_scale(g):
+    try:
+        bands = g["bands"]
+        if not 2 <= len(bands) <= 10 or not isinstance(g.get("name", ""), str) or len(g.get("name", "")) > 60:
+            return False
+        mins = [int(b["min"]) for b in bands]
+        grades = [str(b["grade"]).strip() for b in bands]
+        return (mins[0] <= 100 and mins[-1] == 0 and all(a > b for a, b in zip(mins, mins[1:]))
+                and all(0 < len(x) <= 24 for x in grades) and len(set(grades)) == len(grades)
+                and all(len(str(b.get("meaning", ""))) <= 300 for b in bands))
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def _norm_grading_scale(g):
+    return {"name": str(g.get("name") or "Custom").strip()[:60],
+            "bands": [{"grade": str(b["grade"]).strip(), "min": int(b["min"]), "meaning": str(b.get("meaning", "")).strip()}
+                      for b in g["bands"]]}
+
+
+def current_grading_scale():
+    g = (read_json(SKILL_CONFIG, {}) or {}).get("grading_scale")
+    return _norm_grading_scale(g) if isinstance(g, dict) and valid_grading_scale(g) else GRADING_PRESETS[0]
+
+
+def exam_grading_scale(d):
+    """The scale snapshotted when this examination started (older examinations used the international bands)."""
+    g = (read_json(d / "scheme.json", {}) or {}).get("grading_scale")
+    return _norm_grading_scale(g) if isinstance(g, dict) and valid_grading_scale(g) else GRADING_PRESETS[0]
+
+
+def describe_grading_scale(g):
+    """Marking instructions for a grading scale: grade first from the evidence, then the mark within its range."""
+    rows, top = [], 100
+    for b in g["bands"]:
+        rows.append(f"{b['grade']} {b['min']}-{top}%" + (f": {b['meaning']}" if b["meaning"] else ""))
+        top = b["min"] - 1
+    return (f"Mark to the examiner's grading scale ({g['name']}). It replaces the generic bands, the starting band and the "
+            "typical totals in marking-rubric.md. Bands, as a percentage of each criterion's maximum and of the total: "
+            + "; ".join(rows) + ". For each criterion, every examiner and the chair first decide which grade the evidence "
+            "supports, starting from the grade the scale describes as the usual starting point and moving only for "
+            "evidence. Test the case for the grade above as seriously as the case for the grade below, and record both "
+            "in evidence.md. Then give the whole mark within that grade's range that shows where the work sits in it. "
+            "The report states marks only, never grades.")
+
+
 def describe_scheme(s):
     return (", ".join(f"({k}) {name} /{mx}" for k, name, mx in crit(s))
             + f"; dissertation total /{diss_max(s)}; viva /{s['viva']}; final mark /100")
@@ -1063,7 +1128,8 @@ def review_disputed_criteria(d, work, panel, provider, path, workspace, model, s
                          "Independently review only these disputed criteria. Explain whether the draft mark is supported "
                          "and recommend a change only if the evidence warrants one. Cite decisive pages. Identify any claims "
                          "that cannot be resolved from the supplied excerpts, including figures or tables you cannot see. "
-                         "Give the human examiner one or two short sentences per criterion.",
+                         "Give the human examiner one or two short sentences per criterion. "
+                         + describe_grading_scale(exam_grading_scale(d)),
                          {"criteria": disputed, "excerpts": excerpts, "images": [name for name, _ in images],
                           "rubric": read_excerpt(skill / "references" / "marking-rubric.md", 16000)},
                          register, images)[:4000]
@@ -1695,6 +1761,10 @@ class Handler(BaseHTTPRequestHandler):
                 if not valid_scheme(b["marking_scheme"] or {}):
                     return self.send(400, {"error": "The weights must be whole numbers (each criterion at least 1) that add up to 100 with the viva."})
                 cfg["marking_scheme"] = _norm_scheme(b["marking_scheme"])
+            if "grading_scale" in b:
+                if not valid_grading_scale(b["grading_scale"] or {}):
+                    return self.send(400, {"error": "Each grade needs a name and a lower bound; bounds must fall from highest to 0%."})
+                cfg["grading_scale"] = _norm_grading_scale(b["grading_scale"])
             write_json(SKILL_CONFIG, cfg)
             s = settings()
             for k in ("provider", "model", "effort", "claude_path", "codex_path"):
@@ -1706,6 +1776,7 @@ class Handler(BaseHTTPRequestHandler):
         skill_mtime = (CURRENT_STANDARDS.resolve().parent / "revision.json").stat().st_mtime
         self.send(200, {**cfg, **settings(), "marking_scheme": current_scheme(), "default_scheme": DEFAULT_SCHEME,
                         "summary_words": current_summary_words(),
+                        "grading_scale": current_grading_scale(), "grading_presets": GRADING_PRESETS,
                         "assistant_name": PROVIDERS[settings().get("provider", "claude")],
                         "model_label": assistant_label(), "skill_path": str(CURRENT_STANDARDS),
                         "skill_updated": dt.datetime.fromtimestamp(skill_mtime).strftime("%Y-%m-%d %H:%M"),
@@ -1773,7 +1844,9 @@ class Handler(BaseHTTPRequestHandler):
             info = exam_summary(d)
             prop = load_proposal(d)
             info.update(summary_words=exam_summary_words(d) if (d / "scheme.json").exists() else current_summary_words())
-            info.update(status=st, scheme=exam_scheme(d) if (d / "scheme.json").exists() or st.get("state") != "new" else current_scheme(),
+            started = (d / "scheme.json").exists() or st.get("state") != "new"
+            info.update(status=st, scheme=exam_scheme(d) if started else current_scheme(),
+                        grading_scale=exam_grading_scale(d) if started else current_grading_scale(),
                         proposed=prop.get("proposed", {}), raw=prop.get("raw", {}),
                         applied=prop.get("applied", {}),
                         calibration=next((e for e in read_json(HISTORY, []) if e["exam_id"] == eid), None))
@@ -1813,9 +1886,11 @@ class Handler(BaseHTTPRequestHandler):
                     set_status(d, level=level)
                     sc = current_scheme()
                     words = current_summary_words()
-                    write_json(d / "scheme.json", {**sc, "summary_words": words})
+                    scale = current_grading_scale()
+                    write_json(d / "scheme.json", {**sc, "summary_words": words, "grading_scale": scale})
                     prompt = (f"Examine the {LEVEL_WHAT[level]} PDF `{st['pdf']}` in the current folder at {level.upper()} level "
                               f"and write all outputs there. Use this marking scheme: {describe_scheme(sc)}. "
+                              f"{describe_grading_scale(scale)} "
                               f"The summary must be at most {words} words.")
                 else:
                     instr = (body.get("instruction") or "").strip()
@@ -1824,7 +1899,7 @@ class Handler(BaseHTTPRequestHandler):
                         return self.send(400, {"error": "A report and a revision instruction are needed."})
                     prompt = (f"The examiner asks for this change to `{rp.name}` in the current folder:\n\n{instr}\n\n"
                               "Keep the template structure, verify page references against the available evidence and rerun "
-                              "check_report.py.")
+                              "check_report.py. If the change affects marks: " + describe_grading_scale(exam_grading_scale(d)))
                 start_run(eid, prompt, action, provider, path)
             return self.send(200, {"ok": True})
         if method == "POST" and action == "cancel":

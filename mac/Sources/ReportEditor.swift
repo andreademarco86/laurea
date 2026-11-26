@@ -105,14 +105,13 @@ struct PanelReview: View {
 
                 ForEach(scheme.specs, id: \.key) { criterion in
                     GridRow {
-                        Label {
-                            Text("(\(criterion.key))")
-                        } icon: {
-                            if panel.low_confidence.contains(criterion.key) {
-                                Image(systemName: "exclamationmark.circle")
-                                    .foregroundStyle(.orange)
-                                    .accessibilityLabel("Lower confidence")
-                            }
+                        // Fixed icon slot so (a)-(e) line up whether or not a criterion is flagged.
+                        HStack(spacing: 6) {
+                            Text("(\(criterion.key))").frame(width: 24, alignment: .leading)
+                            Image(systemName: "exclamationmark.circle")
+                                .foregroundStyle(.orange)
+                                .opacity(panel.low_confidence.contains(criterion.key) ? 1 : 0)
+                                .help("Lower confidence: the examiners disagreed")
                         }
                         .help(criterion.name)
                         .accessibilityLabel(panel.low_confidence.contains(criterion.key)
@@ -137,13 +136,15 @@ struct PanelReview: View {
             }
 
             // One line per examiner and one for the chair; the detailed deliberation stays in the work folder.
-            VStack(alignment: .leading, spacing: 6) {
+            Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 6) {
                 ForEach(roles, id: \.self) { role in
                     if let note = role == "chair" ? panel.summary : panel.notes[role], !note.isEmpty {
-                        (Text(title(role) + "  ").fontWeight(.semibold) + Text(Self.plain(note)).foregroundStyle(.secondary))
-                            .font(.callout)
-                            .textSelection(.enabled)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        GridRow {
+                            Text(title(role)).fontWeight(.semibold).frame(width: 64, alignment: .leading)
+                            Text(Self.plain(note)).foregroundStyle(.secondary).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(.callout)
                     }
                 }
             }
@@ -207,10 +208,12 @@ struct MarksSections: View {
                         }
                         .font(.caption.monospacedDigit())
                         .frame(width: 84, alignment: .trailing)
-                        Text("\(c.mark)").font(.body.weight(.semibold)).monospacedDigit().frame(width: 28, alignment: .trailing)
-                        Text("/ \(c.spec.max)").foregroundStyle(.secondary).monospacedDigit().frame(width: 38, alignment: .leading)
-                        Stepper("Mark", value: Binding(get: { c.mark }, set: { model.setMark(i, $0) }), in: 0...c.spec.max)
-                            .labelsHidden()
+                        ScoreColumns(max: c.spec.max) {
+                            Text("\(c.mark)").font(.body.weight(.semibold))
+                        } control: {
+                            Stepper("Mark", value: Binding(get: { c.mark }, set: { model.setMark(i, $0) }), in: 0...c.spec.max)
+                                .labelsHidden()
+                        }
                     }
                 } label: {
                     Text("(\(c.spec.key)) \(c.spec.name)")
@@ -227,12 +230,15 @@ struct MarksSections: View {
                 Text("More generous").font(.caption)
             }
             if let pt = model.proposedTotal {
-                LabeledContent("Proposed mark", value: "\(pt) / \(draft.dissertationMax)")
+                LabeledContent("Proposed mark") {
+                    ScoreColumns(max: draft.dissertationMax) { Text("\(pt)").foregroundStyle(.secondary) }
+                }
                 LabeledContent("Your adjustment") {
                     let d = draft.total - pt
-                    Text(d == 0 ? "None" : Fmt.signed(Double(d)) + " marks")
-                        .foregroundStyle(d > 0 ? Color.green : d < 0 ? Color.red : Color.secondary)
-                        .monospacedDigit()
+                    ScoreColumns(unit: "marks") {
+                        Text(d == 0 ? "0" : Fmt.signed(Double(d)))
+                            .foregroundStyle(d > 0 ? Color.green : d < 0 ? Color.red : Color.secondary)
+                    }
                 }
             }
             TextField("Why you adjusted", text: Binding(get: { model.note }, set: { model.note = $0; model.dirty = true }),
@@ -260,24 +266,53 @@ struct MarksSections: View {
 
         Section("Result") {
             LabeledContent("Dissertation") {
-                Text("\(draft.total) / \(draft.dissertationMax)").font(.title3.weight(.semibold)).monospacedDigit()
+                ScoreColumns(max: draft.dissertationMax) { Text("\(draft.total)").font(.body.weight(.semibold)) }
             }
             LabeledContent("Viva") {
-                HStack(spacing: 6) {
-                    TextField("Viva", text: $draft.vivaText, prompt: Text("after the oral"))
-                        .labelsHidden()
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 110)
-                        .foregroundStyle(draft.vivaInvalid ? .red : .primary)
-                    Text("/ \(draft.vivaMax)").foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    if draft.vivaText.isEmpty {
+                        Text("after the oral").font(.caption).foregroundStyle(.secondary)
+                    }
+                    ScoreColumns(max: draft.vivaMax) {
+                        TextField("Viva", text: $draft.vivaText, prompt: Text("–"))
+                            .labelsHidden()
+                            .multilineTextAlignment(.trailing)
+                            .foregroundStyle(draft.vivaInvalid ? .red : .primary)
+                    }
                 }
             }
             LabeledContent("Final mark") {
-                Text(draft.viva.map { "\(Fmt.mark(Double(draft.total) + $0)) / 100" } ?? "– / 100")
-                    .font(.title3.weight(.bold)).monospacedDigit()
-                    .foregroundStyle(draft.viva == nil ? Color.secondary : Color.accentColor)
+                ScoreColumns(max: 100) {
+                    Text(draft.viva.map { Fmt.mark(Double(draft.total) + $0) } ?? "–")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(draft.viva == nil ? Color.secondary : Color.accentColor)
+                }
             }
         }
+    }
+}
+
+/// The right-hand number columns shared by every score row: value, "/ max" (or a unit), and a control slot,
+/// all fixed width so numbers line up down the whole report.
+struct ScoreColumns<Value: View, Control: View>: View {
+    var max: Int? = nil
+    var unit: String? = nil
+    @ViewBuilder let value: () -> Value
+    @ViewBuilder let control: () -> Control
+
+    var body: some View {
+        HStack(spacing: 6) {
+            value().monospacedDigit().frame(width: 44, alignment: .trailing)
+            Text(max.map { "/ \($0)" } ?? unit ?? "").foregroundStyle(.secondary).monospacedDigit()
+                .frame(width: 44, alignment: .leading)
+            control().frame(width: 20)
+        }
+    }
+}
+
+extension ScoreColumns where Control == EmptyView {
+    init(max: Int? = nil, unit: String? = nil, @ViewBuilder value: @escaping () -> Value) {
+        self.init(max: max, unit: unit, value: value, control: { EmptyView() })
     }
 }
 
@@ -470,6 +505,7 @@ struct BulletList: View {
             let quote = quotes.isEmpty ? nil : quotes[evidenceKey(item.text)]
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
+                    .frame(width: 22, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 3) {
                     TextField("Item", text: b, prompt: Text(prompt), axis: .vertical).labelsHidden()
                     RefChips(text: item.text, highlights: quote.map { [$0] + evidenceAnchors(in: item.text) } ?? []).equatable()
