@@ -40,30 +40,18 @@ struct ReportEditor: View {
             }
 
             ForEach(draft.criteria) { $c in
-                let findings = detail?.evidence ?? []
-                let strengths = EvidenceMatch.index(findings, criterion: c.spec.key, kind: "strength")
-                let concerns = EvidenceMatch.index(findings, criterion: c.spec.key, kind: "concern")
-                let used = Set(c.strengths.compactMap { strengths[EvidenceMatch.normalized($0.text)]?.id }
-                               + c.weaknesses.compactMap { concerns[EvidenceMatch.normalized($0.text)]?.id })
-                let toReview = findings.filter { used.contains($0.id) && $0.decision == .pending }.count
+                let quotes = detail?.quotes ?? [:]
                 Section {
                     SubHeading("Strengths")
                     BulletList(items: $c.strengths, prompt: "What the dissertation does well, with § and page", addLabel: "Add Strength",
-                               examID: detail?.id, evidence: { strengths[EvidenceMatch.normalized($0)] })
+                               quotes: quotes)
                     SubHeading("Weaknesses")
                     BulletList(items: $c.weaknesses, prompt: "What could have been done better, with § and page", addLabel: "Add Weakness",
-                               examID: detail?.id, evidence: { concerns[EvidenceMatch.normalized($0)] })
-                    if let id = detail?.id {
-                        OtherEvidence(findings: findings.filter { $0.criterion == c.spec.key && !used.contains($0.id) }, examID: id)
-                    }
+                               quotes: quotes)
                 } header: {
                     HStack {
                         Text("(\(c.spec.key)) \(c.spec.name)")
                         Spacer()
-                        if toReview > 0 {
-                            Text("\(toReview) to review").font(.caption).foregroundStyle(.secondary)
-                                .help("Points not yet confirmed or dismissed: click the circle beside a point")
-                        }
                         Text("\(c.mark) / \(c.spec.max)").monospacedDigit()
                     }
                 }
@@ -472,25 +460,19 @@ struct BulletList: View {
     let prompt: String
     let addLabel: String
     var numbered = false
-    /// For strengths and weaknesses: the evidence finding behind a point, reviewed in place of its bullet.
-    var examID: String? = nil
-    var evidence: ((String) -> EvidenceFinding?)? = nil
+    /// For strengths and weaknesses: the exact quotes behind each point, so its page references highlight them.
+    var quotes: [String: String] = [:]
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
             let b = Binding(get: { items.first { $0.id == item.id }?.text ?? "" },
                             set: { nv in if let j = items.firstIndex(where: { $0.id == item.id }) { items[j].text = nv } })
-            let finding = evidence?(item.text)
+            let quote = quotes.isEmpty ? nil : quotes[evidenceKey(item.text)]
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                if let finding, let examID {
-                    ReviewMark(finding: finding, examID: examID)
-                } else {
-                    Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
-                }
+                Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
                 VStack(alignment: .leading, spacing: 3) {
                     TextField("Item", text: b, prompt: Text(prompt), axis: .vertical).labelsHidden()
-                        .opacity(finding?.decision == .dismissed ? 0.5 : 1)
-                    RefChips(text: item.text, highlights: finding?.pdfHighlights ?? []).equatable()
+                    RefChips(text: item.text, highlights: quote.map { [$0] + evidenceAnchors(in: item.text) } ?? []).equatable()
                 }
                 Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: {
                     Image(systemName: "minus.circle")

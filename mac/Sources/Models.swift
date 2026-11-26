@@ -116,27 +116,11 @@ struct PanelFeedback: Codable {
     let low_confidence: [String]
 }
 
-enum EvidenceDecision: String, Codable, CaseIterable, Identifiable {
-    case pending, confirmed, corrected, dismissed
-
-    var id: Self { self }
-    var label: String { self == .pending ? "To review" : rawValue.capitalized }
-}
-
-struct EvidenceFinding: Codable, Identifiable {
-    let id: String
-    let criterion: String
-    let kind: String
-    let finding: String
-    let source: String
-    let decision: EvidenceDecision
-    let correction: String
-    let quote: String?
-
-    var pdfHighlights: [String] {
-        let anchors = evidenceAnchors(in: [source, finding, correction].joined(separator: " "))
-        return Array(([quote].compactMap { $0 }.filter { !$0.isEmpty } + anchors).prefix(6))
-    }
+/// Matches a report point to the quote the engine logged for it (same normalization as the engine).
+func evidenceKey(_ text: String) -> String {
+    var t = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    while let last = t.last, last == "." || last == " " { t.removeLast() }
+    return t.split(whereSeparator: \.isWhitespace).joined(separator: " ")
 }
 
 /// Exact anchors in a comment that can be found on a PDF page: quoted passages and figure or table labels.
@@ -165,7 +149,8 @@ struct ExamDetail: Codable {
     let scheme: [String: Int]?
     let summary_words: Int?
     let panel: PanelFeedback?
-    var evidence: [EvidenceFinding]?
+    /// Exact quotes behind the report's strengths and weaknesses, keyed by evidenceKey(point).
+    let quotes: [String: String]?
 
     var markingScheme: Scheme { Scheme(scheme) }
 

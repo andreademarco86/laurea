@@ -171,7 +171,6 @@ final class AppModel {
         slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
         pdfTarget = nil
         pdfCurrentLabel = ""
-        reviewSaving = []
         switch item {
         case .exam(let id): await load(id)
         case .calibration: await loadCalibration()
@@ -318,18 +317,6 @@ final class AppModel {
     func openPDF(at reference: PageReference? = nil, highlighting highlights: [String] = [], context: String = "") {
         showPDF = true
         if let reference { pdfTarget = PDFTarget(reference: reference, highlights: highlights, context: context) }
-    }
-
-    func reviewEvidence(_ finding: EvidenceFinding, examID id: String, decision: EvidenceDecision, correction: String = "") async {
-        struct Review: Encodable { let decision: EvidenceDecision; let correction: String }
-        do {
-            let updated: EvidenceFinding = try await backend.send("PUT", "/api/exams/\(id)/evidence/\(finding.id)",
-                                                                  Review(decision: decision, correction: correction))
-            guard selectedExamID == id, let index = detail?.evidence?.firstIndex(where: { $0.id == updated.id }) else { return }
-            detail?.evidence?[index] = updated
-        } catch {
-            if selectedExamID == id { errorMessage = error.localizedDescription }
-        }
     }
 
     var pdfURL: URL? {
@@ -538,8 +525,6 @@ final class AppModel {
 
     // MARK: Report editor view state (lives here: the app builds without the SwiftUI macro plugin)
 
-    /// Evidence reviews being saved, by finding id.
-    var reviewSaving: Set<String> = []
     var vivaExpanded = true
     var correctionsExpanded = true
 

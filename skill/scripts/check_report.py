@@ -74,10 +74,15 @@ def main():
         limit = load_summary_limit(path)
         if n > limit:
             errors.append(f"summary has {n} words (> {limit})")
-        elif n < int(limit * 0.6):
-            warnings.append(f"summary has only {n} words; aim for {int(limit * 0.8)}-{limit}")
+        elif n < int(limit * 0.85):
+            warnings.append(f"summary has only {n} words; use close to the limit ({int(limit * 0.9)}-{limit})")
         else:
             print(f"summary: {n} words")
+        paragraphs = [p for p in re.split(r"\n\s*\n", summ.strip()) if p.strip()]
+        if len(paragraphs) < 3:
+            warnings.append(f"summary has {len(paragraphs)} paragraph(s); end with a separate short summative assessment")
+        elif PAGE_REF.search(paragraphs[-1]):
+            warnings.append("the summary's final paragraph is the summative assessment: leave out page references")
         # The summary refers to "the candidate", never to the student by name.
         m = re.search(r"\*\*Student name\*\*\s*\|\s*(.*?)\s*\|", text)
         parts = [p for p in re.findall(r"[^\W\d_][\w'’-]*", m.group(1) if m else "") if len(p) >= 3 and p[0].isupper()]
@@ -148,6 +153,14 @@ def main():
         for it in items:
             if not PAGE_REF.search(it):
                 warnings.append(f"substantial correction without page ref: {it.strip()[:70]}")
+
+    # Corrections are for the student: plain and direct
+    VAGUE = re.compile(r"\b(consider|may wish|might want|could benefit|would benefit|could perhaps|enhanc\w*|robustness|rigou?r)\b", re.I)
+    for name, block in (("substantial", sc), ("minor", section(text, r"^## \d+\. Minor corrections\s*$"))):
+        for it in re.findall(r"^\s*\d+\.\s+(\S.*)$", block or "", re.M):
+            v = VAGUE.search(it)
+            if v:
+                warnings.append(f"{name} correction is vague ('{v.group(0)}'); say exactly what to do: {it[:60]}...")
 
     # Minor corrections
     mc = section(text, r"^## \d+\. Minor corrections\s*$")

@@ -9,10 +9,12 @@
 - Revisions reuse the existing report and evidence, reopening only the source pages the change needs.
 
 **Reviewing**
-- **Evidence review in place**: each strength and weakness has a review circle to confirm or dismiss it, and its page references highlight the cited passage. To correct a point, edit it. Evidence the report doesn’t use is under Other evidence in each criterion. A reworded point returns to To review. Decisions guide later revisions of the same examination.
+- **Check points against the PDF**: a strength or weakness’s page reference opens the PDF at the exact passage it is based on. There is no separate review step: edit or delete points directly.
 - **Substantial corrections**: a new report section, before the minor corrections, for rework that takes real effort but no new research. It can be empty ("None required."). The report layout now always comes from the app, so existing installations get the new section.
 - **Collapsible viva questions and corrections** in the report editor.
 - **Date the report is on by default**: an undated report is dated on the day it is exported, unless you turn the toggle off.
+- **Fuller summaries with a closing assessment.** The summary uses close to its word limit and ends with a short paragraph judging the dissertation as a whole.
+- **Plainer corrections.** Each says what is wrong, then what to do, starting with a verb; the report checker flags vague ones.
 - **The summary never names the student.** It refers to “the candidate” where needed; the report checker rejects a summary that uses the student’s name.
 - **Page references highlight what they cite.** Any page reference in the report, including weaknesses and viva questions, opens the PDF with a quoted passage or figure/table label highlighted. If neither appears, Laurea lightly highlights the sentence that best matches the comment, but only when one sentence clearly stands out.
 - **Internal notes**: the three examiner scores and the chair’s marks before calibration, with a one-line view from each examiner and the chair. They stay in Laurea; the exported report shows only the agreed findings and marks.

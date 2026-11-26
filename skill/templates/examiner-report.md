@@ -15,7 +15,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 1. Summary
 
-{{SUMMARY - within the summary word limit (default 350): a paragraph on what the work did and found, then a paragraph on the main points that drive the mark}}
+{{SUMMARY - close to the full word limit (90-100% of it, default 350), in three paragraphs: (1) what the work did and found; (2) the main strengths and weaknesses that drive the mark, with pages; (3) on its own, a short summative assessment of the dissertation as a whole, without page references. Never name the student; say "the candidate" if needed}}
 
 ## 2. Marking scheme
 
@@ -110,12 +110,12 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 4. Substantial corrections
 
-1. §{{x.y}}, p. {{N}}: {{what needs reworking}} -> {{what a satisfactory revision includes}}
+1. §{{x.y}}, p. {{N}}: {{what is wrong, in plain words}} -> {{what to do, starting with a verb, e.g. "Add a paragraph that explains..."}}
 2. ...
 
 ## 5. Minor corrections
 
-1. p. {{N}}, §{{x.y}}: {{issue}} -> {{fix}}
+1. p. {{N}}, §{{x.y}}: {{what is wrong, one short sentence}} -> {{the fix, starting with a verb}}
 2. ...
 3. ...
 4. ...

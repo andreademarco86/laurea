@@ -9,7 +9,6 @@ Only the Python standard library is used.
 import datetime as dt
 import difflib
 import glob
-import hashlib
 import json
 import os
 import re
@@ -30,7 +29,6 @@ APP_DIR = Path(__file__).resolve().parent
 APP_TOKEN = os.environ.get("DE_APP_TOKEN", "1")
 ROOT = Path(os.environ.get("DE_DATA") or Path.home() / "Library" / "Application Support" / "Laurea").expanduser()
 EXAMS = ROOT / "examinations"
-EVIDENCE_REVIEWS = ROOT / "evidence-reviews"
 SETTINGS_FILE = ROOT / "settings.json"
 SKILL = ROOT / "examiner"
 STANDARDS = SKILL / "standards"
@@ -728,7 +726,7 @@ def report_command(provider, path, cwd, prompt, skill=None, *, selection=None):
 
     tools = ["Read", "Write", "Edit", "Glob", "Grep"]
     allowed = tools.copy()
-    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve()), str(EVIDENCE_REVIEWS.resolve()),
+    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve()),
                     str(provider_home(provider).resolve())]
     denied_reads += [str(d.resolve()) for d in EXAMS.iterdir() if d.is_dir() and d != cwd]
     if skill:
@@ -998,47 +996,25 @@ def panel_feedback(d, meta, scheme):
 EVIDENCE_LINE = re.compile(r"^\s*(?:[-*]\s+)?\[([a-e])\]\s*(.+?)\s+\(([+–−-])\)\s+(.+)$")
 
 
-def evidence_ledger(d, report, meta):
+def evidence_quotes(d, report, meta):
+    """Exact quotes from the evidence log for the report's strengths and weaknesses, keyed by normalized point text.
+    The editor uses them to highlight the cited passage when a page reference is clicked."""
     work = meta.parent if meta else d / f"{Path(status(d).get('pdf', '')).stem}_examiner_work"
     log = read_excerpt(work / "evidence.md", 240000) if not work.is_symlink() else ""
-    reviews = read_json(EVIDENCE_REVIEWS / f"{d.name}.json", {})
-    if not isinstance(reviews, dict):
-        reviews = {}
-    rows = {}
 
-    def add(criterion, kind, finding, source="", quote=""):
-        finding, source = finding.strip(), source.strip()
-        if not finding:
-            return
-        key = hashlib.sha256(json.dumps([criterion, kind, finding, source], ensure_ascii=False).encode()).hexdigest()[:24]
-        review = reviews.get(key)
-        review = review if isinstance(review, dict) else {}
-        rows[key] = {"id": key, "criterion": criterion, "kind": kind, "finding": finding, "source": source,
-                     "decision": review.get("decision", "pending"), "correction": review.get("correction", ""),
-                     "quote": quote.strip().strip('\"“”')[:300]}
-        return key
-
-    def match_key(criterion, kind, finding):
-        return criterion, kind, " ".join(finding.lower().rstrip(". ").split())
+    def norm(text):
+        return " ".join(text.lower().strip().rstrip(". ").split())
 
     logged = {}
     for line in log.splitlines():
         match = EVIDENCE_LINE.match(line)
         if match:
-            key, source, sign, finding = match.groups()
-            kind = "strength" if sign == "+" else "concern"
-            finding, _, quote = finding.partition(" | Quote: ")
-            logged[match_key(key, kind, finding)] = add(key, kind, finding, source, quote)
-    report_findings = []
-    for key, criterion in report["criteria"].items():
-        for kind, field in (("strength", "strengths"), ("concern", "weaknesses")):
-            for finding in criterion[field]:
-                item = logged.get(match_key(key, kind, finding)) or add(key, kind, finding)
-                if item:
-                    report_findings.append(item)
-    # Decisions are keyed on the finding's stable identity. Edited report wording does not move a decision:
-    # a decision made on an evidence-log line stays there, and a reworded report finding returns to "To review".
-    return [rows[key] for key in dict.fromkeys([*report_findings, *rows])]
+            finding, _, quote = match.group(4).partition(" | Quote: ")
+            quote = quote.strip().strip('"“”')[:300]
+            if quote:
+                logged[norm(finding)] = quote
+    points = [p for c in report["criteria"].values() for field in ("strengths", "weaknesses") for p in c[field]]
+    return {norm(p): logged[norm(p)] for p in points if norm(p) in logged}
 
 
 def review_disputed_criteria(d, work, panel, provider, path, workspace, model, skill, register):
@@ -1809,37 +1785,8 @@ class Handler(BaseHTTPRequestHandler):
             info["page_labels"] = read_json(mp, {}).get("page_labels", []) if mp else []
             if rp.exists():
                 info["panel"] = panel_feedback(d, mp, info["scheme"])
-                info["evidence"] = evidence_ledger(d, info["report"], mp)
+                info["quotes"] = evidence_quotes(d, info["report"], mp)
             return self.send(200, info)
-        if method == "PUT" and action == "evidence" and len(rest) == 2:
-            body = self.body_json()
-            decision, correction = body.get("decision"), body.get("correction", "")
-            if decision not in ("pending", "confirmed", "corrected", "dismissed") or not isinstance(correction, str):
-                return self.send(400, {"error": "Invalid evidence review."})
-            correction = correction.strip() if decision == "corrected" else ""
-            if decision == "corrected" and not 0 < len(correction) <= 2500:
-                return self.send(400, {"error": "Enter a correction of up to 2,500 characters."})
-            with LOCK:
-                rp = report_path(d)
-                if eid in RUNNING or not rp.is_file():
-                    return self.send(409, {"error": "Wait for the report to finish before reviewing evidence."})
-                report = parse_report(rp.read_text(encoding="utf-8"))
-                row = next((item for item in evidence_ledger(d, report, meta_path(d)) if item["id"] == rest[1]), None)
-                if row is None:
-                    return self.send(404, {"error": "This finding is no longer in the evidence ledger."})
-                EVIDENCE_REVIEWS.mkdir(exist_ok=True)
-                record = EVIDENCE_REVIEWS / f"{eid}.json"
-                reviews = read_json(record, {})
-                if not isinstance(reviews, dict):
-                    reviews = {}
-                row.update(decision=decision, correction=correction)
-                if decision == "pending":
-                    reviews.pop(row["id"], None)
-                else:
-                    reviews[row["id"]] = {"decision": decision, "correction": correction, "criterion": row["criterion"],
-                                          "kind": row["kind"], "finding": row["finding"], "source": row["source"]}
-                write_json(record, reviews)
-            return self.send(200, row)
         if method == "GET" and action == "progress":
             since = int((q.get("since") or ["0"])[0])
             lines = (d / "progress.jsonl").read_text(encoding="utf-8").splitlines() if (d / "progress.jsonl").exists() else []
@@ -1878,15 +1825,6 @@ class Handler(BaseHTTPRequestHandler):
                     prompt = (f"The examiner asks for this change to `{rp.name}` in the current folder:\n\n{instr}\n\n"
                               "Keep the template structure, verify page references against the available evidence and rerun "
                               "check_report.py.")
-                    evidence = evidence_ledger(d, parse_report(rp.read_text(encoding="utf-8")), meta_path(d))
-                    reviewed = [{"criterion": row["criterion"], "finding": row["finding"][:300], "source": row["source"][:150],
-                                 "decision": row["decision"], "correction": row["correction"][:400]}
-                                for row in evidence if row["decision"] != "pending"]
-                    if reviewed:
-                        reviewed.sort(key=lambda row: row["decision"] == "confirmed")
-                        prompt += ("\n\nUse these examiner decisions only where relevant to the requested change. "
-                                   "Use corrections in place of the original finding and avoid relying on dismissed findings.\n"
-                                   + json.dumps(reviewed[:24], ensure_ascii=False))
                 start_run(eid, prompt, action, provider, path)
             return self.send(200, {"ok": True})
         if method == "POST" and action == "cancel":
@@ -1926,7 +1864,6 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(409, {"error": "stop the run first"})
                 trash = Path.home() / ".Trash" / f"Laurea-{eid}"
                 shutil.move(str(d), str(trash))
-                (EVIDENCE_REVIEWS / f"{eid}.json").unlink(missing_ok=True)
                 forget_calibration(eid)
             return self.send(200, {"ok": True, "moved_to": str(trash)})
         self.send(404, {"error": "unknown action"})

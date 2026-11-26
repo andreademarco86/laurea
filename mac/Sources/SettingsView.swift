@@ -44,7 +44,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Report")
                 } footer: {
-                    Text("The maximum length of the report's summary. Applies to new examinations.")
+                    Text("The summary aims for close to this length and never exceeds it. Applies to new examinations.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

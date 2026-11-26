@@ -73,33 +73,20 @@ check("accepted offsets in the old direction cannot cancel a new trend", trend <
 inherited_only = [entry(i, 15, 17, proposed_c=17) for i in range(3)]
 check("three untouched inherited proposals do not qualify an offset", sv.compute_offsets(inherited_only)["offsets"]["c"] == 0)
 
-# Evidence ledger: a decision survives rewording of its finding
+# Evidence quotes: a report point logged with a quote gets that quote for PDF highlighting
 d = sv.EXAMS / "20260101-000000-Sample"
 work = d / "Sample_examiner_work"
 work.mkdir(parents=True)
 (d / "Sample.pdf").write_bytes(b"%PDF-1.4\n")
 sv.write_json(d / "status.json", {"state": "done", "pdf": "Sample.pdf", "level": "msc"})
-(d / "Sample_examiner_report.md").write_text(fixture, encoding="utf-8")
 (work / "meta.json").write_text(json.dumps({"page_labels": [str(i) for i in range(1, 80)]}))
 report = sv.parse_report(fixture)
 logged = report["criteria"]["c"]["weaknesses"][0]
-(work / "evidence.md").write_text(f"[c] §4.1 p. 31 (-) {logged}\n", encoding="utf-8")
-rows = sv.evidence_ledger(d, report, work / "meta.json")
-check("evidence ledger lists the report's findings", len(rows) == 20, str(len(rows)))
-target = next(x for x in rows if x["finding"] == logged)
-other = next(x for x in rows if x["criterion"] == "a" and x["kind"] == "strength")
-sv.EVIDENCE_REVIEWS.mkdir(parents=True, exist_ok=True)
-sv.write_json(sv.EVIDENCE_REVIEWS / f"{d.name}.json",
-              {target["id"]: {"decision": "confirmed", "correction": ""}, other["id"]: {"decision": "confirmed", "correction": ""}})
-edited = fixture.replace(logged, logged.replace("could be addressed", "could not be addressed"))
-edited = edited.replace(other["finding"], other["finding"].replace("Clear and", "Clear,"))
-rows2 = sv.evidence_ledger(d, sv.parse_report(edited), work / "meta.json")
-kept = [x for x in rows2 if x["id"] == target["id"]]
-check("a decision on an evidence-log line survives report edits", len(kept) == 1 and kept[0]["decision"] == "confirmed")
-reversed_rows = [x for x in rows2 if "could not be addressed" in x["finding"]]
-check("a reversed report finding returns to To review", reversed_rows and all(x["decision"] == "pending" for x in reversed_rows))
-reworded = [x for x in rows2 if x["criterion"] == "a" and x["kind"] == "strength" and x["finding"].startswith("Clear,")]
-check("a reworded report-only finding returns to To review", reworded and reworded[0]["decision"] == "pending")
+(work / "evidence.md").write_text(f"[c] §4.1 p. 31 (-) {logged} | Quote: the exact words on the page\n", encoding="utf-8")
+quotes = sv.evidence_quotes(d, report, work / "meta.json")
+check("a logged report point carries its quote", list(quotes.values()) == ["the exact words on the page"], str(quotes))
+edited = sv.parse_report(fixture.replace(logged, logged + " Reworded."))
+check("a reworded point no longer claims the quote", not sv.evidence_quotes(d, edited, work / "meta.json"))
 
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)
