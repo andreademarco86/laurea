@@ -389,6 +389,8 @@ enum Engine: String, CaseIterable, Identifiable {
         URL(string: self == .claude ? "https://claude.ai/settings/data-privacy-controls" : "https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt")!
     }
 
+    static let defaultEffort = "medium"
+
     static func effortLabel(_ e: String) -> String {
         ["low": "Light", "medium": "Standard", "high": "Thorough", "xhigh": "Very thorough", "max": "Maximum", "ultra": "Ultra"][e] ?? e.capitalized
     }

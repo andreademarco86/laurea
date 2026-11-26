@@ -557,10 +557,10 @@ final class AppModel {
     func setEngine(_ e: Engine, model: String? = nil, effort: String? = nil) async {
         let changed = e != activeEngine
         let modelID = model ?? (changed ? "" : settings.model ?? "")
-        var chosenEffort = effort ?? (changed ? "high" : settings.effort ?? "high")
+        var chosenEffort = effort ?? (changed ? Engine.defaultEffort : settings.effort ?? Engine.defaultEffort)
         if let option = models[e.rawValue]?.models.first(where: { $0.id == modelID }),
            !option.efforts.isEmpty, !option.efforts.contains(chosenEffort) {
-            chosenEffort = option.efforts.contains("high") ? "high" : option.efforts.last ?? "high"
+            chosenEffort = [Engine.defaultEffort, "high"].first(where: option.efforts.contains) ?? option.efforts[0]
         }
         struct Body: Encodable { let provider, model, effort: String }
         let choice = Body(provider: e.rawValue, model: modelID, effort: chosenEffort)

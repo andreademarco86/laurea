@@ -129,7 +129,8 @@ APP_SUPPORT = Path.home() / "Library" / "Application Support" / "Laurea"
 APP_BIN = APP_SUPPORT / "bin"
 PROVIDERS = {"claude": "Claude", "openai": "ChatGPT"}
 CLAUDE_DEFAULT_MODEL = "opus"
-DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": "high", "claude_path": "", "codex_path": ""}
+DEFAULT_EFFORT = "medium"
+DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": DEFAULT_EFFORT, "claude_path": "", "codex_path": ""}
 HISTORY = SKILL / "references" / "calibration-history.json"
 LEVELS = [("bsc", "BSc"), ("msc", "MSc"), ("phd", "PhD")]
 LEVEL_WHAT = {"bsc": "BSc dissertation", "msc": "MSc dissertation", "phd": "PhD thesis"}
@@ -385,7 +386,7 @@ def chosen_model(provider):
         model = None
     if not model and provider == "claude":
         model = CLAUDE_DEFAULT_MODEL
-    return model, s.get("effort") or "high"
+    return model, s.get("effort") or DEFAULT_EFFORT
 
 
 def assistant_label(provider=None):
@@ -684,8 +685,8 @@ def read_stream(proc, provider, on_item):
     return code, (final if final is not None else last_text) or (diagnostic if code else ""), is_error
 
 
-def report_command(provider, path, cwd, prompt, effort, skill=None):
-    model, _ = chosen_model(provider)
+def report_command(provider, path, cwd, prompt, skill=None):
+    model, effort = chosen_model(provider)
     if provider == "openai":
         filesystem = {":root": "deny", ":minimal": "read", ":tmpdir": "deny", ":slash_tmp": "deny"}
         if skill:
@@ -862,8 +863,7 @@ def run_exam(eid, prompt, kind, provider, path):
                     return
                 if extracted is None:
                     append_progress(d, {"kind": "info", "text": "Using the standard PDF workflow"})
-            _, effort = chosen_model(provider)
-            cmd = report_command(provider, path, d, build_exam_prompt(prompt, skill, extracted), effort, skill)
+            cmd = report_command(provider, path, d, build_exam_prompt(prompt, skill, extracted), skill)
             code, final, is_error = run_stream(cmd, d, provider, lambda it: append_progress(d, it), register)
         if status(d).get("state") == "cancelled":
             return
@@ -1167,7 +1167,7 @@ def run_skill_chat(message, provider, path):
             previous = [{"role": m["role"], "text": m["text"][:1500]} for m in chat["messages"][:-2][-8:]]
             prompt = (f"{SKILL_SYSTEM}\n\nEarlier conversation, for context: {json.dumps(previous, ensure_ascii=False)}"
                       f"\n\nThe examiner says:\n{message}")
-            cmd = report_command(provider, path, work, prompt, "high")
+            cmd = report_command(provider, path, work, prompt)
             SKILL_RUN["status"] = "Reading your standards…"
 
             def register(proc):

@@ -24,7 +24,7 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
-Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. To reduce reasoning effort, choose a lower **Thoroughness** setting under **Settings → Examination Engine**.
+Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. **Standard** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Light** for simple revisions or **Thorough** when a report calls for deeper technical analysis.
 
 ## Examining standards
 

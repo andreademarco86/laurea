@@ -190,7 +190,7 @@ struct EngineSection: View {
                     Text(error).font(.caption).foregroundStyle(.secondary)
                 }
                 Picker("Thoroughness", selection: Binding(
-                    get: { model.settings.effort ?? "high" },
+                    get: { model.settings.effort ?? Engine.defaultEffort },
                     set: { effort in Task { await model.setEngine(active, effort: effort) } })) {
                         if let current = model.settings.effort, !efforts.contains(current) {
                             Text(Engine.effortLabel(current)).tag(current)
