@@ -558,7 +558,8 @@ final class AppModel {
         let changed = e != activeEngine
         let modelID = model ?? (changed ? "" : settings.model ?? "")
         var chosenEffort = effort ?? (changed ? Engine.defaultEffort : settings.effort ?? Engine.defaultEffort)
-        if let option = models[e.rawValue]?.models.first(where: { $0.id == modelID }),
+        if chosenEffort != Engine.adaptiveEffort,
+           let option = models[e.rawValue]?.models.first(where: { $0.id == modelID }),
            !option.efforts.isEmpty, !option.efforts.contains(chosenEffort) {
             chosenEffort = [Engine.defaultEffort, "high"].first(where: option.efforts.contains) ?? option.efforts[0]
         }

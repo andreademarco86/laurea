@@ -173,7 +173,7 @@ struct EngineSection: View {
                 let selected = model.settings.model ?? ""
                 let availableEfforts = list.first { $0.id == selected }?.efforts ?? []
                 let defaults = active == .claude ? ["low", "medium", "high"] : ["low", "medium", "high", "xhigh"]
-                let efforts = availableEfforts.isEmpty ? defaults : availableEfforts
+                let efforts = [Engine.adaptiveEffort] + (availableEfforts.isEmpty ? defaults : availableEfforts)
                 if !list.isEmpty {
                     Picker("Model", selection: Binding(
                         get: { selected },
@@ -197,6 +197,10 @@ struct EngineSection: View {
                         }
                         ForEach(efforts, id: \.self) { Text(Engine.effortLabel($0)).tag($0) }
                     }
+                if model.settings.effort == Engine.adaptiveEffort {
+                    Text("Uses extra reasoning for disputed marks or conflicting evidence.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 Link("\(active.label) data controls", destination: active.dataControlsURL)
             }
         } header: {

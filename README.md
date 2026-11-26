@@ -26,6 +26,8 @@ The report includes a summary, strengths and weaknesses by criterion, suggested 
 
 Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. **Standard** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Light** for simple revisions or **Thorough** when a report calls for deeper technical analysis.
 
+Choose **Adaptive** to map the front matter at Light effort and examine at Standard. Laurea requests a focused Thorough review when marking passes differ by more than 15% of a criterion’s maximum or cite conflicting evidence that could change a mark. The second opinion appears under **Notes on this draft**. Laurea uses cropped views for isolated figures and tables when practical. Revisions reuse the existing report and evidence, reopening source pages needed for the requested change.
+
 ## Examining standards
 
 Laurea covers AI and machine learning, computing and ICT, speech and language processing, physics, astronomy, and related computational fields. Its bundled workflow checks for hidden text, links headline claims to evidence, and uses several marking passes to reconcile scores against the rubric. [Full list of supported fields](skill/references/domains.md)

@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Render dissertation pages to PNG so they can be viewed (figures, tables, diagrams).
 
-Usage: python3 render_pages.py <dissertation.pdf> <work_dir> <pages> [--dpi 110] [--printed]
+Usage: python3 render_pages.py <dissertation.pdf> <work_dir> <pages> [--dpi 110] [--printed] [--crop x,y,width,height]
 
 <pages> is a list like "41-47,52" of PDF page numbers, or of printed page numbers with
 --printed (resolved through <work_dir>/meta.json from extract_pdf.py).
 Writes <work_dir>/page_images/page-NNNN.png (NNNN = PDF page) and prints their paths;
 open each PNG with the Read tool. Uses PyMuPDF if installed, otherwise macOS PDFKit.
+For one page, --crop takes fractions of the displayed page measured from the top left.
+Crops live in separate subdirectories so they do not replace the full-page images.
 """
 import json
 import os
@@ -52,6 +54,19 @@ def main():
     if len(pages) > 30:
         sys.exit("render at most 30 pages per call")
     out = os.path.join(work, "page_images")
+    crop = None
+    crop_args = []
+    if "--crop" in args:
+        try:
+            x, y, width, height = map(float, args[args.index("--crop") + 1].split(","))
+        except (ValueError, IndexError):
+            sys.exit("--crop requires x,y,width,height as page fractions")
+        if len(pages) != 1 or not (0 <= x < x + width <= 1 and 0 <= y < y + height <= 1):
+            sys.exit("--crop requires one page and a region within it")
+        crop = x, y, width, height
+        encoded = ",".join(map(str, crop))
+        crop_args = ["--crop", encoded]
+        out = os.path.join(out, f"crop-{encoded.replace(',', '_')}")
     os.makedirs(out, exist_ok=True)
     try:
         import fitz
@@ -60,7 +75,12 @@ def main():
         for n in pages:
             p = doc[n - 1]
             f = os.path.join(out, f"page-{n:04d}.png")
-            p.get_pixmap(dpi=dpi).save(f)
+            clip = None
+            if crop:
+                box = p.rect
+                clip = fitz.Rect(box.x0 + x * box.width, box.y0 + y * box.height,
+                                 box.x0 + (x + width) * box.width, box.y0 + (y + height) * box.height)
+            p.get_pixmap(dpi=dpi, clip=clip).save(f)
             print(f"{n}\t{p.get_label()}\t{f}")
         return
     except ImportError:
@@ -70,7 +90,7 @@ def main():
     if not os.path.exists(binary) or os.path.getmtime(binary) < os.path.getmtime(src):
         os.makedirs(os.path.dirname(binary), exist_ok=True)
         subprocess.run(["swiftc", "-O", src, "-o", binary], check=True)
-    res = subprocess.run([binary, pdf, out, str(dpi), *map(str, pages)], capture_output=True, text=True)
+    res = subprocess.run([binary, pdf, out, str(dpi), *map(str, pages), *crop_args], capture_output=True, text=True)
     sys.stdout.write(res.stdout)
     if res.returncode != 0:
         sys.exit(res.stderr)

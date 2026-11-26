@@ -390,8 +390,9 @@ enum Engine: String, CaseIterable, Identifiable {
     }
 
     static let defaultEffort = "medium"
+    static let adaptiveEffort = "adaptive"
 
     static func effortLabel(_ e: String) -> String {
-        ["low": "Light", "medium": "Standard", "high": "Thorough", "xhigh": "Very thorough", "max": "Maximum", "ultra": "Ultra"][e] ?? e.capitalized
+        [adaptiveEffort: "Adaptive", "low": "Light", "medium": "Standard", "high": "Thorough", "xhigh": "Very thorough", "max": "Maximum", "ultra": "Ultra"][e] ?? e.capitalized
     }
 }
