@@ -7,61 +7,78 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var model = model
         let s = $model.settings
-        Form {
-            Section("Examiner") {
-                TextField("Name", text: Binding(get: { s.wrappedValue.examiner_name ?? "" }, set: { s.wrappedValue.examiner_name = $0; scheduleSave() }),
-                          prompt: Text("Your name, as it should appear on reports"))
-                TextField("Institution", text: Binding(get: { s.wrappedValue.institution ?? "" }, set: { s.wrappedValue.institution = $0; scheduleSave() }),
-                          prompt: Text("Your university or institution"))
-                TextField("Default degree", text: Binding(get: { s.wrappedValue.degree_default ?? "" }, set: { s.wrappedValue.degree_default = $0; scheduleSave() }),
-                          prompt: Text("The degree you examine most often"))
-                SignatureField()
+        TabView {
+            Form {
+                Section("Examiner") {
+                    TextField("Name", text: Binding(get: { s.wrappedValue.examiner_name ?? "" }, set: { s.wrappedValue.examiner_name = $0; scheduleSave() }),
+                              prompt: Text("Your name, as it should appear on reports"))
+                    TextField("Institution", text: Binding(get: { s.wrappedValue.institution ?? "" }, set: { s.wrappedValue.institution = $0; scheduleSave() }),
+                              prompt: Text("Your university or institution"))
+                    TextField("Default degree", text: Binding(get: { s.wrappedValue.degree_default ?? "" }, set: { s.wrappedValue.degree_default = $0; scheduleSave() }),
+                              prompt: Text("The degree you examine most often"))
+                    SignatureField()
+                }
+                filesSection
             }
-            MarkingSchemeSection(scheme: Binding(
-                get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },
-                set: { s.wrappedValue.marking_scheme = $0; if Scheme.isValid($0) { scheduleSave() } }))
-            Section {
-                LabeledContent("Summary length") {
-                    HStack(spacing: 8) {
-                        Text("\(s.wrappedValue.summary_words ?? 350) words").monospacedDigit()
-                            .contentTransition(.numericText(value: Double(s.wrappedValue.summary_words ?? 350)))
-                            .animation(.default, value: s.wrappedValue.summary_words)
-                        Stepper("Summary length", value: Binding(get: { s.wrappedValue.summary_words ?? 350 },
-                                                                 set: { s.wrappedValue.summary_words = $0; scheduleSave() }),
-                                in: 50...1000, step: 25)
-                            .labelsHidden()
+            .formStyle(.grouped)
+            .tabItem { Label("General", systemImage: "gearshape") }
+
+            Form {
+                MarkingSchemeSection(scheme: Binding(
+                    get: { s.wrappedValue.marking_scheme ?? Scheme.defaults },
+                    set: { s.wrappedValue.marking_scheme = $0; if Scheme.isValid($0) { scheduleSave() } }))
+                Section {
+                    LabeledContent("Summary length") {
+                        HStack(spacing: 8) {
+                            Text("\(s.wrappedValue.summary_words ?? 350) words").monospacedDigit()
+                                .contentTransition(.numericText(value: Double(s.wrappedValue.summary_words ?? 350)))
+                                .animation(.default, value: s.wrappedValue.summary_words)
+                            Stepper("Summary length", value: Binding(get: { s.wrappedValue.summary_words ?? 350 },
+                                                                     set: { s.wrappedValue.summary_words = $0; scheduleSave() }),
+                                    in: 50...1000, step: 25)
+                                .labelsHidden()
+                        }
                     }
+                    if (s.wrappedValue.summary_words ?? 350) != 350 {
+                        Button("Restore Default (350 words)") { s.wrappedValue.summary_words = 350; scheduleSave() }
+                            .buttonStyle(.link)
+                    }
+                } header: {
+                    Text("Report")
+                } footer: {
+                    Text("The maximum length of the report's summary. Applies to new examinations.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                if (s.wrappedValue.summary_words ?? 350) != 350 {
-                    Button("Restore Default (350 words)") { s.wrappedValue.summary_words = 350; scheduleSave() }
-                        .buttonStyle(.link)
-                }
-            } header: {
-                Text("Report")
-            } footer: {
-                Text("The maximum length of the report's summary. Applies to new examinations.")
-                    .font(.caption).foregroundStyle(.secondary)
             }
-            EngineSection()
-            Section("Files") {
-                LabeledContent("Examinations") {
-                    Button("Show in Finder") { NSWorkspace.shared.open(model.backend.examsDir) }.buttonStyle(.link)
-                }
-                LabeledContent("Examining standards") {
-                    Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }.buttonStyle(.link)
-                }
-                LabeledContent("Calibration notes") {
-                    Button("Open") { model.openCalibrationNotes() }.buttonStyle(.link)
-                }
-                if let u = model.settings.skill_updated {
-                    LabeledContent("Skill last updated", value: u)
-                }
+            .formStyle(.grouped)
+            .tabItem { Label("Marking", systemImage: "chart.bar.doc.horizontal") }
+
+            Form {
+                EngineSection()
+            }
+            .formStyle(.grouped)
+            .tabItem { Label("Engine", systemImage: "cpu") }
+        }
+        // Fixed size with scrolling forms: tall content never pushes the window off screen.
+        .frame(width: 540, height: 620)
+        .task { await model.loadSettings(); await model.loadEngines() }
+    }
+
+    private var filesSection: some View {
+        Section("Files") {
+            LabeledContent("Examinations") {
+                Button("Show in Finder") { NSWorkspace.shared.open(model.backend.examsDir) }.buttonStyle(.link)
+            }
+            LabeledContent("Examining standards") {
+                Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }.buttonStyle(.link)
+            }
+            LabeledContent("Calibration notes") {
+                Button("Open") { model.openCalibrationNotes() }.buttonStyle(.link)
+            }
+            if let u = model.settings.skill_updated {
+                LabeledContent("Standards last updated", value: u)
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 480)
-        .fixedSize(horizontal: false, vertical: true)
-        .task { await model.loadSettings(); await model.loadEngines() }
     }
 
     private func scheduleSave() {
