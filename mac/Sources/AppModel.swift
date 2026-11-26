@@ -10,7 +10,8 @@ enum SidebarItem: Hashable {
 }
 
 struct PDFTarget: Equatable {
-    let label: String
+    let reference: PageReference
+    let highlights: [String]
     let token = UUID()
 }
 
@@ -164,6 +165,8 @@ final class AppModel {
         pollTask?.cancel()
         detail = nil; draft = nil; dirty = false; banner = nil; progress = nil
         slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
+        pdfTarget = nil
+        pdfCurrentLabel = ""
         switch item {
         case .exam(let id): await load(id)
         case .calibration: await loadCalibration()
@@ -304,9 +307,9 @@ final class AppModel {
         return ps.contains(where: { $0 == nil }) ? nil : ps.compactMap { $0 }.reduce(0, +)
     }
 
-    func openPDF(at label: String? = nil) {
+    func openPDF(at reference: PageReference? = nil, highlighting highlights: [String] = []) {
         showPDF = true
-        if let label { pdfTarget = PDFTarget(label: label) }
+        if let reference { pdfTarget = PDFTarget(reference: reference, highlights: highlights) }
     }
 
     func reviewEvidence(_ finding: EvidenceFinding, examID id: String, decision: EvidenceDecision, correction: String = "") async {

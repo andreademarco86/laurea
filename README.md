@@ -24,7 +24,7 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
-Open **Evidence ledger** above the marks to review strengths and concerns by criterion. Click a citation to open its PDF page, then confirm, correct, or dismiss the finding. These decisions are stored locally and guide later revisions of the same examination. The ledger stays in Laurea.
+Open **Evidence ledger** above the marks to review strengths and concerns by criterion. Click a citation to open its PDF page and highlight a matching passage or figure or table label when it appears once on that page. Then confirm, correct, or dismiss the finding. These decisions are stored locally and guide later revisions of the same examination. The ledger stays in Laurea.
 
 Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. Laurea keeps the Markdown source internally and presents the report in its editor. **Standard** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Light** for simple revisions or **Thorough** when a report calls for deeper technical analysis.
 

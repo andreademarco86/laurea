@@ -90,7 +90,8 @@ struct EvidenceLedger: View {
             if !finding.source.isEmpty {
                 Text(finding.source).font(.caption).foregroundStyle(.secondary)
             }
-            RefChips(text: [finding.source, finding.finding, finding.correction].joined(separator: " ")).equatable()
+            RefChips(text: [finding.source, finding.finding, finding.correction].joined(separator: " "),
+                     highlights: finding.pdfHighlights).equatable()
             if finding.decision == .corrected {
                 DisclosureGroup("Original finding") {
                     Text(finding.finding).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)

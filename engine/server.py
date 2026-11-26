@@ -754,7 +754,9 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
              "Keep the declaration date unless the examiner asks to change it. Follow the full examination workflow "
              "only if the examiner explicitly requests a fresh examination. " if revision else
              "Read SKILL.md completely. Have all marking perspectives use the shared evidence log. Reopen only decisive "
-             "source pages for disagreements. Leave the declaration date blank for Laurea to fill in. ")
+             "source pages for disagreements. Where a finding has a short verbatim passage on its cited page, append "
+             "' | Quote: ' and 6–18 exact words to its evidence.md line. Use a figure or table label in the source "
+             "when the evidence is visual. Leave the declaration date blank for Laurea to fill in. ")
     panel = ("Write this run's panel.json in the extraction work folder with the examiners and chair scores and "
              "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and sceptic. "
              "In at most one short sentence per role, record the most important concern or leave it empty. Add "
@@ -994,7 +996,7 @@ def evidence_ledger(d, report, meta):
         reviews = {}
     rows = {}
 
-    def add(criterion, kind, finding, source=""):
+    def add(criterion, kind, finding, source="", quote=""):
         finding, source = finding.strip(), source.strip()
         if not finding:
             return
@@ -1002,7 +1004,8 @@ def evidence_ledger(d, report, meta):
         review = reviews.get(key)
         review = review if isinstance(review, dict) else {}
         rows[key] = {"id": key, "criterion": criterion, "kind": kind, "finding": finding, "source": source,
-                     "decision": review.get("decision", "pending"), "correction": review.get("correction", "")}
+                     "decision": review.get("decision", "pending"), "correction": review.get("correction", ""),
+                     "quote": quote.strip().strip('\"“”')[:300]}
         return key
 
     def match_key(criterion, kind, finding):
@@ -1014,7 +1017,8 @@ def evidence_ledger(d, report, meta):
         if match:
             key, source, sign, finding = match.groups()
             kind = "strength" if sign == "+" else "concern"
-            logged[match_key(key, kind, finding)] = add(key, kind, finding, source)
+            finding, _, quote = finding.partition(" | Quote: ")
+            logged[match_key(key, kind, finding)] = add(key, kind, finding, source, quote)
     report_findings = []
     for key, criterion in report["criteria"].items():
         for kind, field in (("strength", "strengths"), ("concern", "weaknesses")):

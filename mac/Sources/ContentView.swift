@@ -469,6 +469,7 @@ struct PDFKitView: NSViewRepresentable {
         coordinator.parent = self
         if coordinator.loadedURL != url {
             coordinator.loadedURL = url
+            v.highlightedSelections = nil
             v.document = PDFDocument(url: url)
             coordinator.scheduleLabelUpdate(for: v)
         } else if labelsChanged {
@@ -476,19 +477,48 @@ struct PDFKitView: NSViewRepresentable {
         }
         if let t = target, t.token != coordinator.lastToken {
             coordinator.lastToken = t.token
-            go(v, to: t.label)
+            go(v, to: t)
         }
     }
 
-    private func go(_ v: PDFView, to label: String) {
+    private func go(_ v: PDFView, to target: PDFTarget) {
+        v.highlightedSelections = nil
         guard let doc = v.document else { return }
-        let lower = labels.map { $0.lowercased() }
-        var index = lower.firstIndex(of: label.lowercased())
-        if index == nil {
-            for i in 0..<doc.pageCount where doc.page(at: i)?.label?.lowercased() == label.lowercased() { index = i; break }
+        let label = target.reference.label
+        var index: Int?
+        if !target.reference.physical {
+            index = labels.firstIndex { $0.lowercased() == label }
+            if index == nil {
+                for i in 0..<doc.pageCount where doc.page(at: i)?.label?.lowercased() == label { index = i; break }
+            }
         }
         if index == nil, let n = Int(label) { index = n - 1 }
-        if let i = index, let page = doc.page(at: max(0, min(doc.pageCount - 1, i))) { v.go(to: page) }
+        guard let i = index, i >= 0, i < doc.pageCount, let page = doc.page(at: i) else { return }
+        if let selection = evidenceSelection(on: page, candidates: target.highlights) {
+            selection.color = NSColor.systemYellow.withAlphaComponent(0.55)
+            v.highlightedSelections = [selection]
+            v.go(to: selection)
+        } else {
+            v.go(to: page)
+        }
+    }
+
+    private func evidenceSelection(on page: PDFPage, candidates: [String]) -> PDFSelection? {
+        guard !candidates.isEmpty, let text = page.string else { return nil }
+        let pageRange = NSRange(text.startIndex..., in: text)
+        for candidate in candidates {
+            let parts = candidate.split(whereSeparator: \.isWhitespace)
+            guard parts.count >= 2 else { continue }
+            let words = parts.map { NSRegularExpression.escapedPattern(for: String($0)) }.joined(separator: #"\s+"#)
+            // Check this page only and avoid highlighting a repeated label or a substring of a longer identifier.
+            let pattern = #"(?<![\p{L}\p{N}])"# + words + #"(?![\p{L}\p{N}]|[.\-]\p{N})"#
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+            let matches = regex.matches(in: text, range: pageRange)
+            if matches.count == 1, let match = matches.first, let selection = page.selection(for: match.range) {
+                return selection
+            }
+        }
+        return nil
     }
 
     final class Coordinator: NSObject {

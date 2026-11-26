@@ -126,6 +126,19 @@ struct EvidenceFinding: Codable, Identifiable {
     let source: String
     let decision: EvidenceDecision
     let correction: String
+    let quote: String?
+
+    var pdfHighlights: [String] {
+        let text = [source, finding, correction].joined(separator: " ")
+        let pattern = #"["“]([^"”\n]{12,240})["”]|\b(?:Fig(?:ure)?\.?|Table)\s+[A-Z]?\d+(?:[.\-]\d+)*[a-z]?\b"#
+        let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+        let anchors = (regex?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).compactMap { match -> String? in
+            let quoted = match.range(at: 1)
+            let range = quoted.location == NSNotFound ? match.range : quoted
+            return Range(range, in: text).map { String(text[$0]) }
+        }
+        return Array(([quote].compactMap { $0 }.filter { !$0.isEmpty } + anchors).prefix(6))
+    }
 }
 
 struct ExamDetail: Codable {
@@ -309,17 +322,24 @@ enum Fmt {
 
 /// Printed page references such as "p. 38", "pp. 41-47", "p. iv".
 private let pageReferencePattern = try? NSRegularExpression(
-    pattern: #"(?<![A-Za-z])pp?\.\s?((?:\d{1,4}|[ivxlc]{1,7}))(?:\s?[-–]\s?(?:\d{1,4}|[ivxlc]{1,7}))?(?![\w])"#,
+    pattern: #"(?<![A-Za-z])(PDF\s+)?pp?\.\s?((?:\d{1,4}|[ivxlc]{1,7}))(?:\s?[-–]\s?(?:\d{1,4}|[ivxlc]{1,7}))?(?![\w])"#,
     options: .caseInsensitive
 )
 
-func pageRefs(in text: String) -> [String] {
-    var out: [String] = []
+struct PageReference: Hashable {
+    let label: String
+    let physical: Bool
+
+    var title: String { physical ? "PDF p. \(label)" : "p. \(label)" }
+}
+
+func pageRefs(in text: String) -> [PageReference] {
+    var out: [PageReference] = []
     let matches = pageReferencePattern?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []
     for m in matches {
-        if let r = Range(m.range(at: 1), in: text) {
-            let s = String(text[r])
-            if !out.contains(s) { out.append(s) }
+        if let range = Range(m.range(at: 2), in: text) {
+            let page = PageReference(label: String(text[range]).lowercased(), physical: m.range(at: 1).location != NSNotFound)
+            if !out.contains(page) { out.append(page) }
         }
     }
     return Array(out.prefix(5))

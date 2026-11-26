@@ -444,23 +444,29 @@ struct BulletList: View {
 struct RefChips: View, Equatable {
     @Environment(AppModel.self) private var model
     let text: String
+    let highlights: [String]
 
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.text == rhs.text }
+    init(text: String, highlights: [String] = []) {
+        self.text = text
+        self.highlights = highlights
+    }
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.text == rhs.text && lhs.highlights == rhs.highlights }
 
     var body: some View {
         let refs = pageRefs(in: text)
         if !refs.isEmpty {
             HStack(spacing: 6) {
                 ForEach(refs, id: \.self) { r in
-                    Button { model.openPDF(at: r) } label: {
-                        Label("p. \(r)", systemImage: "doc.text.magnifyingglass")
+                    Button { model.openPDF(at: r, highlighting: highlights) } label: {
+                        Label(r.title, systemImage: "doc.text.magnifyingglass")
                             .font(.caption)
                             .padding(.horizontal, 6).padding(.vertical, 1)
                             .background(.quaternary.opacity(0.6), in: .capsule)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
-                    .help("Show page \(r) of the dissertation")
+                    .help(highlights.isEmpty ? "Open \(r.title) of the dissertation" : "Review evidence on \(r.title)")
                 }
             }
         }
