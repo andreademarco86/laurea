@@ -25,7 +25,7 @@ Use the skill directory supplied by Laurea. For standalone Claude Code, use `~/.
 - `$ARGUMENTS`: path to the dissertation PDF, optionally followed by the examiner's name.
 - Level: `--level bsc|msc|phd` from the arguments; otherwise infer it from the title page ("Bachelor of Science", "Master of Science", "Doctor of Philosophy"), defaulting to MSc. State the level used in the evidence log and the final message.
 - Examiner name: from the arguments; otherwise from `$SKILL/config.json` (`examiner_name`); if both are empty, ask the user once and offer to save it into `config.json`. In a non-interactive run (no one to answer), never stop to ask: use `[Examiner name]` and note it in the final message.
-- Also read `config.json` for `institution`, `degree_default` and `output_formats`. The report header's Institution row uses the institution printed on the title page, falling back to `config.json` `institution`.
+- Also read `config.json` for `institution` and `output_formats`. The report header's Institution row uses the institution printed on the title page, falling back to `config.json` `institution`.
 - Read `$SKILL/references/house-preferences.md` (the examiner's standing rules) and `$SKILL/references/calibration-notes.md` (the **learned offsets** computed from how the examiner adjusted past proposals, which may be absent on a new installation) before marking. Both override the generic rubric where they conflict.
 
 ## Outputs

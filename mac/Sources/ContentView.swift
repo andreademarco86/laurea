@@ -524,9 +524,38 @@ struct PDFKitView: NSViewRepresentable {
             selection.color = NSColor.systemYellow.withAlphaComponent(0.55)
             v.highlightedSelections = [selection]
             v.go(to: selection)
+        } else if let selection = contextSelection(on: page, context: target.context) {
+            selection.color = NSColor.systemYellow.withAlphaComponent(0.35)  // best match, so a lighter highlight
+            v.highlightedSelections = [selection]
+            v.go(to: selection)
         } else {
             v.go(to: page)
         }
+    }
+
+    /// The sentence on the page that shares the most distinctive words with the comment; nil unless the match is clear.
+    private func contextSelection(on page: PDFPage, context: String) -> PDFSelection? {
+        guard !context.isEmpty, let text = page.string else { return nil }
+        let stop: Set<String> = ["which", "their", "there", "these", "those", "would", "could", "should", "about", "between",
+                                 "without", "within", "where", "while", "other", "after", "before", "because", "student",
+                                 "dissertation", "thesis", "chapter", "section", "using", "based", "shows", "shown"]
+        func words(_ s: String) -> Set<String> {
+            Set(s.lowercased().split { !$0.isLetter && !$0.isNumber && $0 != "-" }
+                .map(String.init).filter { $0.count >= 5 && !stop.contains($0) })
+        }
+        let wanted = words(context)
+        guard wanted.count >= 3 else { return nil }
+        let ns = text as NSString
+        var best: (score: Int, range: NSRange)?
+        var second = 0
+        ns.enumerateSubstrings(in: NSRange(location: 0, length: ns.length), options: .bySentences) { sentence, range, _, _ in
+            guard let sentence, sentence.count >= 25 else { return }
+            let score = words(sentence).intersection(wanted).count
+            if score > (best?.score ?? 0) { second = best?.score ?? 0; best = (score, range) }
+            else if score > second { second = score }
+        }
+        guard let best, best.score >= 3, best.score > second else { return nil }
+        return page.selection(for: best.range)
     }
 
     private func evidenceSelection(on page: PDFPage, candidates: [String]) -> PDFSelection? {

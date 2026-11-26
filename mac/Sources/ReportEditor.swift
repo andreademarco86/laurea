@@ -72,18 +72,10 @@ struct ReportEditor: View {
 
             DeclarationSection(draft: draft)
 
-            if let detail, detail.panel != nil || detail.status.message?.isEmpty == false {
+            if let detail, let panel = detail.panel {
                 Section {
                     DisclosureGroup("Internal notes") {
-                        VStack(alignment: .leading, spacing: 12) {
-                            if let panel = detail.panel {
-                                PanelReview(panel: panel, scheme: detail.markingScheme)
-                            }
-                            if let message = detail.status.message, !message.isEmpty {
-                                if detail.panel != nil { Divider() }
-                                Text(message).textSelection(.enabled).font(.callout)
-                            }
-                        }
+                        PanelReview(panel: panel, scheme: detail.markingScheme)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 8)
                     }
@@ -153,29 +145,25 @@ struct PanelReview: View {
                 .fontWeight(.semibold)
             }
 
-            if let summary = panel.summary {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Chair’s summary").font(.subheadline.weight(.semibold))
-                    Text(summary).font(.callout).textSelection(.enabled)
-                    RefChips(text: summary).equatable()
-                }
-            }
-            ForEach(scheme.specs, id: \.key) { criterion in
-                if let decision = panel.decisions[criterion.key] {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("(\(criterion.key)) \(criterion.name)").font(.subheadline.weight(.semibold))
-                        Text(decision).font(.callout).textSelection(.enabled)
-                        RefChips(text: decision).equatable()
+            // One line per examiner and one for the chair; the detailed deliberation stays in the work folder.
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(roles, id: \.self) { role in
+                    if let note = role == "chair" ? panel.summary : panel.notes[role], !note.isEmpty {
+                        (Text(title(role) + "  ").fontWeight(.semibold) + Text(Self.plain(note)).foregroundStyle(.secondary))
+                            .font(.callout)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }
-            }
-            ForEach(roles, id: \.self) { role in
-                if let note = panel.notes[role] {
-                    LabeledContent(title(role)) { Text(note).font(.callout).textSelection(.enabled) }
                 }
             }
             Text("Chair scores are shown before calibration.").font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    /// Drops trailing page lists such as " (p. 15, p. 82)"; the notes are a quick read, not citations.
+    static func plain(_ note: String) -> String {
+        note.replacingOccurrences(of: #"\s*\((?:pp?\.\s*[\divxlc–\-]+(?:,\s*)?)+\)"#, with: "",
+                                  options: [.regularExpression, .caseInsensitive])
     }
 
     @ViewBuilder
@@ -464,7 +452,7 @@ struct RefChips: View, Equatable {
         if !refs.isEmpty {
             HStack(spacing: 6) {
                 ForEach(refs, id: \.self) { r in
-                    Button { model.openPDF(at: r, highlighting: highlights) } label: {
+                    Button { model.openPDF(at: r, highlighting: highlights.isEmpty ? evidenceAnchors(in: text) : highlights, context: text) } label: {
                         Label(r.title, systemImage: "doc.text.magnifyingglass")
                             .font(.caption)
                             .padding(.horizontal, 6).padding(.vertical, 1)
@@ -472,7 +460,7 @@ struct RefChips: View, Equatable {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
-                    .help(highlights.isEmpty ? "Open \(r.title) of the dissertation" : "Review evidence on \(r.title)")
+                    .help("Open \(r.title) of the dissertation and highlight the passage this refers to")
                 }
             }
         }

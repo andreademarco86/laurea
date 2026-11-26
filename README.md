@@ -19,7 +19,7 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 ## Review a dissertation
 
 1. Drop a PDF into Laurea or press **⌘N**. Choose **BSc**, **MSc** or **PhD** and click **Examine**.
-2. Open the draft when it’s ready. Click a page reference to check it against the dissertation in the PDF panel. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. Press **⇧⌘R** to request a revision.
+2. Open the draft when it’s ready. Click a page reference to check it against the dissertation in the PDF panel. Laurea highlights a quoted passage or a figure or table label it finds once on that page. If there is none, it lightly highlights the sentence that best matches the comment, but only when one sentence clearly stands out. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. Press **⇧⌘R** to request a revision.
 3. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report: if the declaration has no date, Laurea dates it today before exporting. You can set or change the date yourself under **Declaration**, or turn it off to sign and date by hand. Export always uses a Word file produced from the current report; if it can’t be produced, nothing is exported.
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
@@ -28,7 +28,7 @@ Open **Evidence ledger** above the marks to review strengths and concerns by cri
 
 Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. Laurea keeps the Markdown source internally and presents the report in its editor. **Adaptive** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Standard** for a fixed single pass, **Light** for simple revisions, or **Thorough** when a report calls for deeper technical analysis throughout.
 
-Open **Internal notes** at the bottom of the report editor to see the three examiner scores and the chair’s mark for each criterion before calibration. New examinations include brief panel notes and the chair’s reasons for decisions that affected the mark. The exported report presents the agreed findings and report marks.
+Open **Internal notes** at the bottom of the report editor to see the three examiner scores and the chair’s mark for each criterion before calibration, with a one-line view from each examiner and the chair. The exported report presents the agreed findings and report marks.
 
 **Adaptive** maps the front matter at Light effort and examines at Standard. Laurea requests a focused Thorough review when marking passes differ by more than 15% of a criterion’s maximum or cite conflicting evidence that could change a mark. The second opinion appears under **Internal notes**. Laurea uses cropped views for isolated figures and tables when practical. Revisions reuse the existing report and evidence, reopening source pages needed for the requested change.
 

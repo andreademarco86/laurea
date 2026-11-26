@@ -133,15 +133,19 @@ struct EvidenceFinding: Codable, Identifiable {
     let quote: String?
 
     var pdfHighlights: [String] {
-        let text = [source, finding, correction].joined(separator: " ")
-        let pattern = #"["“]([^"”\n]{12,240})["”]|\b(?:Fig(?:ure)?\.?|Table)\s+[A-Z]?\d+(?:[.\-]\d+)*[a-z]?\b"#
-        let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-        let anchors = (regex?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).compactMap { match -> String? in
-            let quoted = match.range(at: 1)
-            let range = quoted.location == NSNotFound ? match.range : quoted
-            return Range(range, in: text).map { String(text[$0]) }
-        }
+        let anchors = evidenceAnchors(in: [source, finding, correction].joined(separator: " "))
         return Array(([quote].compactMap { $0 }.filter { !$0.isEmpty } + anchors).prefix(6))
+    }
+}
+
+/// Exact anchors in a comment that can be found on a PDF page: quoted passages and figure or table labels.
+func evidenceAnchors(in text: String) -> [String] {
+    let pattern = #"["“]([^"”\n]{12,240})["”]|\b(?:Fig(?:ure)?\.?|Table)\s+[A-Z]?\d+(?:[.\-]\d+)*[a-z]?\b"#
+    let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive)
+    return (regex?.matches(in: text, range: NSRange(text.startIndex..., in: text)) ?? []).compactMap { match -> String? in
+        let quoted = match.range(at: 1)
+        let range = quoted.location == NSNotFound ? match.range : quoted
+        return Range(range, in: text).map { String(text[$0]) }
     }
 }
 
@@ -201,7 +205,6 @@ struct CalibrationInfo: Codable {
 struct SettingsInfo: Codable {
     var examiner_name: String?
     var institution: String?
-    var degree_default: String?
     var effort: String?
     var model_label: String?
     var claude_version: String?

@@ -760,11 +760,13 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
              "' | Quote: ' and 6–18 exact words to its evidence.md line. Use a figure or table label in the source "
              "when the evidence is visual. Leave the declaration date blank for Laurea to fill in. ")
     panel = ("Write this run's panel.json in the extraction work folder with the examiners and chair scores and "
-             "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and sceptic. "
-             "In at most one short sentence per role, record the most important concern or leave it empty. Add "
-             "resolution as an object with summary (up to two short sentences) and criteria (an object keyed by "
-             "criterion letter). For each material disagreement or concern acted on, state the decision and cite "
-             "the decisive evidence in one short sentence. Save the chair's marks before calibration. "
+             "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and sceptic: "
+             "one short sentence per examiner giving their overall view, as a colleague would say it aloud, for "
+             "example \"Solid build, but the evaluation is too thin to back the safety claims.\" Add resolution as "
+             "an object with summary (one or two short sentences on what the chair settled and why) and criteria "
+             "(an object keyed by criterion letter, one short sentence for each material disagreement acted on). "
+             "In notes and resolution, write plain English: no page lists, no jargon, no filler such as restating "
+             "that marks are evidence-based. Save the chair's marks before calibration. "
              "Use the final chat message for integrity findings, limitations or other caveats that are missing "
              "from panel.json. " if not revision else "Keep the original panel record. ")
     review = ("Identify the sources for disputed criteria in evidence.md. If an unresolved result or methodological "
@@ -1698,7 +1700,7 @@ class Handler(BaseHTTPRequestHandler):
         cfg = read_json(SKILL_CONFIG, {})
         if method == "PUT":
             b = self.body_json()
-            for k in ("examiner_name", "institution", "degree_default"):
+            for k in ("examiner_name", "institution"):
                 if k in b:
                     cfg[k] = b[k]
             if "summary_words" in b:
@@ -1967,7 +1969,7 @@ def prepare_exam_skill(skill, d):
             if source.is_file() and not source.is_symlink() and source.suffix in (".py", ".sh", ".swift"):
                 shutil.copy2(source, skill / "scripts" / source.name)
     cfg = read_json(SKILL_CONFIG, {})
-    write_json(skill / "config.json", {k: cfg[k] for k in ("examiner_name", "institution", "degree_default", "output_formats")
+    write_json(skill / "config.json", {k: cfg[k] for k in ("examiner_name", "institution", "output_formats")
                                       if k in cfg})
     level = status(d).get("level", "msc")
     levels = [(k, name) for k, name in LEVELS if k == level]

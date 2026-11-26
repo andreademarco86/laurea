@@ -12,6 +12,8 @@ enum SidebarItem: Hashable {
 struct PDFTarget: Equatable {
     let reference: PageReference
     let highlights: [String]
+    /// The comment the page was opened from; used to find the best-matching passage when no exact anchor exists.
+    var context: String = ""
     let token = UUID()
 }
 
@@ -313,9 +315,9 @@ final class AppModel {
         return ps.contains(where: { $0 == nil }) ? nil : ps.compactMap { $0 }.reduce(0, +)
     }
 
-    func openPDF(at reference: PageReference? = nil, highlighting highlights: [String] = []) {
+    func openPDF(at reference: PageReference? = nil, highlighting highlights: [String] = [], context: String = "") {
         showPDF = true
-        if let reference { pdfTarget = PDFTarget(reference: reference, highlights: highlights) }
+        if let reference { pdfTarget = PDFTarget(reference: reference, highlights: highlights, context: context) }
     }
 
     func reviewEvidence(_ finding: EvidenceFinding, examID id: String, decision: EvidenceDecision, correction: String = "") async {
@@ -703,11 +705,11 @@ final class AppModel {
     }
 
     func saveSettings() async {
-        struct Body: Encodable { let examiner_name, institution, degree_default: String; let marking_scheme: [String: Int]?; let summary_words: Int? }
+        struct Body: Encodable { let examiner_name, institution: String; let marking_scheme: [String: Int]?; let summary_words: Int? }
         let s = settings
         let scheme = s.marking_scheme.flatMap { Scheme.isValid($0) ? $0 : nil }
         let r: SettingsInfo? = try? await backend.send("PUT", "/api/settings",
-            Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "", degree_default: s.degree_default ?? "",
+            Body(examiner_name: s.examiner_name ?? "", institution: s.institution ?? "",
                  marking_scheme: scheme, summary_words: s.summary_words))
         if let r {
             // keep an in-progress (not yet valid) weights edit on screen

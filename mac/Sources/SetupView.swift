@@ -134,8 +134,6 @@ private struct ProfileStep: View {
                           prompt: Text("Your name, as it should appear on reports"))
                 TextField("Institution", text: Binding(get: { s.wrappedValue.institution ?? "" }, set: { s.wrappedValue.institution = $0 }),
                           prompt: Text("Your university or institution"))
-                TextField("Default degree", text: Binding(get: { s.wrappedValue.degree_default ?? "" }, set: { s.wrappedValue.degree_default = $0 }),
-                          prompt: Text("The degree you examine most often"))
                 SignatureField()
             }
             .formStyle(.grouped)
