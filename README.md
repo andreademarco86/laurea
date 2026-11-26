@@ -24,6 +24,8 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
+Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. To reduce reasoning effort, choose a lower **Thoroughness** setting under **Settings → Examination Engine**.
+
 ## Examining standards
 
 Laurea covers AI and machine learning, computing and ICT, speech and language processing, physics, astronomy, and related computational fields. Its bundled workflow checks for hidden text, links headline claims to evidence, and uses several marking passes to reconcile scores against the rubric. [Full list of supported fields](skill/references/domains.md)
