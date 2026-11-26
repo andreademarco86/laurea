@@ -1506,6 +1506,21 @@ def run_skill_chat(message, provider, path):
 
 
 # ---------------------------------------------------------------- exam listing
+def run_progress(d):
+    """Progress of the current run: (fraction 0-1, current stage label, run kind)."""
+    st = status(d)
+    try:
+        lines = (d / "progress.jsonl").read_text(encoding="utf-8").splitlines() if (d / "progress.jsonl").exists() else []
+        items = [json.loads(x) for x in lines]
+    except (OSError, ValueError):
+        items = []
+    start = max([i for i, it in enumerate(items)
+                 if it.get("text") in ("Starting examination", "Applying your revision request")] or [0])
+    p = phase_progress(items[start:], st.get("state") == "done")
+    current = next((ph["label"] for ph in p["phases"] if ph["state"] == "current"), "")
+    return p["fraction"], current, st.get("run_kind")
+
+
 def exam_summary(d):
     st = status(d)
     info = {"id": d.name, "state": st.get("state", "new"), "pdf": st.get("pdf", ""), "created": st.get("created", ""),
@@ -1513,6 +1528,8 @@ def exam_summary(d):
             "student": "", "title": "", "total": None, "viva": None}
     if d.name in RUNNING:
         info["state"] = "running"
+    if info["state"] == "running":
+        info["progress"], info["phase"], info["run_kind"] = run_progress(d)
     rp = report_path(d)
     if rp.exists():
         try:

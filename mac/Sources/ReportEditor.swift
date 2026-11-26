@@ -216,14 +216,20 @@ struct MarksSections: View {
                             .tint(Gradient(colors: [.blue, .indigo]))
                             .frame(width: 70)
                             .animation(.spring(duration: 0.4), value: c.mark)
-                        if let p = detail?.proposedMark(c.spec.key) {
-                            Text("Proposed \(p)")
-                                .font(.caption)
-                                .foregroundStyle(p == c.mark ? Color.secondary : Color.orange)
-                                .help(p == c.mark ? "Proposed mark" : "You changed this from the proposed \(p)")
+                        // Fixed-width columns keep the bars and numbers aligned across rows.
+                        Group {
+                            if let p = detail?.proposedMark(c.spec.key) {
+                                Text("Proposed \(p)")
+                                    .foregroundStyle(p == c.mark ? Color.secondary : Color.orange)
+                                    .help(p == c.mark ? "Proposed mark" : "You changed this from the proposed \(p)")
+                            } else {
+                                Text("")
+                            }
                         }
-                        Text("\(c.mark)").font(.body.weight(.semibold)).monospacedDigit().frame(minWidth: 22, alignment: .trailing)
-                        Text("/ \(c.spec.max)").foregroundStyle(.secondary).monospacedDigit().frame(minWidth: 30, alignment: .leading)
+                        .font(.caption.monospacedDigit())
+                        .frame(width: 84, alignment: .trailing)
+                        Text("\(c.mark)").font(.body.weight(.semibold)).monospacedDigit().frame(width: 28, alignment: .trailing)
+                        Text("/ \(c.spec.max)").foregroundStyle(.secondary).monospacedDigit().frame(width: 38, alignment: .leading)
                         Stepper("Mark", value: Binding(get: { c.mark }, set: { model.setMark(i, $0) }), in: 0...c.spec.max)
                             .labelsHidden()
                     }

@@ -107,6 +107,9 @@ struct ExamRow: View {
             if !exam.title.isEmpty {
                 Text(exam.title).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
             }
+            if exam.state == "running" {
+                SidebarProgress(exam: exam)
+            }
             HStack(spacing: 6) {
                 StatusBadge(state: exam.state)
                 if let l = exam.level, let lv = Level(rawValue: l), exam.state != "new" {
@@ -123,11 +126,34 @@ struct ExamRow: View {
     }
 }
 
-struct StatusBadge: View {
-    let state: String
+/// Run progress in a sidebar row: the same stages as the main screen.
+struct SidebarProgress: View {
+    let exam: ExamSummary
 
     var body: some View {
-        let (text, color, icon): (String, Color, String) = switch state {
+        VStack(alignment: .leading, spacing: 2) {
+            if exam.run_kind == "revise" || exam.progress == nil {
+                ProgressView().progressViewStyle(.linear)
+            } else {
+                ProgressView(value: max(0.03, exam.progress ?? 0)).progressViewStyle(.linear)
+                    .animation(.easeInOut, value: exam.progress)
+            }
+            Text(exam.run_kind == "revise" ? "Revising…" : (exam.phase?.isEmpty == false ? "\(exam.phase!)…" : "Starting…"))
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }
+        .controlSize(.mini)
+        .padding(.vertical, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Examination progress \(Int((exam.progress ?? 0) * 100)) percent")
+    }
+}
+
+struct StatusBadge: View {
+    let state: String
+    @Environment(\.backgroundProminence) private var prominence
+
+    var body: some View {
+        let (text, tint, icon): (String, Color, String) = switch state {
         case "running": ("Examining", .accentColor, "hourglass")
         case "done": ("Ready", .green, "checkmark.circle.fill")
         case "error", "interrupted", "cancelled": ("Needs attention", .orange, "exclamationmark.triangle.fill")
@@ -142,7 +168,8 @@ struct StatusBadge: View {
             Text(text)
         }
         .font(.caption)
-        .foregroundStyle(color)
+        // On a selected (prominent) row, coloured text is unreadable: use the selection's own foreground.
+        .foregroundStyle(prominence == .increased ? Color.white : tint)
     }
 }
 

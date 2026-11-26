@@ -48,6 +48,9 @@ struct ExamSummary: Codable, Identifiable, Hashable {
     let viva: Double?
     var level: String?
     var dissertation_max: Int?
+    var progress: Double?
+    var phase: String?
+    var run_kind: String?
 
     var displayName: String { student.isEmpty ? (pdf as NSString).deletingPathExtension.replacingOccurrences(of: "_", with: " ") : student }
 }

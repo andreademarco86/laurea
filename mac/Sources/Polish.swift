@@ -142,13 +142,15 @@ struct ScoreHeader: View {
 
 struct LevelCapsule: View {
     let level: Level
+    @Environment(\.backgroundProminence) private var prominence
     var color: Color { [.bsc: Color.teal, .msc: Color.indigo, .phd: Color.purple][level]! }
     var body: some View {
+        let selected = prominence == .increased
         Text(level.label)
             .font(.caption2.weight(.bold))
             .padding(.horizontal, 7).padding(.vertical, 2)
-            .foregroundStyle(color)
-            .background(color.opacity(0.15), in: .capsule)
+            .foregroundStyle(selected ? Color.white : color)
+            .background(selected ? Color.white.opacity(0.22) : color.opacity(0.15), in: .capsule)
     }
 }
 
