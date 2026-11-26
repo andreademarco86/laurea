@@ -37,18 +37,30 @@ struct CalibrationView: View {
                     .frame(height: 220)
                     .padding(.vertical, 6)
                     LabeledContent("Total offset", value: "\(Fmt.signed(cal.total, digits: 1)) / \(cal.dissertation_max ?? 90)")
+                    if let support = cal.support {
+                        DisclosureGroup("Evidence for learned offsets") {
+                            ForEach(CRITERIA, id: \.key) { spec in
+                                if let item = support[spec.key] {
+                                    let summary = item.examples == 0 ? "No eligible examples" : "\(item.agreeing) of \(item.examples) agree"
+                                    LabeledContent("(\(spec.key)) \(spec.name)", value: summary)
+                                        .font(.caption)
+                                        .foregroundStyle(item.ready ? Color.primary : Color.secondary)
+                                }
+                            }
+                        }
+                    }
                 } else {
                     ContentUnavailableView {
                         Label("Nothing Learned Yet", systemImage: "dial.medium")
                     } description: {
-                        Text("Examine \(model.calibrationLevel == .msc ? "an" : "a") \(model.calibrationLevel.label) \(model.calibrationLevel.noun.lowercased()), adjust the proposed marks with the slider or per criterion, and save. The difference becomes the offset applied next time.")
+                        Text("Save your marked reports to build a calibration history. An offset needs consistent adjustments across at least three examinations.")
                     }
                 }
             } header: {
                 Text("Learned Offsets")
             } footer: {
                 if let cal, cal.n > 0 {
-                    Text("Learned from \(cal.n) examination\(cal.n == 1 ? "" : "s"). Offsets stay cautious with few examples and firm up as you examine more. An offset is skipped when the evidence clearly contradicts it.")
+                    Text("Learned from \(cal.n) included examination\(cal.n == 1 ? "" : "s"). Recent decisions carry more weight. An offset needs at least three agreeing examples and strong agreement overall. The evidence for the current dissertation takes priority.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }

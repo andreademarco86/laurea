@@ -9,6 +9,7 @@ Only the Python standard library is used.
 import datetime as dt
 import difflib
 import glob
+import hashlib
 import json
 import os
 import re
@@ -29,6 +30,7 @@ APP_DIR = Path(__file__).resolve().parent
 APP_TOKEN = os.environ.get("DE_APP_TOKEN", "1")
 ROOT = Path(os.environ.get("DE_DATA") or Path.home() / "Library" / "Application Support" / "Laurea").expanduser()
 EXAMS = ROOT / "examinations"
+EVIDENCE_REVIEWS = ROOT / "evidence-reviews"
 SETTINGS_FILE = ROOT / "settings.json"
 SKILL = ROOT / "examiner"
 STANDARDS = SKILL / "standards"
@@ -136,6 +138,7 @@ HISTORY = SKILL / "references" / "calibration-history.json"
 LEVELS = [("bsc", "BSc"), ("msc", "MSc"), ("phd", "PhD")]
 LEVEL_WHAT = {"bsc": "BSc dissertation", "msc": "MSc dissertation", "phd": "PhD thesis"}
 SHRINK_K = 2  # learned offset = mean delta * n/(n+K): cautious with few examinations
+CALIBRATION_HALF_LIFE = 180  # days
 RUNNING = {}  # exam id -> Popen
 LOCK = threading.Lock()
 
@@ -717,7 +720,8 @@ def report_command(provider, path, cwd, prompt, skill=None, *, selection=None):
 
     tools = ["Read", "Write", "Edit", "Glob", "Grep"]
     allowed = tools.copy()
-    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve()), str(provider_home(provider).resolve())]
+    denied_reads = [str(SKILL.resolve()), str(LEGACY_SKILL.resolve()), str(EVIDENCE_REVIEWS.resolve()),
+                    str(provider_home(provider).resolve())]
     denied_reads += [str(d.resolve()) for d in EXAMS.iterdir() if d.is_dir() and d != cwd]
     if skill:
         tools.append("Bash")
@@ -979,6 +983,48 @@ def panel_feedback(d, meta, scheme):
             "summary": summary, "decisions": decisions, "low_confidence": concerns}
 
 
+EVIDENCE_LINE = re.compile(r"^\s*(?:[-*]\s+)?\[([a-e])\]\s*(.+?)\s+\(([+–−-])\)\s+(.+)$")
+
+
+def evidence_ledger(d, report, meta):
+    work = meta.parent if meta else d / f"{Path(status(d).get('pdf', '')).stem}_examiner_work"
+    log = read_excerpt(work / "evidence.md", 240000) if not work.is_symlink() else ""
+    reviews = read_json(EVIDENCE_REVIEWS / f"{d.name}.json", {})
+    if not isinstance(reviews, dict):
+        reviews = {}
+    rows = {}
+
+    def add(criterion, kind, finding, source=""):
+        finding, source = finding.strip(), source.strip()
+        if not finding:
+            return
+        key = hashlib.sha256(json.dumps([criterion, kind, finding, source], ensure_ascii=False).encode()).hexdigest()[:24]
+        review = reviews.get(key)
+        review = review if isinstance(review, dict) else {}
+        rows[key] = {"id": key, "criterion": criterion, "kind": kind, "finding": finding, "source": source,
+                     "decision": review.get("decision", "pending"), "correction": review.get("correction", "")}
+        return key
+
+    def match_key(criterion, kind, finding):
+        return criterion, kind, " ".join(finding.lower().rstrip(". ").split())
+
+    logged = {}
+    for line in log.splitlines():
+        match = EVIDENCE_LINE.match(line)
+        if match:
+            key, source, sign, finding = match.groups()
+            kind = "strength" if sign == "+" else "concern"
+            logged[match_key(key, kind, finding)] = add(key, kind, finding, source)
+    report_findings = []
+    for key, criterion in report["criteria"].items():
+        for kind, field in (("strength", "strengths"), ("concern", "weaknesses")):
+            for finding in criterion[field]:
+                item = logged.get(match_key(key, kind, finding)) or add(key, kind, finding)
+                if item:
+                    report_findings.append(item)
+    return [rows[key] for key in dict.fromkeys([*report_findings, *rows])]
+
+
 def review_disputed_criteria(d, work, panel, provider, path, workspace, model, skill, register):
     data = read_json(panel, {})
     panel_marks = data.get("examiners", {}) if isinstance(data, dict) else {}
@@ -1142,13 +1188,34 @@ def compute_offsets(entries, level="msc", scheme=None):
     inc = [e for e in entries if e.get("include", True) and e.get("level", "msc") == level]
     n = len(inc)
     offs = {}
+    support = {}
+    today = dt.date.today()
     for k, _, _ in CRITERIA:
-        fr = [(e["final"][k] - e["raw"][k]) / (e.get("maxima") or DEFAULT_SCHEME)[k]
-              for e in inc if e["final"].get(k) is not None and e["raw"].get(k) is not None]
-        offs[k] = round(sum(fr) / len(fr) * len(fr) / (len(fr) + SHRINK_K) * sc[k], 1) if fr else 0.0
+        samples = []
+        for entry in inc:
+            final, raw = entry.get("final", {}).get(k), entry.get("raw", {}).get(k)
+            maximum = (entry.get("maxima") or DEFAULT_SCHEME).get(k, DEFAULT_SCHEME[k])
+            if final is None or raw is None or maximum <= 0:
+                continue
+            # An unchanged mark with an inherited offset does not independently confirm that offset.
+            if final == entry.get("proposed", {}).get(k) and final != raw:
+                continue
+            try:
+                age = max(0, (today - dt.date.fromisoformat(entry.get("date", ""))).days)
+            except (ValueError, TypeError):
+                age = CALIBRATION_HALF_LIFE
+            samples.append((max(-0.20, min(0.20, (final - raw) / maximum)), 0.5 ** (age / CALIBRATION_HALF_LIFE)))
+        weight = sum(w for _, w in samples)
+        mean = sum(delta * w for delta, w in samples) / weight if weight else 0
+        agreeing = [w for delta, w in samples if delta * mean > 0]
+        agreement = sum(agreeing) / weight if weight else 0
+        ready = len(agreeing) >= 3 and agreement >= 2 / 3
+        learned = max(-0.10, min(0.10, mean * weight / (weight + SHRINK_K))) if ready else 0
+        offs[k] = round(learned * sc[k], 1)
+        support[k] = {"examples": len(samples), "agreeing": len(agreeing), "ready": ready}
     shifts = [(sum(v or 0 for v in e["final"].values()) - sum(v or 0 for v in e["proposed"].values()))
               / diss_max(e.get("maxima") or DEFAULT_SCHEME) * diss_max(sc) for e in inc]
-    return {"level": level, "n": n, "offsets": offs, "total": round(sum(offs.values()), 1),
+    return {"level": level, "n": n, "offsets": offs, "support": support, "total": round(sum(offs.values()), 1),
             "dissertation_max": diss_max(sc), "mean_shift_vs_proposal": round(sum(shifts) / n, 1) if n else 0.0}
 
 
@@ -1160,8 +1227,8 @@ def calibration_offsets_text(entries, scheme, levels=LEVELS):
             parts.append(f"### {name}\n\nNo {name} examinations recorded yet: apply no offsets.")
             continue
         rows = "\n".join(f"| ({k}) {cname} (/{mx}) | {c['offsets'][k]:+.1f} |" for k, cname, mx in crit(scheme))
-        parts.append(f"### {name}\n\nLearned from {c['n']} {name} examination(s) by comparing the examiner's final marks with "
-                     f"your raw marks (shrunk towards 0 while there are few examples), in marks for the current marking scheme. "
+        parts.append(f"### {name}\n\nLearned from repeated, consistent examiner mark decisions among {c['n']} {name} examination(s), "
+                     f"with more weight for recent decisions. Offsets are in marks for the current marking scheme. "
                      f"If this examination uses different weights, scale each offset by (this examination's maximum / the maximum shown). "
                      f"Add these to your raw marks:\n\n"
                      f"| Criterion | Offset |\n|---|---:|\n{rows}\n| **Total** | **{c['total']:+.1f} / {c['dissertation_max']}** |")
@@ -1174,11 +1241,12 @@ def write_calibration_notes(entries):
     for e in sorted(entries, key=lambda e: e["date"]):
         if not e.get("include", True):
             continue
-        ch = ", ".join(f"({k}) {_fmt(e['proposed'][k])}->{_fmt(e['final'][k])}" for k, _, _ in CRITERIA
+        ch = ", ".join(f"({k}) {_fmt(e['proposed'].get(k))}->{_fmt(e['final'].get(k))}" for k, _, _ in CRITERIA
                        if e["proposed"].get(k) != e["final"].get(k)) or "no changes"
         note = f" | {e['note']}" if e.get("note") else ""
-        lines.append(f"- {e['date']} | {e.get('level', 'msc').upper()} | {e.get('label', '')} | {ch} | total {_fmt(sum(e['proposed'].values()))}"
-                     f"->{_fmt(sum(e['final'].values()))}{note}")
+        lines.append(f"- {e['date']} | {e.get('level', 'msc').upper()} | {e.get('label', '')} | {ch} | "
+                     f"total {_fmt(sum(v or 0 for v in e['proposed'].values()))}"
+                     f"->{_fmt(sum(v or 0 for v in e['final'].values()))}{note}")
     hist_txt = "\n".join(lines) or "- (none yet)"
     txt = CALIBRATION.read_text(encoding="utf-8") if CALIBRATION.exists() else (
         "# Calibration notes (examiner's own)\n\nWritten by the Laurea app each time the examiner saves a report "
@@ -1192,7 +1260,8 @@ def write_calibration_notes(entries):
 
     txt = put(txt, "offsets", off_txt, "Learned offsets")
     txt = put(txt, "history", hist_txt, "Past adjustments")
-    CALIBRATION.write_text(txt, encoding="utf-8")
+    if not CALIBRATION.exists() or CALIBRATION.read_text(encoding="utf-8") != txt:
+        CALIBRATION.write_text(txt, encoding="utf-8")
 
 
 def record_calibration(d, final_marks, note=None, include=None):
@@ -1210,7 +1279,9 @@ def record_calibration(d, final_marks, note=None, include=None):
     except Exception:
         pass
     e["level"] = status(d).get("level", "msc")
-    e.update(date=dt.date.today().isoformat(), proposed=prop["proposed"], raw=prop["raw"],
+    if "date" not in e or e.get("final") != final_marks:
+        e["date"] = dt.date.today().isoformat()
+    e.update(proposed=prop["proposed"], raw=prop["raw"],
              applied=prop.get("applied", {}), final=final_marks, maxima=exam_scheme(d))
     if note is not None:
         e["note"] = note.strip()
@@ -1514,13 +1585,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, {"entries": sorted([e for e in entries if e.get("level", "msc") == level], key=lambda e: e["date"]),
                                        **compute_offsets(entries, level)})
             if len(parts) == 2 and parts[0] == "calibration" and method == "PUT" and parts[1] != "open":
-                entries = read_json(HISTORY, [])
                 b = self.body_json()
-                for e in entries:
-                    if e["exam_id"] == parts[1]:
-                        e["include"] = bool(b.get("include", True))
-                write_json(HISTORY, entries)
-                write_calibration_notes(entries)
+                with LOCK:
+                    entries = read_json(HISTORY, [])
+                    for e in entries:
+                        if e["exam_id"] == parts[1]:
+                            e["include"] = bool(b.get("include", True))
+                    write_json(HISTORY, entries)
+                    write_calibration_notes(entries)
                 return self.send(200, {"ok": True})
             if parts == ["calibration", "open"] and method == "POST":
                 subprocess.run(["open", "-t", str(CALIBRATION)])
@@ -1700,7 +1772,36 @@ class Handler(BaseHTTPRequestHandler):
             info["page_labels"] = read_json(mp, {}).get("page_labels", []) if mp else []
             if rp.exists():
                 info["panel"] = panel_feedback(d, mp, info["scheme"])
+                info["evidence"] = evidence_ledger(d, info["report"], mp)
             return self.send(200, info)
+        if method == "PUT" and action == "evidence" and len(rest) == 2:
+            body = self.body_json()
+            decision, correction = body.get("decision"), body.get("correction", "")
+            if decision not in ("pending", "confirmed", "corrected", "dismissed") or not isinstance(correction, str):
+                return self.send(400, {"error": "Invalid evidence review."})
+            correction = correction.strip() if decision == "corrected" else ""
+            if decision == "corrected" and not 0 < len(correction) <= 2500:
+                return self.send(400, {"error": "Enter a correction of up to 2,500 characters."})
+            with LOCK:
+                rp = report_path(d)
+                if eid in RUNNING or not rp.is_file():
+                    return self.send(409, {"error": "Wait for the report to finish before reviewing evidence."})
+                report = parse_report(rp.read_text(encoding="utf-8"))
+                row = next((item for item in evidence_ledger(d, report, meta_path(d)) if item["id"] == rest[1]), None)
+                if row is None:
+                    return self.send(404, {"error": "This finding is no longer in the evidence ledger."})
+                EVIDENCE_REVIEWS.mkdir(exist_ok=True)
+                record = EVIDENCE_REVIEWS / f"{eid}.json"
+                reviews = read_json(record, {})
+                if not isinstance(reviews, dict):
+                    reviews = {}
+                row.update(decision=decision, correction=correction)
+                if decision == "pending":
+                    reviews.pop(row["id"], None)
+                else:
+                    reviews[row["id"]] = {"decision": decision, "correction": correction}
+                write_json(record, reviews)
+            return self.send(200, row)
         if method == "GET" and action == "progress":
             since = int((q.get("since") or ["0"])[0])
             lines = (d / "progress.jsonl").read_text(encoding="utf-8").splitlines() if (d / "progress.jsonl").exists() else []
@@ -1739,6 +1840,15 @@ class Handler(BaseHTTPRequestHandler):
                     prompt = (f"The examiner asks for this change to `{rp.name}` in the current folder:\n\n{instr}\n\n"
                               "Keep the template structure, verify page references against the available evidence and rerun "
                               "check_report.py.")
+                    evidence = evidence_ledger(d, parse_report(rp.read_text(encoding="utf-8")), meta_path(d))
+                    reviewed = [{"criterion": row["criterion"], "finding": row["finding"][:300], "source": row["source"][:150],
+                                 "decision": row["decision"], "correction": row["correction"][:400]}
+                                for row in evidence if row["decision"] != "pending"]
+                    if reviewed:
+                        reviewed.sort(key=lambda row: row["decision"] == "confirmed")
+                        prompt += ("\n\nUse these examiner decisions only where relevant to the requested change. "
+                                   "Use corrections in place of the original finding and avoid relying on dismissed findings.\n"
+                                   + json.dumps(reviewed[:24], ensure_ascii=False))
                 start_run(eid, prompt, action, provider, path)
             return self.send(200, {"ok": True})
         if method == "POST" and action == "cancel":
@@ -1762,7 +1872,8 @@ class Handler(BaseHTTPRequestHandler):
                 rp.write_text(write_report(r, exam_scheme(d)), encoding="utf-8")
                 marks = {k: v.get("mark") for k, v in r["criteria"].items()}
             out = check_and_render(d)
-            cal = record_calibration(d, marks, note=b.get("note"))
+            with LOCK:
+                cal = record_calibration(d, marks, note=b.get("note"))
             out["calibration"] = cal
             return self.send(200, out)
         if method == "POST" and action == "reveal":
@@ -1770,11 +1881,13 @@ class Handler(BaseHTTPRequestHandler):
             subprocess.run(["open", "-R", str(word if word.is_file() else d / st["pdf"])])
             return self.send(200, {"ok": True})
         if method == "POST" and action == "delete":
-            if eid in RUNNING:
-                return self.send(409, {"error": "stop the run first"})
-            trash = Path.home() / ".Trash" / f"Laurea-{eid}"
-            shutil.move(str(d), str(trash))
-            forget_calibration(eid)
+            with LOCK:
+                if eid in RUNNING:
+                    return self.send(409, {"error": "stop the run first"})
+                trash = Path.home() / ".Trash" / f"Laurea-{eid}"
+                shutil.move(str(d), str(trash))
+                (EVIDENCE_REVIEWS / f"{eid}.json").unlink(missing_ok=True)
+                forget_calibration(eid)
             return self.send(200, {"ok": True, "moved_to": str(trash)})
         self.send(404, {"error": "unknown action"})
 
@@ -1827,7 +1940,8 @@ def prepare_exam_skill(skill, d):
                                       if k in cfg})
     level = status(d).get("level", "msc")
     levels = [(k, name) for k, name in LEVELS if k == level]
-    offsets = calibration_offsets_text(read_json(HISTORY, []), exam_scheme(d), levels)
+    entries = [entry for entry in read_json(HISTORY, []) if entry.get("exam_id") != d.name]
+    offsets = calibration_offsets_text(entries, exam_scheme(d), levels)
     (skill / "references" / "calibration-notes.md").write_text("# Learned offsets\n\n" + offsets + "\n", encoding="utf-8")
 
 
@@ -1837,8 +1951,7 @@ def ensure_personal_files():
         shutil.copyfile(SKILL / "config.example.json", SKILL_CONFIG)
     if not HISTORY.exists():
         write_json(HISTORY, [])
-    if not CALIBRATION.exists():
-        write_calibration_notes(read_json(HISTORY, []))
+    write_calibration_notes(read_json(HISTORY, []))
 
 
 def main():

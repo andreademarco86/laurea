@@ -111,6 +111,23 @@ struct PanelFeedback: Codable {
     let low_confidence: [String]
 }
 
+enum EvidenceDecision: String, Codable, CaseIterable, Identifiable {
+    case pending, confirmed, corrected, dismissed
+
+    var id: Self { self }
+    var label: String { self == .pending ? "To review" : rawValue.capitalized }
+}
+
+struct EvidenceFinding: Codable, Identifiable {
+    let id: String
+    let criterion: String
+    let kind: String
+    let finding: String
+    let source: String
+    let decision: EvidenceDecision
+    let correction: String
+}
+
 struct ExamDetail: Codable {
     let id: String
     let state: String
@@ -126,6 +143,7 @@ struct ExamDetail: Codable {
     let scheme: [String: Int]?
     let summary_words: Int?
     let panel: PanelFeedback?
+    var evidence: [EvidenceFinding]?
 
     var markingScheme: Scheme { Scheme(scheme) }
 
@@ -147,12 +165,19 @@ struct ProgressInfo: Codable, Equatable {
     let fraction: Double
 }
 
+struct CalibrationSupport: Codable {
+    let examples: Int
+    let agreeing: Int
+    let ready: Bool
+}
+
 struct CalibrationInfo: Codable {
     let level: String?
     let dissertation_max: Int?
     let entries: [CalEntry]
     let n: Int
     let offsets: [String: Double]
+    let support: [String: CalibrationSupport]?
     let total: Double
 }
 

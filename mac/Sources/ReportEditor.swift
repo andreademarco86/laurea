@@ -12,6 +12,9 @@ struct ReportEditor: View {
         Form {
             Section { ScoreHeader(draft: draft.wrappedValue) }
             if let b = model.banner { BannerSection(banner: b) }
+            if let detail, let findings = detail.evidence, !findings.isEmpty {
+                EvidenceLedger(examID: detail.id, findings: findings, scheme: detail.markingScheme).id(detail.id)
+            }
             MarksSections(draft: draft)
 
             Section("Details") {
@@ -266,7 +269,7 @@ struct MarksSections: View {
                 Text(model.sliderDelta == 0 ? "0" : Fmt.signed(Double(model.sliderDelta)) + " marks").monospacedDigit()
             }
         } footer: {
-            Text("Moves the whole mark down or up, spread over the criteria by weight: fine steps near the middle, reaching zero or full marks at the ends. Fine-tune any criterion above. Each save teaches Laurea your calibration for the next \(Level(rawValue: model.detail?.status.level ?? "msc")?.label ?? "") examination.")
+            Text("Moves the whole mark up or down across the criteria. Fine-tune individual marks above. Laurea looks for consistent adjustments across examinations at the same degree level.")
                 .font(.caption).foregroundStyle(.secondary)
         }
 

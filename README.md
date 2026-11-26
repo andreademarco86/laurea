@@ -24,6 +24,8 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
+Open **Evidence ledger** above the marks to review strengths and concerns by criterion. Click a citation to open its PDF page, then confirm, correct, or dismiss the finding. These decisions are stored locally and guide later revisions of the same examination. The ledger stays in Laurea.
+
 Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. Laurea keeps the Markdown source internally and presents the report in its editor. **Standard** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Light** for simple revisions or **Thorough** when a report calls for deeper technical analysis.
 
 Open **Internal notes** at the bottom of the report editor to see the three examiner scores and the chair’s mark for each criterion before calibration. New examinations include brief panel notes and the chair’s reasons for decisions that affected the mark. The exported report presents the agreed findings and report marks.
@@ -34,7 +36,7 @@ Choose **Adaptive** to map the front matter at Light effort and examine at Stand
 
 Laurea covers AI and machine learning, computing and ICT, speech and language processing, physics, astronomy, and related computational fields. Its bundled workflow checks for hidden text, links headline claims to evidence, and uses several marking passes to reconcile scores against the rubric. [Full list of supported fields](skill/references/domains.md)
 
-In **Examining Standards** (**⇧⌘L**), describe a standing preference, such as asking a viva question about reproducibility. Teaching history is saved on your Mac and can be undone. **Calibration** (**⇧⌘K**) shows how your adjustments influence future drafts at each degree level.
+In **Examining Standards** (**⇧⌘L**), describe a standing preference, such as asking a viva question about reproducibility. Teaching history is saved on your Mac and can be undone. **Calibration** (**⇧⌘K**) learns separately for each degree level and criterion. An adjustment needs at least three agreeing examinations. Recent decisions carry more weight, and the evidence in the current dissertation takes priority. Use **Evidence for learned offsets** to see how many examinations support each adjustment.
 
 ## Dissertation data
 

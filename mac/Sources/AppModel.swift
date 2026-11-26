@@ -309,6 +309,18 @@ final class AppModel {
         if let label { pdfTarget = PDFTarget(label: label) }
     }
 
+    func reviewEvidence(_ finding: EvidenceFinding, examID id: String, decision: EvidenceDecision, correction: String = "") async {
+        struct Review: Encodable { let decision: EvidenceDecision; let correction: String }
+        do {
+            let updated: EvidenceFinding = try await backend.send("PUT", "/api/exams/\(id)/evidence/\(finding.id)",
+                                                                  Review(decision: decision, correction: correction))
+            guard selectedExamID == id, let index = detail?.evidence?.firstIndex(where: { $0.id == updated.id }) else { return }
+            detail?.evidence?[index] = updated
+        } catch {
+            if selectedExamID == id { errorMessage = error.localizedDescription }
+        }
+    }
+
     var pdfURL: URL? {
         guard let d = detail else { return nil }
         return backend.examsDir.appendingPathComponent(d.id).appendingPathComponent(d.pdf)
