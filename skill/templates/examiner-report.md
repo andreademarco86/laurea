@@ -15,7 +15,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 1. Summary
 
-{{SUMMARY - close to the full word limit (90-100% of it, default 350), in three paragraphs: (1) what the work did and found; (2) the main strengths and weaknesses that drive the mark, with pages; (3) on its own, a summative assessment of four to six plain sentences, without page references: how soundly the work is built and evaluated, what it adds to its field, what the evidence does not yet support, then the overall judgement in words. Never name the student; say "the candidate" if needed}}
+{{SUMMARY - close to the full word limit (90-100% of it, default 350), in three paragraphs, with no page or section references anywhere: (1) what the work did and found; (2) the main strengths and weaknesses that drive the mark; (3) on its own, a summative assessment of four to six plain sentences: how soundly the work is built and evaluated, what it adds to its field, what the evidence does not yet support, then the overall judgement in words. Never name the student; say "the candidate" if needed}}
 
 ## 2. Marking scheme
 
@@ -90,9 +90,9 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 3. Viva questions
 
-**Q1. {{Question}}** ({{§x.y, p. N}})
+**Q1. {{Question - broad and open, about methodology, outcomes, knowledge of the field, something the report leaves unclear, or limitations and next steps; may focus on a subsection, but never on a specific value, parameter, citation or label}}** ({{§x.y it grows from}})
 
-- *Why asked:* {{the gap or doubt this resolves}}
+- *Why asked:* {{what the examiners want to find out about the candidate's understanding}}
 - *Expected / acceptable answer:* {{key points a good answer covers}}
 - *Weak answer:* {{what would indicate a problem}}
 

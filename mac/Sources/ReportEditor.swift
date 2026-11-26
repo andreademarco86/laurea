@@ -27,7 +27,6 @@ struct ReportEditor: View {
                     .font(.body)
                     .frame(minHeight: 170)
                     .scrollContentBackground(.hidden)
-                RefChips(text: draft.wrappedValue.summary).equatable()
             } header: {
                 HStack {
                     Text("Summary")
@@ -342,7 +341,7 @@ struct QuestionSections: View {
                                 .help("Remove this question")
                             }
                             LabeledField("Question", text: qb.question, prompt: "As you would ask it in the viva")
-                            LabeledField("Refers to", text: qb.refs, prompt: "§x.y, p. N")
+                            LabeledField("Refers to", text: qb.refs, prompt: "Section it grows from, e.g. §4.2")
                             LabeledField("Why ask it", text: qb.why, prompt: "The gap or doubt this resolves")
                             LabeledField("Good answer", text: qb.expected, prompt: "Key points an acceptable answer covers")
                             LabeledField("Weak answer", text: qb.weak, prompt: "What would indicate a problem")

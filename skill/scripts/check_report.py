@@ -83,8 +83,10 @@ def main():
             warnings.append(f"summary has {len(paragraphs)} paragraph(s); end with a separate short summative assessment")
         elif len(re.findall(r"[.?](?:\s|$)", paragraphs[-1].strip())) < 4:
             warnings.append("the summary's final summative paragraph is too short; write four to six plain sentences")
-        elif PAGE_REF.search(paragraphs[-1]):
-            warnings.append("the summary's final paragraph is the summative assessment: leave out page references")
+
+        # The summary is a readable overview: page and section references belong in the criterion comments.
+        if PAGE_REF.search(summ) or re.search(r"§", summ):
+            errors.append("the summary contains page or section references; remove them (they belong in the criterion comments)")
         # The summary refers to "the candidate", never to the student by name.
         m = re.search(r"\*\*Student name\*\*\s*\|\s*(.*?)\s*\|", text)
         parts = [p for p in re.findall(r"[^\W\d_][\w'’-]*", m.group(1) if m else "") if len(p) >= 3 and p[0].isupper()]
