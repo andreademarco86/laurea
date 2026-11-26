@@ -62,6 +62,10 @@ accepted = three + [entry(3, 15, 17, proposed_c=17)]
 c = sv.compute_offsets(accepted)
 check("accepted offsets shape the size but don't count as independent examples",
       c["support"]["c"]["examples"] == 3 and c["offsets"]["c"] > 0)
+down = [entry(10 + i, 15, 12) for i in range(3)]
+up_echo = [entry(20 + i, 15, 17, proposed_c=17) for i in range(3)]
+trend = sv.compute_offsets(down + up_echo)["offsets"]["c"]
+check("accepted offsets in the old direction cannot cancel a new trend", trend < 0, str(trend))
 inherited_only = [entry(i, 15, 17, proposed_c=17) for i in range(3)]
 check("three untouched inherited proposals do not qualify an offset", sv.compute_offsets(inherited_only)["offsets"]["c"] == 0)
 

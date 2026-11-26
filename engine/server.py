@@ -594,6 +594,8 @@ def check_and_render(d):
     chk = subprocess.run(args, capture_output=True, text=True, env=ENV)
     ren = subprocess.run(["bash", str(SKILL / "scripts" / "render_report.sh"), str(rp)],
                          capture_output=True, text=True, env=ENV, cwd=str(d))
+    if ren.returncode != 0:  # never leave a Word file that no longer matches the report
+        rp.with_suffix(".docx").unlink(missing_ok=True)
     return {"check_ok": chk.returncode == 0, "check": (chk.stdout + chk.stderr).strip(),
             "render_ok": ren.returncode == 0, "render": (ren.stdout + ren.stderr).strip()}
 
@@ -1207,14 +1209,17 @@ def compute_offsets(entries, level="msc", scheme=None):
                 age = CALIBRATION_HALF_LIFE
             samples.append((max(-0.20, min(0.20, (final - raw) / maximum)),
                             0.5 ** (age / CALIBRATION_HALF_LIFE) * (0.5 if accepted_offset else 1.0), not accepted_offset))
-        weight = sum(w for _, w, _ in samples)
-        mean = sum(delta * w for delta, w, _ in samples) / weight if weight else 0
-        # Only the examiner's own adjustments can qualify an offset; accepted inherited marks only shape its size.
+        # Direction and agreement come only from the examiner's own adjustments.
         independent = [(delta, w) for delta, w, own in samples if own]
         own_weight = sum(w for _, w in independent)
-        agreeing = [w for delta, w in independent if delta * mean > 0]
+        direction = sum(delta * w for delta, w in independent) / own_weight if own_weight else 0
+        agreeing = [w for delta, w in independent if delta * direction > 0]
         agreement = sum(agreeing) / own_weight if own_weight else 0
         ready = len(agreeing) >= 3 and agreement >= 2 / 3
+        # Accepted inherited marks then shape the size, but only when they point the same way.
+        sized = independent + [(delta, w) for delta, w, own in samples if not own and delta * direction > 0]
+        weight = sum(w for _, w in sized)
+        mean = sum(delta * w for delta, w in sized) / weight if weight else 0
         learned = max(-0.10, min(0.10, mean * weight / (weight + SHRINK_K))) if ready else 0
         offs[k] = round(learned * sc[k], 1)
         support[k] = {"examples": len(independent), "agreeing": len(agreeing), "ready": ready}

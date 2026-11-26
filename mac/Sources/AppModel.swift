@@ -48,7 +48,9 @@ final class AppModel {
 
     // Selected examination
     var detail: ExamDetail?
-    var draft: ReportDraft?
+    var draft: ReportDraft? { didSet { draftRevision &+= 1 } }
+    /// Bumped on every change to the draft, so a finishing save can tell whether newer edits exist.
+    private(set) var draftRevision = 0
     var dirty = false
     var slider: Double = 0          // position, -1 (harshest) ... +1 (most generous)
     var sliderBase: [Int]?
@@ -346,6 +348,7 @@ final class AppModel {
     @discardableResult
     func save() async -> Bool {
         guard let id = selectedExamID, var d = draft else { return false }
+        let revision = draftRevision
         if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return false }
         if let l = Level(rawValue: detail?.status.level ?? "msc") { d.docTitle = "\(l.label) \(l.noun) - Examiner's Report" }
         struct Body: Encodable { let report: APIReport; let note: String; let date_opt_out: Bool }
@@ -363,6 +366,13 @@ final class AppModel {
                 banner = Banner(kind: .failure, text: "Saved, but the report checker found problems:\n• " + issues.joined(separator: "\n• "))
             } else {
                 banner = Banner(kind: issues.isEmpty ? .success : .warning, text: issues.isEmpty ? text : text + "\n• " + issues.joined(separator: "\n• "))
+            }
+            // Only settle the state of the examination and draft version this save started from.
+            guard selectedExamID == id else { await refreshList(); return r.render_ok }
+            if draftRevision != revision {
+                banner = Banner(kind: .warning, text: "Saved, but you made changes while saving. Save again to include them.")
+                await refreshList()
+                return false
             }
             dirty = false
             saveCount += 1
@@ -399,7 +409,22 @@ final class AppModel {
                 return
             }
         }
-        guard FileManager.default.fileExists(atPath: src.path) else { errorMessage = "There is no Word document yet."; return }
+        // Export only a Word file rendered from the current report; re-render once if it is missing or older.
+        let md = src.deletingPathExtension().appendingPathExtension("md")
+        func fresh() -> Bool {
+            let fm = FileManager.default
+            guard let w = (try? fm.attributesOfItem(atPath: src.path))?[.modificationDate] as? Date,
+                  let m = (try? fm.attributesOfItem(atPath: md.path))?[.modificationDate] as? Date else { return false }
+            return w >= m
+        }
+        if !fresh() {
+            let saved = await save()
+            guard selectedExamID == id else { errorMessage = "The selection changed during export. Export again."; return }
+            guard saved, fresh() else {
+                errorMessage = "The Word document could not be produced from the current report, so nothing was exported."
+                return
+            }
+        }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "docx") ?? .data]
         let who = (student.isEmpty ? "Dissertation" : student).replacingOccurrences(of: "/", with: "-")
