@@ -84,6 +84,7 @@ struct APIReport: Codable {
     var header: [String: String]
     var criteria: [String: APICriterion]
     var questions: [APIQuestion]
+    var substantial: [String]?
     var corrections: [String]
     var summary: String
     var viva: Double?
@@ -263,6 +264,7 @@ struct ReportDraft {
     var summary = ""
     var criteria: [CriterionDraft] = []
     var questions: [QuestionDraft] = []
+    var substantial: [TextItem] = []
     var corrections: [TextItem] = []
     var vivaText = ""
     var vivaMax = 10
@@ -296,6 +298,7 @@ struct ReportDraft {
                                   weaknesses: (c?.weaknesses ?? []).map { TextItem(text: $0) })
         }
         questions = r.questions.map { QuestionDraft(question: $0.question, refs: $0.refs, why: $0.why, expected: $0.expected, weak: $0.weak) }
+        substantial = (r.substantial ?? []).map { TextItem(text: $0) }
         corrections = r.corrections.map { TextItem(text: $0) }
         if let v = r.viva { vivaText = v == v.rounded() ? String(Int(v)) : String(v) }
         date = r.date
@@ -309,6 +312,7 @@ struct ReportDraft {
                 ($0.spec.key, APICriterion(mark: Double($0.mark), strengths: $0.strengths.map(\.text), weaknesses: $0.weaknesses.map(\.text)))
             }),
             questions: questions.map { APIQuestion(question: $0.question, refs: $0.refs, why: $0.why, expected: $0.expected, weak: $0.weak) },
+            substantial: substantial.map(\.text),
             corrections: corrections.map(\.text),
             summary: summary, viva: viva, date: date, doc_title: docTitle)
     }

@@ -34,6 +34,10 @@ r = sv.parse_report(fixture)
 check("sample report parses with five criteria", all(r["criteria"][k]["mark"] is not None for k in "abcde"))
 again = sv.parse_report(sv.write_report(r, sv.DEFAULT_SCHEME))
 check("report survives a write/parse round trip", again["criteria"] == r["criteria"] and again["summary"] == r["summary"])
+check("substantial and minor corrections survive the round trip",
+      len(r["substantial"]) == 1 and again["substantial"] == r["substantial"] and again["corrections"] == r["corrections"])
+none = sv.parse_report(sv.write_report({**r, "substantial": []}, sv.DEFAULT_SCHEME))
+check("no substantial corrections are written as 'None required.'", none["substantial"] == [] and len(none["corrections"]) == 5)
 
 # Marking weights
 custom = {"a": 10, "b": 15, "c": 30, "d": 25, "e": 5, "viva": 15}

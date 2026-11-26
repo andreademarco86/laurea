@@ -78,6 +78,12 @@ def main():
             warnings.append(f"summary has only {n} words; aim for {int(limit * 0.8)}-{limit}")
         else:
             print(f"summary: {n} words")
+        # The summary refers to "the candidate", never to the student by name.
+        m = re.search(r"\*\*Student name\*\*\s*\|\s*(.*?)\s*\|", text)
+        parts = [p for p in re.findall(r"[^\W\d_][\w'’-]*", m.group(1) if m else "") if len(p) >= 3 and p[0].isupper()]
+        named = sorted({p for p in parts if re.search(rf"\b{re.escape(p)}\b", summ)})
+        if named:
+            errors.append(f"summary names the student ({', '.join(named)}); write 'the candidate' instead")
 
     # Criterion marks
     marks = {}
@@ -129,10 +135,24 @@ def main():
         if exp < len(qn):
             errors.append(f"{len(qn) - exp} viva question(s) without an expected/acceptable answer")
 
+    # Substantial corrections: up to 5, or "None required."
+    sc = section(text, r"^## \d+\. Substantial corrections\s*$")
+    if sc is None:
+        errors.append("section '## 4. Substantial corrections' missing")
+    else:
+        items = re.findall(r"^\s*\d+\.\s+\S.*$", sc, re.M)
+        if len(items) > 5:
+            errors.append(f"{len(items)} substantial corrections, expected at most 5 (larger problems belong in the weaknesses)")
+        elif not items and not re.search(r"\bnone\b", sc, re.I):
+            errors.append("substantial corrections section is empty; list them or write 'None required.'")
+        for it in items:
+            if not PAGE_REF.search(it):
+                warnings.append(f"substantial correction without page ref: {it.strip()[:70]}")
+
     # Minor corrections
-    mc = section(text, r"^## 4\. Minor corrections\s*$")
+    mc = section(text, r"^## \d+\. Minor corrections\s*$")
     if mc is None:
-        errors.append("section '## 4. Minor corrections' missing")
+        errors.append("section '## 5. Minor corrections' missing")
     else:
         items = re.findall(r"^\s*\d+\.\s+\S.*$", mc, re.M)
         if not 5 <= len(items) <= 10:

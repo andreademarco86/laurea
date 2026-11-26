@@ -171,7 +171,7 @@ final class AppModel {
         slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
         pdfTarget = nil
         pdfCurrentLabel = ""
-        ledger = LedgerUI()
+        reviewSaving = []
         switch item {
         case .exam(let id): await load(id)
         case .calibration: await loadCalibration()
@@ -536,18 +536,12 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    // MARK: Evidence ledger (view state lives here: the app builds without the SwiftUI macro plugin)
+    // MARK: Report editor view state (lives here: the app builds without the SwiftUI macro plugin)
 
-    struct LedgerUI {
-        var expanded = false
-        var filter: EvidenceDecision?
-        var criterion: String?
-        var limit = 12
-        var editing: EvidenceFinding?
-        var saving: Set<String> = []
-        var correctionText = ""
-    }
-    var ledger = LedgerUI()
+    /// Evidence reviews being saved, by finding id.
+    var reviewSaving: Set<String> = []
+    var vivaExpanded = true
+    var correctionsExpanded = true
 
     /// The examiner turned the declaration date off for this examination: export must not add one.
     var dateOptOut = false

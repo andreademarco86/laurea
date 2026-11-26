@@ -12,9 +12,6 @@ struct ReportEditor: View {
         Form {
             Section { ScoreHeader(draft: draft.wrappedValue) }
             if let b = model.banner { BannerSection(banner: b) }
-            if let detail, let findings = detail.evidence, !findings.isEmpty {
-                EvidenceLedger(examID: detail.id, findings: findings, scheme: detail.markingScheme).id(detail.id)
-            }
             MarksSections(draft: draft)
 
             Section("Details") {
@@ -43,15 +40,30 @@ struct ReportEditor: View {
             }
 
             ForEach(draft.criteria) { $c in
+                let findings = detail?.evidence ?? []
+                let strengths = EvidenceMatch.index(findings, criterion: c.spec.key, kind: "strength")
+                let concerns = EvidenceMatch.index(findings, criterion: c.spec.key, kind: "concern")
+                let used = Set(c.strengths.compactMap { strengths[EvidenceMatch.normalized($0.text)]?.id }
+                               + c.weaknesses.compactMap { concerns[EvidenceMatch.normalized($0.text)]?.id })
+                let toReview = findings.filter { used.contains($0.id) && $0.decision == .pending }.count
                 Section {
                     SubHeading("Strengths")
-                    BulletList(items: $c.strengths, prompt: "What the dissertation does well, with § and page", addLabel: "Add Strength")
+                    BulletList(items: $c.strengths, prompt: "What the dissertation does well, with § and page", addLabel: "Add Strength",
+                               examID: detail?.id, evidence: { strengths[EvidenceMatch.normalized($0)] })
                     SubHeading("Weaknesses")
-                    BulletList(items: $c.weaknesses, prompt: "What could have been done better, with § and page", addLabel: "Add Weakness")
+                    BulletList(items: $c.weaknesses, prompt: "What could have been done better, with § and page", addLabel: "Add Weakness",
+                               examID: detail?.id, evidence: { concerns[EvidenceMatch.normalized($0)] })
+                    if let id = detail?.id {
+                        OtherEvidence(findings: findings.filter { $0.criterion == c.spec.key && !used.contains($0.id) }, examID: id)
+                    }
                 } header: {
                     HStack {
                         Text("(\(c.spec.key)) \(c.spec.name)")
                         Spacer()
+                        if toReview > 0 {
+                            Text("\(toReview) to review").font(.caption).foregroundStyle(.secondary)
+                                .help("Points not yet confirmed or dismissed: click the circle beside a point")
+                        }
                         Text("\(c.mark) / \(c.spec.max)").monospacedDigit()
                     }
                 }
@@ -59,16 +71,7 @@ struct ReportEditor: View {
 
             QuestionSections(questions: draft.questions)
 
-            Section {
-                BulletList(items: draft.corrections, prompt: "p. N, §x.y: issue → fix", addLabel: "Add Correction", numbered: true)
-            } header: {
-                HStack {
-                    Text("Minor Corrections")
-                    Spacer()
-                    let n = draft.wrappedValue.corrections.count
-                    Text("\(n) (5–10)").foregroundStyle((5...10).contains(n) ? Color.secondary : Color.orange)
-                }
-            }
+            CorrectionsSection(draft: draft)
 
             DeclarationSection(draft: draft)
 
@@ -293,36 +296,48 @@ struct MarksSections: View {
 // MARK: - Questions
 
 struct QuestionSections: View {
+    @Environment(AppModel.self) private var model
     @Binding var questions: [QuestionDraft]
 
     var body: some View {
-        ForEach(Array(questions.enumerated()), id: \.element.id) { i, q in
-            let qb = Binding(get: { questions.first { $0.id == q.id } ?? q },
-                             set: { nv in if let j = questions.firstIndex(where: { $0.id == q.id }) { questions[j] = nv } })
-            Section {
-                LabeledField("Question", text: qb.question, prompt: "As you would ask it in the viva")
-                LabeledField("Refers to", text: qb.refs, prompt: "§x.y, p. N")
-                LabeledField("Why ask it", text: qb.why, prompt: "The gap or doubt this resolves")
-                LabeledField("Good answer", text: qb.expected, prompt: "Key points an acceptable answer covers")
-                LabeledField("Weak answer", text: qb.weak, prompt: "What would indicate a problem")
-            } header: {
-                HStack {
-                    Text(i == 0 ? "Viva Questions · Question 1" : "Question \(i + 1)")
-                    Spacer()
-                    Button(role: .destructive) { questions.removeAll { $0.id == q.id } } label: {
-                        Image(systemName: "trash")
+        @Bindable var model = model
+        Section {
+            DisclosureGroup(isExpanded: $model.vivaExpanded) {
+                VStack(alignment: .leading, spacing: 14) {
+                    ForEach(Array(questions.enumerated()), id: \.element.id) { i, q in
+                        let qb = Binding(get: { questions.first { $0.id == q.id } ?? q },
+                                         set: { nv in if let j = questions.firstIndex(where: { $0.id == q.id }) { questions[j] = nv } })
+                        if i > 0 { Divider() }
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Question \(i + 1)").font(.subheadline.weight(.semibold))
+                                Spacer()
+                                Button(role: .destructive) { questions.removeAll { $0.id == q.id } } label: {
+                                    Image(systemName: "trash")
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Remove this question")
+                            }
+                            LabeledField("Question", text: qb.question, prompt: "As you would ask it in the viva")
+                            LabeledField("Refers to", text: qb.refs, prompt: "§x.y, p. N")
+                            LabeledField("Why ask it", text: qb.why, prompt: "The gap or doubt this resolves")
+                            LabeledField("Good answer", text: qb.expected, prompt: "Key points an acceptable answer covers")
+                            LabeledField("Weak answer", text: qb.weak, prompt: "What would indicate a problem")
+                        }
                     }
-                    .buttonStyle(.borderless)
-                    .help("Remove this question")
+                    Button { questions.append(QuestionDraft()) } label: { Label("Add Viva Question", systemImage: "plus.circle") }
+                        .buttonStyle(.borderless)
+                        .disabled(questions.count >= 5)
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Text("Viva Questions").font(.headline)
+                    Spacer()
+                    Text("\(questions.count) (3–5)").font(.caption).monospacedDigit()
+                        .foregroundStyle((3...5).contains(questions.count) ? Color.secondary : Color.orange)
                 }
             }
-        }
-        Section {
-            Button { questions.append(QuestionDraft()) } label: { Label("Add Viva Question", systemImage: "plus.circle") }
-                .buttonStyle(.borderless)
-                .disabled(questions.count >= 5)
-        } footer: {
-            Text("\(questions.count) question\(questions.count == 1 ? "" : "s"), 3–5 recommended.").font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -345,6 +360,49 @@ struct LabeledField: View {
     }
 }
 
+// MARK: - Corrections
+
+struct CorrectionsSection: View {
+    @Environment(AppModel.self) private var model
+    @Binding var draft: ReportDraft
+
+    var body: some View {
+        @Bindable var model = model
+        let substantial = draft.substantial.count, minor = draft.corrections.count
+        Section {
+            DisclosureGroup(isExpanded: $model.correctionsExpanded) {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        SubHeading("Substantial")
+                        Spacer()
+                        Text(substantial == 0 ? "None required" : "\(substantial) (up to 5)").font(.caption)
+                            .foregroundStyle(substantial <= 5 ? Color.secondary : Color.orange)
+                    }
+                    Text("Rework that needs real effort but no new research. Leave empty if none is required.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    BulletList(items: $draft.substantial, prompt: "§x.y, p. N: what needs reworking → what a satisfactory revision includes",
+                               addLabel: "Add Substantial Correction", numbered: true)
+                    Divider()
+                    HStack {
+                        SubHeading("Minor")
+                        Spacer()
+                        Text("\(minor) (5–10)").font(.caption)
+                            .foregroundStyle((5...10).contains(minor) ? Color.secondary : Color.orange)
+                    }
+                    BulletList(items: $draft.corrections, prompt: "p. N, §x.y: issue → fix", addLabel: "Add Minor Correction", numbered: true)
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Text("Corrections").font(.headline)
+                    Spacer()
+                    Text("\(substantial) substantial · \(minor) minor").font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Declaration
 
 struct DeclarationSection: View {
@@ -363,12 +421,16 @@ struct DeclarationSection: View {
                     Text("No signature found").foregroundStyle(.secondary)
                 }
             }
-            Toggle("Date the report", isOn: Binding(get: { !draft.date.isEmpty },
-                                                   set: { draft.date = $0 ? Self.df.string(from: .now) : ""; model.dateOptOut = !$0 }))
-            if !draft.date.isEmpty {
+            // On by default: an undated report is dated on the day it is exported.
+            Toggle("Date the report", isOn: Binding(get: { !model.dateOptOut },
+                                                   set: { on in model.dateOptOut = !on; if !on { draft.date = "" } else { model.dirty = true } }))
+            if !model.dateOptOut {
                 DatePicker("Date", selection: Binding(get: { Self.df.date(from: draft.date) ?? .now },
                                                       set: { draft.date = Self.df.string(from: $0) }),
                            displayedComponents: .date)
+                if draft.date.isEmpty {
+                    Text("Dated on the day you export, unless you pick a date.").font(.caption).foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -410,16 +472,25 @@ struct BulletList: View {
     let prompt: String
     let addLabel: String
     var numbered = false
+    /// For strengths and weaknesses: the evidence finding behind a point, reviewed in place of its bullet.
+    var examID: String? = nil
+    var evidence: ((String) -> EvidenceFinding?)? = nil
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
             let b = Binding(get: { items.first { $0.id == item.id }?.text ?? "" },
                             set: { nv in if let j = items.firstIndex(where: { $0.id == item.id }) { items[j].text = nv } })
+            let finding = evidence?(item.text)
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
+                if let finding, let examID {
+                    ReviewMark(finding: finding, examID: examID)
+                } else {
+                    Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
+                }
                 VStack(alignment: .leading, spacing: 3) {
                     TextField("Item", text: b, prompt: Text(prompt), axis: .vertical).labelsHidden()
-                    RefChips(text: item.text).equatable()
+                        .opacity(finding?.decision == .dismissed ? 0.5 : 1)
+                    RefChips(text: item.text, highlights: finding?.pdfHighlights ?? []).equatable()
                 }
                 Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: {
                     Image(systemName: "minus.circle")

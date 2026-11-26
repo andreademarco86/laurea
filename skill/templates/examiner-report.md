@@ -108,7 +108,12 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 - *Expected / acceptable answer:* {{...}}
 - *Weak answer:* {{...}}
 
-## 4. Minor corrections
+## 4. Substantial corrections
+
+1. §{{x.y}}, p. {{N}}: {{what needs reworking}} -> {{what a satisfactory revision includes}}
+2. ...
+
+## 5. Minor corrections
 
 1. p. {{N}}, §{{x.y}}: {{issue}} -> {{fix}}
 2. ...
@@ -116,7 +121,7 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 4. ...
 5. ...
 
-## 5. Declaration
+## 6. Declaration
 
 &nbsp;
 

@@ -478,16 +478,18 @@ def _items(block, numbered=False):
 
 
 def _sections(md):
+    """Report sections keyed by the first word of their title (summary, marking, viva, substantial, minor, declaration)."""
     parts = {}
-    heads = list(re.finditer(r"^## (\d+)\.\s*(.*)$", md, re.M))
+    heads = list(re.finditer(r"^## \d+\.\s*(.*)$", md, re.M))
     for i, h in enumerate(heads):
         end = heads[i + 1].start() if i + 1 < len(heads) else len(md)
-        parts[h.group(1)] = md[h.end():end]
+        word = (h.group(1).split() or [""])[0].lower()
+        parts[word] = md[h.end():end]
     return parts
 
 
 def parse_report(md):
-    r = {"header": {}, "criteria": {}, "questions": [], "corrections": []}
+    r = {"header": {}, "criteria": {}, "questions": [], "substantial": [], "corrections": []}
     m = re.search(r'^title:\s*"?(.*?)"?\s*$', md[:300], re.M)
     r["doc_title"] = m.group(1) if m else "MSc Dissertation - Examiner's Report"
     for key, field in HEADER_FIELDS:
@@ -496,8 +498,8 @@ def parse_report(md):
     m = re.search(r"^\|\s*\*\*Viva mark\*\*\s*\|\s*(.*?)\s*\|\s*$", md, re.M)
     r["viva"] = _num(m.group(1).split("/")[0]) if m else None
     sec = _sections(md)
-    r["summary"] = (sec.get("1") or "").strip()
-    crit = sec.get("2") or ""
+    r["summary"] = (sec.get("summary") or "").strip()
+    crit = sec.get("marking") or ""
     for k, name, mx in CRITERIA:
         h = re.search(rf"^### \({k}\)[^\n]*?[-–—]\s*(\d+(?:\.\d+)?)\s*/\s*\d+\s*$", crit, re.M)
         if not h:
@@ -510,7 +512,7 @@ def parse_report(md):
         strengths = re.split(r"^\*\*Strengths\*\*\s*$", sw[0], maxsplit=1, flags=re.M)[-1]
         r["criteria"][k] = {"mark": _num(h.group(1)), "strengths": _items(strengths),
                             "weaknesses": _items(sw[1]) if len(sw) > 1 else []}
-    qblock = sec.get("3") or ""
+    qblock = sec.get("viva") or ""
     qs = list(re.finditer(r"^\*\*Q\d+\.\s*(.+?)\*\*\s*(.*)$", qblock, re.M))
     for i, q in enumerate(qs):
         end = qs[i + 1].start() if i + 1 < len(qs) else len(qblock)
@@ -528,8 +530,9 @@ def parse_report(md):
             elif label.startswith("weak"):
                 item["weak"] = txt
         r["questions"].append(item)
-    r["corrections"] = _items(sec.get("4") or "", numbered=True)
-    m = re.search(r"^Date:\s*(.*)$", sec.get("5") or "", re.M)
+    r["substantial"] = _items(sec.get("substantial") or "", numbered=True)
+    r["corrections"] = _items(sec.get("minor") or "", numbered=True)
+    m = re.search(r"^Date:\s*(.*)$", sec.get("declaration") or "", re.M)
     d = (m.group(1).strip() if m else "")
     r["date"] = "" if re.fullmatch(r"_*", d) else d
     return r
@@ -578,9 +581,12 @@ def write_report(r, scheme=None):
               f"- *Why asked:* {one(q.get('why'))}",
               f"- *Expected / acceptable answer:* {one(q.get('expected'))}",
               f"- *Weak answer:* {one(q.get('weak'))}", ""]
-    L += ["## 4. Minor corrections", ""]
+    L += ["## 4. Substantial corrections", ""]
+    substantial = [c for c in r.get("substantial", []) if one(c)]
+    L += [f"{i}. {one(c)}" for i, c in enumerate(substantial, 1)] or ["None required."]
+    L += ["", "## 5. Minor corrections", ""]
     L += [f"{i}. {one(c)}" for i, c in enumerate([c for c in r.get("corrections", []) if one(c)], 1)]
-    L += ["", "## 5. Declaration", "", "&nbsp;", "", "Signature: ![Signature](signature.png){width=4.5cm}", "",
+    L += ["", "## 6. Declaration", "", "&nbsp;", "", "Signature: ![Signature](signature.png){width=4.5cm}", "",
           "&nbsp;", "", f"Date: {one(r.get('date')) or '______________________________'}", ""]
     return "\n".join(L)
 
@@ -1324,13 +1330,13 @@ When they ask for a change, make the smallest careful edit that achieves it, in 
   references/computing-checklist.md and references/speech-language-checklist.md: further technical checks;
   references/domains.md: which fields are covered and which checklists apply (add new fields here, following its template);
   references/external-research.md: literature search, reference checks and originality screening;
-  references/house-preferences.md: the examiner's own standing rules (most "always/never" requests belong here);
-  templates/examiner-report.md: report layout.
+  references/house-preferences.md: the examiner's own standing rules (most "always/never" requests belong here).
+The report layout (templates/examiner-report.md) is fixed by Laurea; express layout preferences as writing rules instead.
 Keep these intact unless the examiner explicitly asks and understands the consequence, because the app depends on them:
 the five criteria (a)-(e) and the report template's placeholders for their maxima ({{MAX_A}}..{{MAX_E}}, {{DISSERTATION_MAX}},
 {{VIVA_MAX}}: the examiner sets the weights in the app, so never hard-code numbers), the report template's section headings and table rows,
 the proposed_marks.json format, and the scripts' command-line behaviour.
-Only edit Markdown in SKILL.md, references/ or templates/examiner-report.md. There are no dissertations, calibration records,
+Only edit Markdown in SKILL.md or references/. There are no dissertations, calibration records,
 examiner settings or scripts in this workspace. Do not use any files outside it.
 If a request conflicts with these, explain briefly and offer an alternative.
 If they only ask a question, answer it from the files without editing anything.
@@ -1435,8 +1441,10 @@ def validate_skill(files):
     if not re.search(r"^name:\s*dissertation-examiner\s*$", sk, re.M):
         problems.append("SKILL.md lost its name: dissertation-examiner header")
     tpl = text("templates/examiner-report.md")
-    for need in ["## 1. Summary", "## 2. Marking scheme", "## 3. Viva questions", "## 4. Minor corrections",
-                 "## 5. Declaration", "Signature:", "**Recommended dissertation mark**", "**Viva mark**", "**Final mark**",
+    for title in ("Summary", "Marking scheme", "Viva questions", "Minor corrections", "Declaration"):
+        if not re.search(rf"^## \d+\. {title}\s*$", tpl, re.M):
+            problems.append(f"report template lost its '{title}' section")
+    for need in ["Signature:", "**Recommended dissertation mark**", "**Viva mark**", "**Final mark**",
                  "**Student name**", "**Dissertation title**", "**Examiner**"]:
         if need not in tpl:
             problems.append(f"report template lost '{need}'")
@@ -1968,6 +1976,10 @@ def prepare_exam_skill(skill, d):
         for source in bundled.iterdir():
             if source.is_file() and not source.is_symlink() and source.suffix in (".py", ".sh", ".swift"):
                 shutil.copy2(source, skill / "scripts" / source.name)
+        # The report layout is the app's too: the editor, checker and Word export depend on its sections.
+        template = bundled.parent / "templates" / "examiner-report.md"
+        if template.is_file() and not template.is_symlink():
+            shutil.copy2(template, skill / "templates" / "examiner-report.md")
     cfg = read_json(SKILL_CONFIG, {})
     write_json(skill / "config.json", {k: cfg[k] for k in ("examiner_name", "institution", "output_formats")
                                       if k in cfg})

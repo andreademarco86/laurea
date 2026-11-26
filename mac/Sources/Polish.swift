@@ -150,7 +150,7 @@ struct LevelCapsule: View {
             .font(.caption2.weight(.bold))
             .padding(.horizontal, 7).padding(.vertical, 2)
             .foregroundStyle(selected ? Color.white : color)
-            .background(selected ? Color.white.opacity(0.22) : color.opacity(0.15), in: .capsule)
+            .background(selected ? Color.black.opacity(0.18) : color.opacity(0.15), in: .capsule)
     }
 }
 

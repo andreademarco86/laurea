@@ -100,12 +100,15 @@ struct SidebarView: View {
 
 struct ExamRow: View {
     let exam: ExamSummary
+    @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
+        // On the selected (accent-coloured) row, secondary text is plain white at reduced opacity.
+        let secondary = prominence == .increased ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.secondary)
         VStack(alignment: .leading, spacing: 2) {
             Text(exam.displayName).font(.headline).lineLimit(1)
             if !exam.title.isEmpty {
-                Text(exam.title).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                Text(exam.title).font(.subheadline).foregroundStyle(secondary).lineLimit(2)
             }
             if exam.state == "running" {
                 SidebarProgress(exam: exam)
@@ -118,7 +121,7 @@ struct ExamRow: View {
                 Spacer()
                 if let t = exam.total {
                     Text(exam.viva.map { "\(Fmt.mark(t + $0))/100" } ?? "\(Fmt.mark(t))/\(exam.dissertation_max ?? 90)")
-                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        .font(.caption.monospacedDigit()).foregroundStyle(secondary)
                 }
             }
         }
@@ -129,17 +132,29 @@ struct ExamRow: View {
 /// Run progress in a sidebar row: the same stages as the main screen.
 struct SidebarProgress: View {
     let exam: ExamSummary
+    @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
+        let selected = prominence == .increased
         VStack(alignment: .leading, spacing: 2) {
             if exam.run_kind == "revise" || exam.progress == nil {
-                ProgressView().progressViewStyle(.linear)
+                ProgressView().progressViewStyle(.linear).tint(selected ? .white : .accentColor)
             } else {
-                ProgressView(value: max(0.03, exam.progress ?? 0)).progressViewStyle(.linear)
-                    .animation(.easeInOut, value: exam.progress)
+                // Drawn by hand so the bar stays visible on the accent-coloured selected row.
+                let value = min(1, max(0.03, exam.progress ?? 0))
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Capsule().fill(selected ? Color.white.opacity(0.3) : Color.secondary.opacity(0.2))
+                        Capsule().fill(selected ? Color.white : Color.accentColor)
+                            .frame(width: geo.size.width * value)
+                    }
+                }
+                .frame(height: 4)
+                .animation(.easeInOut, value: exam.progress)
             }
             Text(exam.run_kind == "revise" ? "Revising…" : (exam.phase?.isEmpty == false ? "\(exam.phase!)…" : "Starting…"))
-                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                .font(.caption2).foregroundStyle(selected ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.secondary))
+                .lineLimit(1)
         }
         .controlSize(.mini)
         .padding(.vertical, 2)
@@ -161,7 +176,7 @@ struct StatusBadge: View {
         }
         HStack(spacing: 4) {
             if state == "running" {
-                ProgressView().controlSize(.mini)
+                ProgressView().controlSize(.mini).tint(prominence == .increased ? .white : nil)
             } else {
                 Image(systemName: icon)
             }
@@ -495,7 +510,7 @@ struct PDFKitView: NSViewRepresentable {
         coordinator.parent = self
         if coordinator.loadedURL != url {
             coordinator.loadedURL = url
-            v.highlightedSelections = nil
+            coordinator.clearMarks()
             v.document = PDFDocument(url: url)
             coordinator.scheduleLabelUpdate(for: v)
         } else if labelsChanged {
@@ -503,30 +518,46 @@ struct PDFKitView: NSViewRepresentable {
         }
         if let t = target, t.token != coordinator.lastToken {
             coordinator.lastToken = t.token
-            go(v, to: t)
+            go(v, to: t, coordinator: coordinator)
         }
     }
 
-    private func go(_ v: PDFView, to target: PDFTarget) {
-        v.highlightedSelections = nil
+    /// PDF page indices that carry a printed label, most plausible first. Labels guessed from page text can repeat
+    /// (a contents page listing "36"), so a page whose neighbours continue the numbering comes first.
+    private func pageIndices(for label: String, in doc: PDFDocument) -> [Int] {
+        var found = labels.indices.filter { labels[$0].lowercased() == label }
+        if found.isEmpty { found = (0..<doc.pageCount).filter { doc.page(at: $0)?.label?.lowercased() == label } }
+        guard let n = Int(label) else { return found }
+        func consistent(_ i: Int) -> Bool {
+            (i > 0 && labels.indices.contains(i - 1) && Int(labels[i - 1]) == n - 1)
+                || (labels.indices.contains(i + 1) && Int(labels[i + 1]) == n + 1)
+        }
+        return found.filter(consistent) + found.filter { !consistent($0) }
+    }
+
+    private func go(_ v: PDFView, to target: PDFTarget, coordinator: Coordinator) {
+        coordinator.clearMarks()
         guard let doc = v.document else { return }
         let label = target.reference.label
-        var index: Int?
-        if !target.reference.physical {
-            index = labels.firstIndex { $0.lowercased() == label }
-            if index == nil {
-                for i in 0..<doc.pageCount where doc.page(at: i)?.label?.lowercased() == label { index = i; break }
+        var indices = target.reference.physical ? [] : pageIndices(for: label, in: doc)
+        if indices.isEmpty, let n = Int(label), n >= 1, n <= doc.pageCount { indices = [n - 1] }
+        guard let first = indices.first, let page = doc.page(at: first) else { return }
+        // Exact anchors on the cited page (or another page with the same label); a quoted passage may also sit
+        // on a neighbouring page when the citation is a page out.
+        var search = indices
+        for d in [1, -1, 2, -2] where (0..<doc.pageCount).contains(first + d) && !search.contains(first + d) { search.append(first + d) }
+        for i in search {
+            guard let p = doc.page(at: i) else { continue }
+            let anchors = indices.contains(i) ? target.highlights
+                : target.highlights.filter { $0.split(whereSeparator: \.isWhitespace).count >= 4 }
+            if let selection = evidenceSelection(on: p, candidates: anchors) {
+                coordinator.mark(selection, on: p, alpha: 0.5)
+                v.go(to: selection)
+                return
             }
         }
-        if index == nil, let n = Int(label) { index = n - 1 }
-        guard let i = index, i >= 0, i < doc.pageCount, let page = doc.page(at: i) else { return }
-        if let selection = evidenceSelection(on: page, candidates: target.highlights) {
-            selection.color = NSColor.systemYellow.withAlphaComponent(0.55)
-            v.highlightedSelections = [selection]
-            v.go(to: selection)
-        } else if let selection = contextSelection(on: page, context: target.context) {
-            selection.color = NSColor.systemYellow.withAlphaComponent(0.35)  // best match, so a lighter highlight
-            v.highlightedSelections = [selection]
+        if let selection = contextSelection(on: page, context: target.context) {
+            coordinator.mark(selection, on: page, alpha: 0.3)  // best match, so a lighter highlight
             v.go(to: selection)
         } else {
             v.go(to: page)
@@ -580,6 +611,24 @@ struct PDFKitView: NSViewRepresentable {
         var parent: PDFKitView
         var lastToken: UUID?
         var loadedURL: URL?
+        /// Temporary highlight annotations, drawn as part of the page; never saved (the document is not written).
+        private var marks: [(page: PDFPage, annotation: PDFAnnotation)] = []
+
+        func mark(_ selection: PDFSelection, on page: PDFPage, alpha: CGFloat) {
+            for line in selection.selectionsByLine() {
+                let bounds = line.bounds(for: page)
+                guard !bounds.isEmpty else { continue }
+                let annotation = PDFAnnotation(bounds: bounds.insetBy(dx: -1, dy: -1), forType: .highlight, withProperties: nil)
+                annotation.color = NSColor.systemYellow.withAlphaComponent(alpha)
+                page.addAnnotation(annotation)
+                marks.append((page, annotation))
+            }
+        }
+
+        func clearMarks() {
+            for m in marks { m.page.removeAnnotation(m.annotation) }
+            marks = []
+        }
         private var observer: NSObjectProtocol?
         private var labelUpdatePending = false
 

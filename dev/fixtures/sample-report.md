@@ -110,7 +110,11 @@ The mark rests on a careful corpus construction and a clear evaluation design (�
 - *Expected / acceptable answer:* A clear explanation with evidence.
 - *Weak answer:* A vague answer.
 
-## 4. Minor corrections
+## 4. Substantial corrections
+
+1. §5.3, p. 52: results come from a single test split -> report the mean and spread over five random splits using the existing models.
+
+## 5. Minor corrections
 
 1. p. 41, §3.1: a sample typo -> corrected word
 2. p. 42, §3.2: a sample typo -> corrected word
@@ -118,7 +122,7 @@ The mark rests on a careful corpus construction and a clear evaluation design (�
 4. p. 44, §3.4: a sample typo -> corrected word
 5. p. 45, §3.5: a sample typo -> corrected word
 
-## 5. Declaration
+## 6. Declaration
 
 &nbsp;
 
