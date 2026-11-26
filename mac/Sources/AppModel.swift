@@ -182,6 +182,7 @@ final class AppModel {
             guard selectedExamID == id else { return }
             detail = d
             draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
+            dateOptOut = d.status.date_opt_out ?? false
             note = d.calibration?.note ?? ""
             dirty = false
             slider = 0; sliderBase = nil; sliderDelta = 0
@@ -341,15 +342,17 @@ final class AppModel {
 
     var canSave: Bool { draft != nil && dirty && !isSaving }
 
-    func save() async {
-        guard let id = selectedExamID, var d = draft else { return }
-        if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return }
+    /// Saves the report; returns true only when the report was stored and its Word file rendered.
+    @discardableResult
+    func save() async -> Bool {
+        guard let id = selectedExamID, var d = draft else { return false }
+        if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return false }
         if let l = Level(rawValue: detail?.status.level ?? "msc") { d.docTitle = "\(l.label) \(l.noun) - Examiner's Report" }
-        struct Body: Encodable { let report: APIReport; let note: String }
+        struct Body: Encodable { let report: APIReport; let note: String; let date_opt_out: Bool }
         isSaving = true
         defer { isSaving = false }
         do {
-            let r: SaveResult = try await backend.send("PUT", "/api/exams/\(id)/report", Body(report: d.payload, note: note))
+            let r: SaveResult = try await backend.send("PUT", "/api/exams/\(id)/report", Body(report: d.payload, note: note, date_opt_out: dateOptOut))
             let issues = r.check.split(separator: "\n").filter { $0.hasPrefix("ERROR") || $0.hasPrefix("WARNING") }
                 .map { $0.replacingOccurrences(of: "ERROR: ", with: "").replacingOccurrences(of: "WARNING: ", with: "") }
             var text = "Saved and Word document updated."
@@ -365,25 +368,41 @@ final class AppModel {
             saveCount += 1
             await load(id, keepBanner: true)
             await refreshList()
+            return r.render_ok
         } catch {
             errorMessage = error.localizedDescription
+            return false
         }
     }
 
-    /// Exporting is the examiner's confirmation of marks, comments and questions, so an undated report is dated now.
+    /// Exporting is the examiner's confirmation of marks, comments and questions, so an undated report is dated now
+    /// (unless the examiner turned the date off). Everything is pinned to the examination selected when export began.
     func exportWord() async {
+        guard let id = selectedExamID, let exam = detail, exam.id == id, let d0 = draft else { return }
         if dirty { errorMessage = "Save your changes first, so the Word document includes them."; return }
-        if var d = draft, d.date.trimmingCharacters(in: .whitespaces).isEmpty {
+        let student = d0.student
+        let src = backend.examsDir.appendingPathComponent(id)
+            .appendingPathComponent("\((exam.pdf as NSString).deletingPathExtension)_examiner_report.docx")
+        if d0.date.trimmingCharacters(in: .whitespaces).isEmpty && !dateOptOut {
+            var d = d0
             let f = DateFormatter(); f.dateFormat = "dd/MM/yyyy"
             d.date = f.string(from: .now)
             draft = d
-            await save()
-            if dirty { return }  // the save did not go through
+            dirty = true
+            let saved = await save()
+            guard selectedExamID == id else {
+                errorMessage = "The selection changed while the report was being dated. Open the examination and export again."
+                return
+            }
+            guard saved else {
+                errorMessage = "The report could not be dated and saved, so nothing was exported. Check the message above and try again."
+                return
+            }
         }
-        guard let src = reportDocxURL else { errorMessage = "There is no Word document yet."; return }
+        guard FileManager.default.fileExists(atPath: src.path) else { errorMessage = "There is no Word document yet."; return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "docx") ?? .data]
-        let who = (draft?.student.isEmpty == false ? draft!.student : "Dissertation").replacingOccurrences(of: "/", with: "-")
+        let who = (student.isEmpty ? "Dissertation" : student).replacingOccurrences(of: "/", with: "-")
         panel.nameFieldStringValue = "\(who) - Examiner's Report.docx"
         panel.canCreateDirectories = true
         if panel.runModal() == .OK, let dest = panel.url {
@@ -500,6 +519,9 @@ final class AppModel {
         var correctionText = ""
     }
     var ledger = LedgerUI()
+
+    /// The examiner turned the declaration date off for this examination: export must not add one.
+    var dateOptOut = false
 
     // MARK: Setup Assistant and signature
 

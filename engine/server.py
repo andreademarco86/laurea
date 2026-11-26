@@ -1026,24 +1026,8 @@ def evidence_ledger(d, report, meta):
                 item = logged.get(match_key(key, kind, finding)) or add(key, kind, finding)
                 if item:
                     report_findings.append(item)
-    # A decision outlives rewording: re-attach orphaned reviews to the closest finding of the same criterion and kind.
-    orphans = {k: v for k, v in reviews.items() if k not in rows and isinstance(v, dict) and v.get("finding")}
-    for row in rows.values():
-        if row["decision"] != "pending" or not orphans:
-            continue
-        best, best_score = None, 0.0
-        for k, v in orphans.items():
-            if v.get("criterion") != row["criterion"] or v.get("kind") != row["kind"]:
-                continue
-            score = difflib.SequenceMatcher(None, " ".join(v["finding"].lower().split()),
-                                            " ".join(row["finding"].lower().split())).ratio()
-            if v.get("source") and v.get("source") == row["source"]:
-                score += 0.1
-            if score > best_score:
-                best, best_score = k, score
-        if best and best_score >= 0.6:
-            v = orphans.pop(best)
-            row.update(decision=v.get("decision", "pending"), correction=v.get("correction", ""), review_key=best)
+    # Decisions are keyed on the finding's stable identity. Edited report wording does not move a decision:
+    # a decision made on an evidence-log line stays there, and a reworded report finding returns to "To review".
     return [rows[key] for key in dict.fromkeys([*report_findings, *rows])]
 
 
@@ -1222,15 +1206,18 @@ def compute_offsets(entries, level="msc", scheme=None):
             except (ValueError, TypeError):
                 age = CALIBRATION_HALF_LIFE
             samples.append((max(-0.20, min(0.20, (final - raw) / maximum)),
-                            0.5 ** (age / CALIBRATION_HALF_LIFE) * (0.5 if accepted_offset else 1.0)))
-        weight = sum(w for _, w in samples)
-        mean = sum(delta * w for delta, w in samples) / weight if weight else 0
-        agreeing = [w for delta, w in samples if delta * mean > 0]
-        agreement = sum(agreeing) / weight if weight else 0
+                            0.5 ** (age / CALIBRATION_HALF_LIFE) * (0.5 if accepted_offset else 1.0), not accepted_offset))
+        weight = sum(w for _, w, _ in samples)
+        mean = sum(delta * w for delta, w, _ in samples) / weight if weight else 0
+        # Only the examiner's own adjustments can qualify an offset; accepted inherited marks only shape its size.
+        independent = [(delta, w) for delta, w, own in samples if own]
+        own_weight = sum(w for _, w in independent)
+        agreeing = [w for delta, w in independent if delta * mean > 0]
+        agreement = sum(agreeing) / own_weight if own_weight else 0
         ready = len(agreeing) >= 3 and agreement >= 2 / 3
         learned = max(-0.10, min(0.10, mean * weight / (weight + SHRINK_K))) if ready else 0
         offs[k] = round(learned * sc[k], 1)
-        support[k] = {"examples": len(samples), "agreeing": len(agreeing), "ready": ready}
+        support[k] = {"examples": len(independent), "agreeing": len(agreeing), "ready": ready}
     shifts = [(sum(v or 0 for v in e["final"].values()) - sum(v or 0 for v in e["proposed"].values()))
               / diss_max(e.get("maxima") or DEFAULT_SCHEME) * diss_max(sc) for e in inc]
     return {"level": level, "n": n, "offsets": offs, "support": support, "total": round(sum(offs.values()), 1),
@@ -1813,9 +1800,6 @@ class Handler(BaseHTTPRequestHandler):
                 reviews = read_json(record, {})
                 if not isinstance(reviews, dict):
                     reviews = {}
-                old_key = row.pop("review_key", None)
-                if old_key:
-                    reviews.pop(old_key, None)
                 row.update(decision=decision, correction=correction)
                 if decision == "pending":
                     reviews.pop(row["id"], None)
@@ -1893,6 +1877,8 @@ class Handler(BaseHTTPRequestHandler):
                 r = b["report"]
                 rp.write_text(write_report(r, exam_scheme(d)), encoding="utf-8")
                 marks = {k: v.get("mark") for k, v in r["criteria"].items()}
+            if "date_opt_out" in b:
+                set_status(d, date_opt_out=bool(b["date_opt_out"]))
             out = check_and_render(d)
             with LOCK:
                 cal = record_calibration(d, marks, note=b.get("note"))

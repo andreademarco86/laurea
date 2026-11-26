@@ -59,8 +59,11 @@ check("two agreeing examinations do not yet learn an offset", sv.compute_offsets
 learned = sv.compute_offsets(three)["offsets"]["c"]
 check("three agreeing examinations learn a positive offset", learned > 0, str(learned))
 accepted = three + [entry(3, 15, 17, proposed_c=17)]
-check("accepting an offset still counts (weak confirmation)",
-      sv.compute_offsets(accepted)["support"]["c"]["examples"] == 4 and sv.compute_offsets(accepted)["offsets"]["c"] > 0)
+c = sv.compute_offsets(accepted)
+check("accepted offsets shape the size but don't count as independent examples",
+      c["support"]["c"]["examples"] == 3 and c["offsets"]["c"] > 0)
+inherited_only = [entry(i, 15, 17, proposed_c=17) for i in range(3)]
+check("three untouched inherited proposals do not qualify an offset", sv.compute_offsets(inherited_only)["offsets"]["c"] == 0)
 
 # Evidence ledger: a decision survives rewording of its finding
 d = sv.EXAMS / "20260101-000000-Sample"
@@ -70,17 +73,25 @@ work.mkdir(parents=True)
 sv.write_json(d / "status.json", {"state": "done", "pdf": "Sample.pdf", "level": "msc"})
 (d / "Sample_examiner_report.md").write_text(fixture, encoding="utf-8")
 (work / "meta.json").write_text(json.dumps({"page_labels": [str(i) for i in range(1, 80)]}))
-rows = sv.evidence_ledger(d, sv.parse_report(fixture), work / "meta.json")
+report = sv.parse_report(fixture)
+logged = report["criteria"]["c"]["weaknesses"][0]
+(work / "evidence.md").write_text(f"[c] §4.1 p. 31 (-) {logged}\n", encoding="utf-8")
+rows = sv.evidence_ledger(d, report, work / "meta.json")
 check("evidence ledger lists the report's findings", len(rows) == 20, str(len(rows)))
-target = rows[0]
+target = next(x for x in rows if x["finding"] == logged)
+other = next(x for x in rows if x["criterion"] == "a" and x["kind"] == "strength")
 sv.EVIDENCE_REVIEWS.mkdir(parents=True, exist_ok=True)
 sv.write_json(sv.EVIDENCE_REVIEWS / f"{d.name}.json",
-              {target["id"]: {"decision": "confirmed", "correction": "", "criterion": target["criterion"],
-                              "kind": target["kind"], "finding": target["finding"], "source": target["source"]}})
-reworded = fixture.replace(target["finding"], target["finding"].replace("Clear and well-supported", "Clear, well-supported"))
-rows2 = sv.evidence_ledger(d, sv.parse_report(reworded), work / "meta.json")
-match = [x for x in rows2 if x["criterion"] == target["criterion"] and x["kind"] == target["kind"] and x["decision"] == "confirmed"]
-check("evidence decision survives rewording", len(match) == 1 and match[0]["id"] != target["id"])
+              {target["id"]: {"decision": "confirmed", "correction": ""}, other["id"]: {"decision": "confirmed", "correction": ""}})
+edited = fixture.replace(logged, logged.replace("could be addressed", "could not be addressed"))
+edited = edited.replace(other["finding"], other["finding"].replace("Clear and", "Clear,"))
+rows2 = sv.evidence_ledger(d, sv.parse_report(edited), work / "meta.json")
+kept = [x for x in rows2 if x["id"] == target["id"]]
+check("a decision on an evidence-log line survives report edits", len(kept) == 1 and kept[0]["decision"] == "confirmed")
+reversed_rows = [x for x in rows2 if "could not be addressed" in x["finding"]]
+check("a reversed report finding returns to To review", reversed_rows and all(x["decision"] == "pending" for x in reversed_rows))
+reworded = [x for x in rows2 if x["criterion"] == "a" and x["kind"] == "strength" and x["finding"].startswith("Clear,")]
+check("a reworded report-only finding returns to To review", reworded and reworded[0]["decision"] == "pending")
 
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)

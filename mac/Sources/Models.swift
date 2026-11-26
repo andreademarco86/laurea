@@ -60,6 +60,7 @@ struct ExamStatus: Codable {
     var run_kind: String?
     var started: String?
     var level: String?
+    var date_opt_out: Bool?
 }
 
 struct APICriterion: Codable {

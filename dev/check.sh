@@ -9,12 +9,14 @@ step() { printf '\n› %s\n' "$1"; }
 result() { if [ "$1" -eq 0 ]; then echo "  ok"; else echo "  FAILED"; fail=1; fi; }
 
 step "Swift: type-check the app (Command Line Tools, no Xcode macros)"
-out=$(swiftc -typecheck -swift-version 5 -parse-as-library -target arm64-apple-macos14.0 mac/Sources/*.swift 2>&1 | grep -E "error:" | head -5)
-[ -z "$out" ]; r=$?; [ -n "$out" ] && echo "$out"; result $r
+out=$(swiftc -typecheck -swift-version 5 -parse-as-library -target arm64-apple-macos14.0 mac/Sources/*.swift 2>&1); r=$?
+[ $r -ne 0 ] && echo "$out" | grep -E "error" | head -5; result $r
 
 step "Swift: type-check the PDF helpers"
 r=0
-for f in skill/scripts/*.swift; do swiftc -typecheck "$f" 2>&1 | grep -q "error:" && { echo "  $f"; r=1; }; done
+for f in skill/scripts/*.swift; do
+  if ! out=$(swiftc -typecheck "$f" 2>&1); then echo "  $f"; echo "$out" | grep -E "error" | head -3; r=1; fi
+done
 result $r
 
 step "Python: compile the engine and skill scripts"

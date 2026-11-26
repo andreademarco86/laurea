@@ -370,7 +370,7 @@ struct DeclarationSection: View {
                 }
             }
             Toggle("Date the report", isOn: Binding(get: { !draft.date.isEmpty },
-                                                   set: { draft.date = $0 ? Self.df.string(from: .now) : "" }))
+                                                   set: { draft.date = $0 ? Self.df.string(from: .now) : ""; model.dateOptOut = !$0 }))
             if !draft.date.isEmpty {
                 DatePicker("Date", selection: Binding(get: { Self.df.date(from: draft.date) ?? .now },
                                                       set: { draft.date = Self.df.string(from: $0) }),
