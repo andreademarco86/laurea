@@ -13,6 +13,9 @@ struct ReportEditor: View {
             Section { ScoreHeader(draft: draft.wrappedValue) }
             if let b = model.banner { BannerSection(banner: b) }
             MarksSections(draft: draft)
+            if let detail, let panel = detail.panel {
+                PanelReview(panel: panel, scheme: detail.markingScheme)
+            }
 
             Section("Details") {
                 TextField("Student name", text: draft.student)
@@ -71,7 +74,7 @@ struct ReportEditor: View {
 
             if let msg = detail?.status.message, !msg.isEmpty {
                 Section {
-                    DisclosureGroup("Notes on this draft") {
+                    DisclosureGroup(detail?.panel == nil ? "Notes on this draft" : "Run notes") {
                         Text(msg).textSelection(.enabled).font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
                     }
                 }
@@ -79,6 +82,112 @@ struct ReportEditor: View {
         }
         .formStyle(.grouped)
         .sensoryFeedback(.success, trigger: model.saveCount)
+    }
+}
+
+struct PanelReview: View {
+    let panel: PanelFeedback
+    let scheme: Scheme
+
+    private let roles = ["methods", "field", "sceptic", "chair"]
+
+    private func title(_ role: String) -> String { role.capitalized }
+
+    private func scores(_ role: String) -> [String: Double] {
+        role == "chair" ? panel.chair : panel.examiners[role] ?? [:]
+    }
+
+    var body: some View {
+        Section {
+            Grid(horizontalSpacing: 10, verticalSpacing: 10) {
+                GridRow {
+                    Text("Criterion").frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(roles, id: \.self) { role in
+                        Text(title(role)).fontWeight(role == "chair" ? .semibold : .regular)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+                ForEach(scheme.specs, id: \.key) { criterion in
+                    GridRow {
+                        Label {
+                            Text("(\(criterion.key))")
+                        } icon: {
+                            if panel.low_confidence.contains(criterion.key) {
+                                Image(systemName: "exclamationmark.circle")
+                                    .foregroundStyle(.orange)
+                                    .accessibilityLabel("Lower confidence")
+                            }
+                        }
+                        .help(criterion.name)
+                        .accessibilityLabel(panel.low_confidence.contains(criterion.key)
+                                            ? "\(criterion.name), lower confidence" : criterion.name)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        ForEach(roles, id: \.self) { role in
+                            scoreCell(scores(role)[criterion.key], maximum: criterion.max, role: role,
+                                      criterion: criterion.name)
+                        }
+                    }
+                }
+
+                GridRow {
+                    Text("Total").frame(maxWidth: .infinity, alignment: .leading)
+                    ForEach(roles, id: \.self) { role in
+                        let marks = scheme.specs.compactMap { scores(role)[$0.key] }
+                        let total = marks.count == scheme.specs.count ? marks.reduce(0, +) : nil
+                        scoreCell(total, maximum: scheme.dissertationMax, role: role, criterion: "Total")
+                    }
+                }
+                .fontWeight(.semibold)
+            }
+
+            if let summary = panel.summary {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Chair’s summary").font(.subheadline.weight(.semibold))
+                    Text(summary).font(.callout).textSelection(.enabled)
+                    RefChips(text: summary).equatable()
+                }
+            }
+            ForEach(scheme.specs, id: \.key) { criterion in
+                if let decision = panel.decisions[criterion.key] {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("(\(criterion.key)) \(criterion.name)").font(.subheadline.weight(.semibold))
+                        Text(decision).font(.callout).textSelection(.enabled)
+                        RefChips(text: decision).equatable()
+                    }
+                }
+            }
+            ForEach(roles, id: \.self) { role in
+                if let note = panel.notes[role] {
+                    LabeledContent(title(role)) { Text(note).font(.callout).textSelection(.enabled) }
+                }
+            }
+        } header: {
+            Text("Panel and Chair")
+        } footer: {
+            Text("Chair scores are shown before calibration.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func scoreCell(_ mark: Double?, maximum: Int, role: String, criterion: String) -> some View {
+        if let mark, maximum > 0 {
+            VStack(spacing: 2) {
+                Text("\(Fmt.mark(mark))/\(maximum)")
+                    .fontWeight(role == "chair" ? .semibold : .regular)
+                Gauge(value: mark, in: 0...Double(maximum)) { EmptyView() }
+                    .gaugeStyle(.accessoryLinearCapacity)
+                    .tint(role == "chair" ? Color.accentColor : Color.secondary)
+                    .frame(maxWidth: 52)
+                    .accessibilityHidden(true)
+            }
+            .font(.caption.monospacedDigit())
+            .accessibilityLabel("\(title(role)), \(criterion), \(Fmt.mark(mark)) out of \(maximum)")
+        } else {
+            Text("–").font(.caption).foregroundStyle(.secondary)
+                .accessibilityLabel("\(title(role)), \(criterion), score unavailable")
+        }
     }
 }
 

@@ -102,6 +102,15 @@ struct CalEntry: Codable, Identifiable {
     var delta: Double { Self.sum(final) - Self.sum(proposed) }
 }
 
+struct PanelFeedback: Codable {
+    let examiners: [String: [String: Double]]
+    let chair: [String: Double]
+    let notes: [String: String]
+    let summary: String?
+    let decisions: [String: String]
+    let low_confidence: [String]
+}
+
 struct ExamDetail: Codable {
     let id: String
     let state: String
@@ -117,6 +126,7 @@ struct ExamDetail: Codable {
     let calibration: CalEntry?
     let scheme: [String: Int]?
     let summary_words: Int?
+    let panel: PanelFeedback?
 
     var markingScheme: Scheme { Scheme(scheme) }
 
