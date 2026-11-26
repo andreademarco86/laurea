@@ -121,7 +121,6 @@ struct ExamDetail: Codable {
     let proposed: [String: Double?]
     let applied: [String: Double?]?
     let report: APIReport?
-    let markdown: String?
     let page_labels: [String]
     let calibration: CalEntry?
     let scheme: [String: Int]?

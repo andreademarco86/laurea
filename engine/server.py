@@ -746,10 +746,11 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
                        "meta.json. Keep the visual checks and use the PDF or rendered pages where the text is missing. ")
     scope = ("Use the report and saved evidence first. Change only the requested text and directly dependent totals or "
              "summary statements. Keep unrelated marks, citations and the examiner's edits. Open only the relevant "
-             "parts of the standards and the source pages needed to verify new or changed claims. Follow the full "
-             "examination workflow only if the examiner explicitly requests a fresh examination. " if revision else
+             "parts of the standards and the source pages needed to verify new or changed claims. "
+             "Keep the declaration date unless the examiner asks to change it. Follow the full examination workflow "
+             "only if the examiner explicitly requests a fresh examination. " if revision else
              "Read SKILL.md completely. Have all marking perspectives use the shared evidence log. Reopen only decisive "
-             "source pages for disagreements. ")
+             "source pages for disagreements. Leave the declaration date blank for Laurea to fill in. ")
     panel = ("Write this run's panel.json in the extraction work folder with the examiners and chair scores and "
              "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and sceptic. "
              "In at most one short sentence per role, record the most important concern or leave it empty. Add "
@@ -1086,6 +1087,11 @@ def run_exam(eid, prompt, kind, provider, path):
         rp = report_path(d)
         if code == 0 and rp.exists() and not is_error:
             if kind == "examine":
+                markdown = rp.read_text(encoding="utf-8")
+                date = dt.date.today().strftime("%d/%m/%Y")
+                dated = re.sub(r"^Date:[ \t]*_*[ \t]*$", f"Date: {date}", markdown, count=1, flags=re.M)
+                if dated != markdown:
+                    rp.write_text(dated, encoding="utf-8")
                 shutil.copyfile(rp, d / "report.original.md")
                 snapshot_proposal(d)
             out = check_and_render(d)
@@ -1688,9 +1694,7 @@ class Handler(BaseHTTPRequestHandler):
                         calibration=next((e for e in read_json(HISTORY, []) if e["exam_id"] == eid), None))
             rp = report_path(d)
             if rp.exists():
-                md = rp.read_text(encoding="utf-8")
-                info["report"] = parse_report(md)
-                info["markdown"] = md
+                info["report"] = parse_report(rp.read_text(encoding="utf-8"))
                 info["has_docx"] = rp.with_suffix(".docx").exists()
             mp = meta_path(d)
             info["page_labels"] = read_json(mp, {}).get("page_labels", []) if mp else []
@@ -1762,7 +1766,8 @@ class Handler(BaseHTTPRequestHandler):
             out["calibration"] = cal
             return self.send(200, out)
         if method == "POST" and action == "reveal":
-            subprocess.run(["open", "-R", str(report_path(d) if report_path(d).exists() else d / st["pdf"])])
+            word = report_path(d).with_suffix(".docx")
+            subprocess.run(["open", "-R", str(word if word.is_file() else d / st["pdf"])])
             return self.send(200, {"ok": True})
         if method == "POST" and action == "delete":
             if eid in RUNNING:
