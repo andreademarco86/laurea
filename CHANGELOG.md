@@ -9,7 +9,7 @@
 - Revisions reuse the existing report and evidence, reopening only the source pages the change needs.
 
 **Marking**
-- **Institution grading scale** in Settings → Marking, with International and University of Malta presets or your own grades. The examiners decide each criterion’s grade from the evidence, testing the grade above as seriously as the grade below, then give a mark within its range. The editor shows the percentage and grade beside the total.
+- **Institution grading scale** in Settings → Marking, with University of Malta (the default) and International presets, or your own grades. The examiners decide each criterion’s grade from the evidence, testing the grade above as seriously as the grade below, then give a mark within its range. The editor shows the percentage and grade beside the total.
 
 **Reviewing**
 - **Check points against the PDF**: a strength or weakness’s page reference opens the PDF at the exact passage it is based on. There is no separate review step: edit or delete points directly.

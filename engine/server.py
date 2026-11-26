@@ -120,13 +120,6 @@ def diss_max(s):
 
 # Institution grading scales. Bands are percentages of each criterion's maximum (and of the total), highest first.
 GRADING_PRESETS = [
-    {"name": "International", "bands": [
-        {"grade": "Outstanding", "min": 85, "meaning": "Publishable-quality work in this aspect; very little to fault. Rare."},
-        {"grade": "Excellent", "min": 70, "meaning": "Strong, rigorous and critical; minor gaps only."},
-        {"grade": "Very good", "min": 60, "meaning": "Solid and competent, with some moderate weaknesses. The usual starting point."},
-        {"grade": "Good", "min": 50, "meaning": "Adequate: core requirements met, with clear weaknesses."},
-        {"grade": "Weak", "min": 40, "meaning": "Partly meets requirements; significant gaps."},
-        {"grade": "Inadequate", "min": 0, "meaning": "Falls well short of what is expected at this level."}]},
     {"name": "University of Malta", "bands": [
         {"grade": "A", "min": 80, "meaning": "Excellent: rigorous, insightful work with very little to fault."},
         {"grade": "B", "min": 70, "meaning": "Very good: solid, competent work with some moderate weaknesses. The usual starting point."},
@@ -134,6 +127,13 @@ GRADING_PRESETS = [
         {"grade": "D", "min": 50, "meaning": "Satisfactory: only just meets the requirements; significant weaknesses."},
         {"grade": "E", "min": 45, "meaning": "Weak: below the dissertation pass mark; significant gaps."},
         {"grade": "F", "min": 0, "meaning": "Fail: falls well short of what is expected at this level."}]},
+    {"name": "International", "bands": [
+        {"grade": "Outstanding", "min": 85, "meaning": "Publishable-quality work in this aspect; very little to fault. Rare."},
+        {"grade": "Excellent", "min": 70, "meaning": "Strong, rigorous and critical; minor gaps only."},
+        {"grade": "Very good", "min": 60, "meaning": "Solid and competent, with some moderate weaknesses. The usual starting point."},
+        {"grade": "Good", "min": 50, "meaning": "Adequate: core requirements met, with clear weaknesses."},
+        {"grade": "Weak", "min": 40, "meaning": "Partly meets requirements; significant gaps."},
+        {"grade": "Inadequate", "min": 0, "meaning": "Falls well short of what is expected at this level."}]}
 ]
 
 
@@ -163,7 +163,7 @@ def current_grading_scale():
 
 
 def exam_grading_scale(d):
-    """The scale snapshotted when this examination started (older examinations used the international bands)."""
+    """The scale snapshotted when this examination started (the default, University of Malta, when none was saved)."""
     g = (read_json(d / "scheme.json", {}) or {}).get("grading_scale")
     return _norm_grading_scale(g) if isinstance(g, dict) and valid_grading_scale(g) else GRADING_PRESETS[0]
 
