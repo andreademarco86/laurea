@@ -191,6 +191,12 @@ def main():
         for m in re.finditer(pat, body, re.I | re.M):
             hits.setdefault(m.group(0).strip()[:30].lower(), 0)
             hits[m.group(0).strip()[:30].lower()] += 1
+    # The report is the examiner's own: no panel, chair or review process behind it
+    process = sorted({m.group(0).lower() for m in re.finditer(
+        r"\b(?:the|our|this) (?:panel|chair|examiners|examining panel|reviewers|expert review|marking panel)\b|\bthe three examiners\b",
+        body, re.I)})
+    if process:
+        warnings.append("the report refers to a process behind it (" + ", ".join(process) + "); write as the examiner, in the first person")
     if hits:
         warnings.append("filler/AI-sounding phrasing, rewrite plainly: " + ", ".join(f"'{k}' x{v}" for k, v in hits.items()))
     long_s = [s_ for s_ in re.split(r"(?<=[.?])\s+", re.sub(r"\s+", " ", body)) if len(s_.split()) > 40]
