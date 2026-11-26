@@ -13,9 +13,6 @@ struct ReportEditor: View {
             Section { ScoreHeader(draft: draft.wrappedValue) }
             if let b = model.banner { BannerSection(banner: b) }
             MarksSections(draft: draft)
-            if let detail, let panel = detail.panel {
-                PanelReview(panel: panel, scheme: detail.markingScheme)
-            }
 
             Section("Details") {
                 TextField("Student name", text: draft.student)
@@ -72,10 +69,20 @@ struct ReportEditor: View {
 
             DeclarationSection(draft: draft)
 
-            if let msg = detail?.status.message, !msg.isEmpty {
+            if let detail, detail.panel != nil || detail.status.message?.isEmpty == false {
                 Section {
-                    DisclosureGroup(detail?.panel == nil ? "Notes on this draft" : "Run notes") {
-                        Text(msg).textSelection(.enabled).font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 4)
+                    DisclosureGroup("Internal notes") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            if let panel = detail.panel {
+                                PanelReview(panel: panel, scheme: detail.markingScheme)
+                            }
+                            if let message = detail.status.message, !message.isEmpty {
+                                if detail.panel != nil { Divider() }
+                                Text(message).textSelection(.enabled).font(.callout)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 8)
                     }
                 }
             }
@@ -98,7 +105,8 @@ struct PanelReview: View {
     }
 
     var body: some View {
-        Section {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Panel and Chair").font(.subheadline.weight(.semibold))
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
                     Text("Criterion").frame(maxWidth: .infinity, alignment: .leading)
@@ -163,9 +171,6 @@ struct PanelReview: View {
                     LabeledContent(title(role)) { Text(note).font(.callout).textSelection(.enabled) }
                 }
             }
-        } header: {
-            Text("Panel and Chair")
-        } footer: {
             Text("Chair scores are shown before calibration.").font(.caption).foregroundStyle(.secondary)
         }
     }

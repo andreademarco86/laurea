@@ -776,6 +776,8 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
             "Use extracted text for prose. If needed, locate an isolated figure or table with a low-DPI preview. "
             "Use render_pages.py with --crop x,y,width,height (fractions from the top left, one page) to inspect it "
             "at readable resolution. Use the full page for scans, surrounding context or an uncertain crop. "
+            "Keep individual panel scores, role labels, disagreements, and the chair's deliberation in panel.json and "
+            "internal run notes only. In the examiner report, present the agreed findings and the resulting report marks. "
             "Write and check the Markdown report. Laurea exports the Word file locally after the run. Skip the Word "
             "render command even if the standards ask for it. "
             f"Complete the work without asking questions.\n\n{task}"
