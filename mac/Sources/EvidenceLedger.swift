@@ -2,34 +2,31 @@ import SwiftUI
 
 struct EvidenceLedger: View {
     @Environment(AppModel.self) private var model
-    @State private var expanded = false
-    @State private var filter: EvidenceDecision?
-    @State private var criterion: String?
-    @State private var limit = 12
-    @State private var editing: EvidenceFinding?
-    @State private var saving: Set<String> = []
 
     let examID: String
     let findings: [EvidenceFinding]
     let scheme: Scheme
 
     private var visible: [EvidenceFinding] {
-        findings.filter { (filter == nil || $0.decision == filter) && (criterion == nil || $0.criterion == criterion) }
+        let ui = model.ledger
+        return findings.filter { (ui.filter == nil || $0.decision == ui.filter) && (ui.criterion == nil || $0.criterion == ui.criterion) }
     }
 
     var body: some View {
+        @Bindable var model = model
+        let limit = model.ledger.limit
         let pending = findings.filter { $0.decision == .pending }.count
         Section {
-            DisclosureGroup(isExpanded: $expanded) {
+            DisclosureGroup(isExpanded: $model.ledger.expanded) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Picker("Status", selection: $filter) {
+                        Picker("Status", selection: $model.ledger.filter) {
                             Text("All statuses").tag(nil as EvidenceDecision?)
                             ForEach(EvidenceDecision.allCases) { decision in
                                 Text(decision.label).tag(Optional(decision))
                             }
                         }
-                        Picker("Criterion", selection: $criterion) {
+                        Picker("Criterion", selection: $model.ledger.criterion) {
                             Text("All criteria").tag(nil as String?)
                             ForEach(scheme.specs, id: \.key) { spec in
                                 Text("(\(spec.key)) \(spec.name)").tag(Optional(spec.key))
@@ -46,7 +43,7 @@ struct EvidenceLedger: View {
                         card(finding)
                     }
                     if matching.count > limit {
-                        Button("Show more findings") { limit += 12 }.buttonStyle(.link)
+                        Button("Show more findings") { model.ledger.limit += 12 }.buttonStyle(.link)
                     }
                 }
                 .padding(.vertical, 8)
@@ -59,9 +56,9 @@ struct EvidenceLedger: View {
                 }
             }
         }
-        .onChange(of: filter) { limit = 12 }
-        .onChange(of: criterion) { limit = 12 }
-        .sheet(item: $editing) { finding in
+        .onChange(of: model.ledger.filter) { model.ledger.limit = 12 }
+        .onChange(of: model.ledger.criterion) { model.ledger.limit = 12 }
+        .sheet(item: $model.ledger.editing) { finding in
             EvidenceCorrectionSheet(finding: finding) { correction in
                 review(finding, as: .corrected, correction: correction)
             }
@@ -103,7 +100,10 @@ struct EvidenceLedger: View {
                     Button("Confirm") { review(finding, as: .confirmed) }.buttonStyle(.bordered)
                 }
                 Menu {
-                    Button("Correct finding…") { editing = finding }
+                    Button("Correct finding…") {
+                        model.ledger.correctionText = finding.correction.isEmpty ? finding.finding : finding.correction
+                        model.ledger.editing = finding
+                    }
                     if finding.decision != .dismissed {
                         Button("Dismiss finding") { review(finding, as: .dismissed) }
                     }
@@ -115,7 +115,7 @@ struct EvidenceLedger: View {
                 }
             }
             .controlSize(.small)
-            .disabled(saving.contains(finding.id))
+            .disabled(model.ledger.saving.contains(finding.id))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -123,34 +123,29 @@ struct EvidenceLedger: View {
     }
 
     private func review(_ finding: EvidenceFinding, as decision: EvidenceDecision, correction: String = "") {
-        guard saving.insert(finding.id).inserted else { return }
+        guard model.ledger.saving.insert(finding.id).inserted else { return }
         Task {
             await model.reviewEvidence(finding, examID: examID, decision: decision, correction: correction)
-            saving.remove(finding.id)
+            model.ledger.saving.remove(finding.id)
         }
     }
 }
 
 private struct EvidenceCorrectionSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var text: String
+    @Environment(AppModel.self) private var model
     let finding: EvidenceFinding
     let save: (String) -> Void
 
-    init(finding: EvidenceFinding, save: @escaping (String) -> Void) {
-        self.finding = finding
-        self.save = save
-        _text = State(initialValue: finding.correction.isEmpty ? finding.finding : finding.correction)
-    }
-
     var body: some View {
-        let correction = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        @Bindable var model = model
+        let correction = model.ledger.correctionText.trimmingCharacters(in: .whitespacesAndNewlines)
         VStack(alignment: .leading, spacing: 12) {
             Text("Correct finding").font(.headline)
             if !finding.source.isEmpty {
                 Text(finding.source).font(.caption).foregroundStyle(.secondary)
             }
-            TextField("Corrected finding", text: $text, axis: .vertical).lineLimit(3...8)
+            TextField("Corrected finding", text: $model.ledger.correctionText, axis: .vertical).lineLimit(3...8)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)

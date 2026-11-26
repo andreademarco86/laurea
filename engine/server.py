@@ -133,7 +133,7 @@ PROVIDERS = {"claude": "Claude", "openai": "ChatGPT"}
 CLAUDE_DEFAULT_MODEL = "opus"
 DEFAULT_EFFORT = "medium"
 ADAPTIVE_EFFORT = "adaptive"
-DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": DEFAULT_EFFORT, "claude_path": "", "codex_path": ""}
+DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": ADAPTIVE_EFFORT, "claude_path": "", "codex_path": ""}
 HISTORY = SKILL / "references" / "calibration-history.json"
 LEVELS = [("bsc", "BSc"), ("msc", "MSc"), ("phd", "PhD")]
 LEVEL_WHAT = {"bsc": "BSc dissertation", "msc": "MSc dissertation", "phd": "PhD thesis"}
@@ -390,7 +390,7 @@ def chosen_model(provider):
         model = None
     if not model and provider == "claude":
         model = CLAUDE_DEFAULT_MODEL
-    return model, s.get("effort") or DEFAULT_EFFORT
+    return model, s.get("effort") or ADAPTIVE_EFFORT
 
 
 def assistant_label(provider=None):
@@ -1026,6 +1026,24 @@ def evidence_ledger(d, report, meta):
                 item = logged.get(match_key(key, kind, finding)) or add(key, kind, finding)
                 if item:
                     report_findings.append(item)
+    # A decision outlives rewording: re-attach orphaned reviews to the closest finding of the same criterion and kind.
+    orphans = {k: v for k, v in reviews.items() if k not in rows and isinstance(v, dict) and v.get("finding")}
+    for row in rows.values():
+        if row["decision"] != "pending" or not orphans:
+            continue
+        best, best_score = None, 0.0
+        for k, v in orphans.items():
+            if v.get("criterion") != row["criterion"] or v.get("kind") != row["kind"]:
+                continue
+            score = difflib.SequenceMatcher(None, " ".join(v["finding"].lower().split()),
+                                            " ".join(row["finding"].lower().split())).ratio()
+            if v.get("source") and v.get("source") == row["source"]:
+                score += 0.1
+            if score > best_score:
+                best, best_score = k, score
+        if best and best_score >= 0.6:
+            v = orphans.pop(best)
+            row.update(decision=v.get("decision", "pending"), correction=v.get("correction", ""), review_key=best)
     return [rows[key] for key in dict.fromkeys([*report_findings, *rows])]
 
 
@@ -1137,11 +1155,7 @@ def run_exam(eid, prompt, kind, provider, path):
         rp = report_path(d)
         if code == 0 and rp.exists() and not is_error:
             if kind == "examine":
-                markdown = rp.read_text(encoding="utf-8")
-                date = dt.date.today().strftime("%d/%m/%Y")
-                dated = re.sub(r"^Date:[ \t]*_*[ \t]*$", f"Date: {date}", markdown, count=1, flags=re.M)
-                if dated != markdown:
-                    rp.write_text(dated, encoding="utf-8")
+                # The declaration is dated when the examiner exports the final Word report, not at drafting.
                 shutil.copyfile(rp, d / "report.original.md")
                 snapshot_proposal(d)
             out = check_and_render(d)
@@ -1201,14 +1215,14 @@ def compute_offsets(entries, level="msc", scheme=None):
             maximum = (entry.get("maxima") or DEFAULT_SCHEME).get(k, DEFAULT_SCHEME[k])
             if final is None or raw is None or maximum <= 0:
                 continue
-            # An unchanged mark with an inherited offset does not independently confirm that offset.
-            if final == entry.get("proposed", {}).get(k) and final != raw:
-                continue
+            # Accepting a mark that already included an offset is weak confirmation of that offset: half weight.
+            accepted_offset = final == entry.get("proposed", {}).get(k) and final != raw
             try:
                 age = max(0, (today - dt.date.fromisoformat(entry.get("date", ""))).days)
             except (ValueError, TypeError):
                 age = CALIBRATION_HALF_LIFE
-            samples.append((max(-0.20, min(0.20, (final - raw) / maximum)), 0.5 ** (age / CALIBRATION_HALF_LIFE)))
+            samples.append((max(-0.20, min(0.20, (final - raw) / maximum)),
+                            0.5 ** (age / CALIBRATION_HALF_LIFE) * (0.5 if accepted_offset else 1.0)))
         weight = sum(w for _, w in samples)
         mean = sum(delta * w for delta, w in samples) / weight if weight else 0
         agreeing = [w for delta, w in samples if delta * mean > 0]
@@ -1799,11 +1813,15 @@ class Handler(BaseHTTPRequestHandler):
                 reviews = read_json(record, {})
                 if not isinstance(reviews, dict):
                     reviews = {}
+                old_key = row.pop("review_key", None)
+                if old_key:
+                    reviews.pop(old_key, None)
                 row.update(decision=decision, correction=correction)
                 if decision == "pending":
                     reviews.pop(row["id"], None)
                 else:
-                    reviews[row["id"]] = {"decision": decision, "correction": correction}
+                    reviews[row["id"]] = {"decision": decision, "correction": correction, "criterion": row["criterion"],
+                                          "kind": row["kind"], "finding": row["finding"], "source": row["source"]}
                 write_json(record, reviews)
             return self.send(200, row)
         if method == "GET" and action == "progress":
@@ -1933,12 +1951,13 @@ def install_examiner():
 def prepare_exam_skill(skill, d):
     write_standards(skill, standard_files(CURRENT_STANDARDS))
     shutil.copytree(SKILL / "scripts", skill / "scripts", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    # Pick up crop support on existing installations without replacing their saved standards.
-    resources = Path(os.environ.get("DE_RESOURCES") or APP_DIR.parent)
-    for filename in ("render_pages.py", "pdfrender.swift"):
-        source = resources / "skill" / "scripts" / filename
-        if source.is_file():
-            shutil.copy2(source, skill / "scripts" / filename)
+    # Scripts are not taught: always use the app's bundled versions, so existing installations get script
+    # improvements without replacing their saved standards.
+    bundled = Path(os.environ.get("DE_RESOURCES") or APP_DIR.parent) / "skill" / "scripts"
+    if bundled.is_dir():
+        for source in bundled.iterdir():
+            if source.is_file() and not source.is_symlink() and source.suffix in (".py", ".sh", ".swift"):
+                shutil.copy2(source, skill / "scripts" / source.name)
     cfg = read_json(SKILL_CONFIG, {})
     write_json(skill / "config.json", {k: cfg[k] for k in ("examiner_name", "institution", "degree_default", "output_formats")
                                       if k in cfg})

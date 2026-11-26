@@ -6,7 +6,7 @@ cd "$(dirname "$0")"
 
 APP_NAME="Laurea"
 EXEC="Laurea"
-VERSION="${VERSION:-1.0}"
+VERSION="${VERSION:-1.1}"
 BUILD="build"
 APP="$BUILD/$APP_NAME.app"
 DIST="../dist"

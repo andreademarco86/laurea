@@ -20,17 +20,17 @@ If you already use Laurea, quit it and replace the copy in **Applications**. Exi
 
 1. Drop a PDF into Laurea or press **⌘N**. Choose **BSc**, **MSc** or **PhD** and click **Examine**.
 2. Open the draft when it’s ready. Click a page reference to check it against the dissertation in the PDF panel. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. Press **⇧⌘R** to request a revision.
-3. Add the viva mark after the oral. New reports use today’s date by default. You can change it or turn it off under **Declaration**. Press **⌘S** to save and **⇧⌘E** to export the Word report.
+3. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report: if the declaration has no date, Laurea dates it today before exporting. You can set or change the date yourself under **Declaration**.
 
 The report includes a summary, strengths and weaknesses by criterion, suggested viva questions with expected answers, and minor corrections. In **Settings** you can set the summary limit (350 words by default) and the marking scheme. Each examination keeps the weights it started with.
 
-Open **Evidence ledger** above the marks to review strengths and concerns by criterion. Click a citation to open its PDF page and highlight a matching passage or figure or table label when it appears once on that page. Then confirm, correct, or dismiss the finding. These decisions are stored locally and guide later revisions of the same examination. The ledger stays in Laurea.
+Open **Evidence ledger** above the marks to review strengths and concerns by criterion. Click a citation to open its PDF page and highlight a matching passage or figure or table label when it appears once on that page. Then confirm, correct, or dismiss the finding. A decision stays with its finding when the wording is later edited or revised. These decisions are stored locally and guide later revisions of the same examination. The ledger stays in Laurea.
 
-Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. Laurea keeps the Markdown source internally and presents the report in its editor. **Standard** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Light** for simple revisions or **Thorough** when a report calls for deeper technical analysis.
+Laurea extracts PDF text and generates the Word file on your Mac. The examination engine reads the prepared material, reviews figures and tables, and drafts the report. Laurea keeps the Markdown source internally and presents the report in its editor. **Adaptive** is the default **Thoroughness** under **Settings → Examination Engine**. Choose **Standard** for a fixed single pass, **Light** for simple revisions, or **Thorough** when a report calls for deeper technical analysis throughout.
 
 Open **Internal notes** at the bottom of the report editor to see the three examiner scores and the chair’s mark for each criterion before calibration. New examinations include brief panel notes and the chair’s reasons for decisions that affected the mark. The exported report presents the agreed findings and report marks.
 
-Choose **Adaptive** to map the front matter at Light effort and examine at Standard. Laurea requests a focused Thorough review when marking passes differ by more than 15% of a criterion’s maximum or cite conflicting evidence that could change a mark. The second opinion appears under **Internal notes**. Laurea uses cropped views for isolated figures and tables when practical. Revisions reuse the existing report and evidence, reopening source pages needed for the requested change.
+**Adaptive** maps the front matter at Light effort and examines at Standard. Laurea requests a focused Thorough review when marking passes differ by more than 15% of a criterion’s maximum or cite conflicting evidence that could change a mark. The second opinion appears under **Internal notes**. Laurea uses cropped views for isolated figures and tables when practical. Revisions reuse the existing report and evidence, reopening source pages needed for the requested change.
 
 ## Examining standards
 

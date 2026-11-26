@@ -167,6 +167,7 @@ final class AppModel {
         slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
         pdfTarget = nil
         pdfCurrentLabel = ""
+        ledger = LedgerUI()
         switch item {
         case .exam(let id): await load(id)
         case .calibration: await loadCalibration()
@@ -369,8 +370,16 @@ final class AppModel {
         }
     }
 
-    func exportWord() {
+    /// Exporting is the examiner's confirmation of marks, comments and questions, so an undated report is dated now.
+    func exportWord() async {
         if dirty { errorMessage = "Save your changes first, so the Word document includes them."; return }
+        if var d = draft, d.date.trimmingCharacters(in: .whitespaces).isEmpty {
+            let f = DateFormatter(); f.dateFormat = "dd/MM/yyyy"
+            d.date = f.string(from: .now)
+            draft = d
+            await save()
+            if dirty { return }  // the save did not go through
+        }
         guard let src = reportDocxURL else { errorMessage = "There is no Word document yet."; return }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "docx") ?? .data]
@@ -479,6 +488,19 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    // MARK: Evidence ledger (view state lives here: the app builds without the SwiftUI macro plugin)
+
+    struct LedgerUI {
+        var expanded = false
+        var filter: EvidenceDecision?
+        var criterion: String?
+        var limit = 12
+        var editing: EvidenceFinding?
+        var saving: Set<String> = []
+        var correctionText = ""
+    }
+    var ledger = LedgerUI()
+
     // MARK: Setup Assistant and signature
 
     var showSetup = false
@@ -576,7 +598,7 @@ final class AppModel {
         if chosenEffort != Engine.adaptiveEffort,
            let option = models[e.rawValue]?.models.first(where: { $0.id == modelID }),
            !option.efforts.isEmpty, !option.efforts.contains(chosenEffort) {
-            chosenEffort = [Engine.defaultEffort, "high"].first(where: option.efforts.contains) ?? option.efforts[0]
+            chosenEffort = ["medium", "high"].first(where: option.efforts.contains) ?? option.efforts[0]
         }
         struct Body: Encodable { let provider, model, effort: String }
         let choice = Body(provider: e.rawValue, model: modelID, effort: chosenEffort)

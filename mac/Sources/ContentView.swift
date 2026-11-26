@@ -210,7 +210,7 @@ struct ExamToolbar: ToolbarContent {
             if model.draft != nil && detail.state != "running" {
                 Button { model.showRevise = true } label: { Label("Revise Report", systemImage: "pencil.line") }
                     .help("Describe a change to the report (⇧⌘R)")
-                Button { model.exportWord() } label: {
+                Button { Task { await model.exportWord() } } label: {
                     Label("Export Report", systemImage: "square.and.arrow.up")
                 }
                 .help("Save the report as a Word document (⇧⌘E)")

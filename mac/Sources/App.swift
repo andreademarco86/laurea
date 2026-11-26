@@ -30,7 +30,7 @@ struct LaureaApp: App {
                 Button("Save") { Task { await model.save() } }
                     .keyboardShortcut("s")
                     .disabled(!model.canSave)
-                Button("Export Report…") { model.exportWord() }
+                Button("Export Report…") { Task { await model.exportWord() } }
                     .keyboardShortcut("e", modifiers: [.command, .shift])
                     .disabled(model.reportDocxURL == nil)
             }

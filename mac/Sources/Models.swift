@@ -443,7 +443,7 @@ enum Engine: String, CaseIterable, Identifiable {
         URL(string: self == .claude ? "https://claude.ai/settings/data-privacy-controls" : "https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt")!
     }
 
-    static let defaultEffort = "medium"
+    static let defaultEffort = "adaptive"  // Standard base pass, Thorough only for disputed criteria
     static let adaptiveEffort = "adaptive"
 
     static func effortLabel(_ e: String) -> String {

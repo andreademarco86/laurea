@@ -28,6 +28,8 @@ Attach the verified universal disk image to its tagged GitHub Release as `Laurea
 
 ## Local development
 
+- **Check before committing or merging** with `bash dev/check.sh` (about 15 seconds). It type-checks the Swift with the Command Line Tools (catching APIs such as `@State` that need Xcode's macro plugin), compiles the engine and skill scripts, checks shell syntax, validates the bundled skill, runs the report checker and Word writer on `dev/fixtures/sample-report.md`, and runs offline engine logic checks in a temporary data folder. It uses no PDFs, network or assistant sessions. Add `--build` to also build the DMG.
+- **Scripts reach existing installations automatically.** Each examination uses the app's bundled `skill/scripts`; only the standards (SKILL.md, references, template) stay as installed and taught.
 - **Test bundled standards** with a fresh data directory. Existing installations preserve their installed standards, local teaching and preferences.
   ```bash
   LAUREA_DATA_DIR=/path/to/laurea-test-data mac/build/Laurea.app/Contents/MacOS/Laurea
