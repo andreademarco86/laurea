@@ -214,7 +214,6 @@ struct ExamToolbar: ToolbarContent {
                     Label("Export Report", systemImage: "square.and.arrow.up")
                 }
                 .help("Save the report as a Word document (⇧⌘E)")
-                .disabled(model.reportDocxURL == nil)
                 Button { Task { await model.save() } } label: {
                     if model.isSaving { ProgressView().controlSize(.small) } else { Label("Save", systemImage: "checkmark") }
                 }

@@ -55,7 +55,7 @@ final class AppModel {
     var slider: Double = 0          // position, -1 (harshest) ... +1 (most generous)
     var sliderBase: [Int]?
     var sliderDelta = 0             // marks added or removed by the slider
-    var note = ""
+    var note = "" { didSet { draftRevision &+= 1 } }
     var banner: Banner?
     var progress: ProgressInfo?
     var isSaving = false
@@ -178,10 +178,12 @@ final class AppModel {
         }
     }
 
-    func load(_ id: String, keepBanner: Bool = false) async {
+    /// `ifRevision`: apply the fetched report only if the draft has not changed since then (no edit is overwritten).
+    func load(_ id: String, keepBanner: Bool = false, ifRevision: Int? = nil) async {
         do {
             let d: ExamDetail = try await backend.get("/api/exams/\(id)")
             guard selectedExamID == id else { return }
+            if let r = ifRevision, draftRevision != r { return }
             detail = d
             draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
             dateOptOut = d.status.date_opt_out ?? false
@@ -376,7 +378,7 @@ final class AppModel {
             }
             dirty = false
             saveCount += 1
-            await load(id, keepBanner: true)
+            await load(id, keepBanner: true, ifRevision: draftRevision)
             await refreshList()
             return r.render_ok
         } catch {
