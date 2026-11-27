@@ -179,6 +179,7 @@ struct Pill: View {
 
 struct EngineStatusBar: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         let running = model.exams.filter { $0.state == "running" }.count
@@ -190,9 +191,21 @@ struct EngineStatusBar: View {
                 Circle()
                     .fill(model.engineError != nil ? Color.red : model.engineReady ? Color.green : Color.orange)
                     .frame(width: 7, height: 7)
-                Text(model.engineError != nil ? "Engine stopped" : model.engineReady ? "Ready" : "Starting…")
+                Text(model.engineError != nil ? "Engine stopped" : model.engineReady ? "Ready · \(model.activeEngine.label)" : "Starting…")
             }
             Spacer()
+            Button {
+                model.settingsTab = "general"
+                openSettings()
+            } label: {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help("Settings (⌘,)")
+            .accessibilityLabel("Settings")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
