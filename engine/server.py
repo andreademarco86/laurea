@@ -200,8 +200,7 @@ CLAUDE_DEFAULT_MODEL = "opus"
 DEFAULT_EFFORT = "medium"
 ADAPTIVE_EFFORT = "adaptive"
 DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": ADAPTIVE_EFFORT, "claude_path": "", "codex_path": "",
-                    "gemini_path": "", "gemini_project": ""}
-GEMINI_PROJECT = re.compile(r"[a-z][a-z0-9-]{4,28}[a-z0-9]")  # Google Cloud project ID format
+                    "gemini_path": ""}
 HISTORY = SKILL / "references" / "calibration-history.json"
 LEVELS = [("bsc", "BSc"), ("msc", "MSc"), ("phd", "PhD")]
 LEVEL_WHAT = {"bsc": "BSc dissertation", "msc": "MSc dissertation", "phd": "PhD thesis"}
@@ -323,10 +322,7 @@ def provider_env(provider):
         # Gemini CLI keeps its sign-in and settings under GEMINI_CLI_HOME/.gemini. System-wide settings and
         # defaults are pointed at files that don't exist, so only Laurea's settings apply.
         write_gemini_settings(folder)
-        # Google Workspace and school accounts need a Google Cloud project; personal accounts don't.
-        project = settings().get("gemini_project") or ""
-        extra = {"GOOGLE_CLOUD_PROJECT": project} if GEMINI_PROJECT.fullmatch(project) else {}
-        return {**ASSISTANT_ENV, **extra, "GEMINI_CLI_HOME": str(folder), "GEMINI_CLI_TRUST_WORKSPACE": "true",
+        return {**ASSISTANT_ENV, "GEMINI_CLI_HOME": str(folder), "GEMINI_CLI_TRUST_WORKSPACE": "true",
                 "GEMINI_CLI_SYSTEM_SETTINGS_PATH": str(folder / "no-system-settings.json"),
                 "GEMINI_CLI_SYSTEM_DEFAULTS_PATH": str(folder / "no-system-defaults.json"),
                 "PATH": os.pathsep.join([str(APP_BIN), ASSISTANT_ENV.get("PATH", "")])}
@@ -2055,12 +2051,6 @@ class Handler(BaseHTTPRequestHandler):
                 cfg["grading_scale"] = _norm_grading_scale(b["grading_scale"])
             write_json(SKILL_CONFIG, cfg)
             s = settings()
-            if "gemini_project" in b:
-                project = str(b["gemini_project"] or "").strip()
-                if project and not GEMINI_PROJECT.fullmatch(project):
-                    return self.send(400, {"error": "Enter a Google Cloud project ID: 6 to 30 lowercase letters, digits "
-                                                    "or hyphens, starting with a letter."})
-                s["gemini_project"] = project
             for k in ("provider", "model", "effort", "claude_path", "codex_path"):
                 if k in b:
                     s[k] = b[k]

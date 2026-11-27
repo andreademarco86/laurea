@@ -233,8 +233,6 @@ struct SettingsInfo: Codable {
     var default_scheme: [String: Int]?
     var grading_scale: GradingScale?
     var grading_presets: [GradingScale]?
-    /// Google Cloud project for Gemini with a Workspace or school account (empty for personal accounts).
-    var gemini_project: String?
 }
 
 struct SaveResult: Codable {
@@ -484,12 +482,6 @@ enum Engine: String, CaseIterable, Identifiable {
         case .openai: ["low", "medium", "high", "xhigh"]
         case .gemini: ["medium"]
         }
-    }
-
-    /// Empty (personal account) or a Google Cloud project ID.
-    static func isValidGeminiProject(_ id: String) -> Bool {
-        let id = id.trimmingCharacters(in: .whitespaces)
-        return id.isEmpty || id.range(of: "^[a-z][a-z0-9-]{4,28}[a-z0-9]$", options: .regularExpression) != nil
     }
 
     static let defaultEffort = "adaptive"  // Standard base pass, Thorough only for disputed criteria

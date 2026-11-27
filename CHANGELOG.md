@@ -3,7 +3,7 @@
 ## 1.1
 
 **How dissertations are examined**
-- **Gemini support.** Sign in with a Google account to examine with Gemini CLI; Google AI Pro and Ultra give higher daily limits. Google Workspace and school accounts can enter their organisation’s Google Cloud project in Settings → Engine. Laurea installs Gemini CLI (and Node.js if needed) from the official sources and checks every download against its published hash. Runs are locked down like the other engines: only file tools in the examination folder and Laurea’s own scripts, shell commands sandboxed without network, no web search, extensions, MCP servers or telemetry, and no local session history.
+- **Gemini support.** Sign in with a Google account to examine with Gemini CLI; Google AI Pro and Ultra give higher daily limits. Laurea installs Gemini CLI (and Node.js if needed) from the official sources and checks every download against its published hash. Runs are locked down like the other engines: only file tools in the examination folder and Laurea’s own scripts, shell commands sandboxed without network, no web search, extensions, MCP servers or telemetry, and no local session history.
 - **Your institution’s grading scale.** Each criterion is decided as a grade on your scale, then marked within that grade’s range. The case for the grade above is tested as seriously as the case for the grade below. Choose **University of Malta** (the default) or **International** in **Settings → Marking**, or edit the grades and what each means. Each examination keeps the scale it started with.
 - **A more independent panel.** Three examiners each read the whole dissertation and look closely at a different part:
   - **Methods**: the method and results.

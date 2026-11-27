@@ -161,10 +161,6 @@ check("Gemini runs allow only file tools and Laurea's scripts, with no web tools
       and gsettings["mcpServers"] == {} and cmd[-2:] == ["-p", "PROMPT"])
 sv.finish_gemini_run(cmd)
 check("a Gemini run's private home is removed afterwards", not run_home.exists())
-sv.write_json(sv.SETTINGS_FILE, {**sv.settings(), "gemini_project": "um-examining-123"})
-check("a Google Cloud project reaches Gemini runs", sv.provider_env("gemini").get("GOOGLE_CLOUD_PROJECT") == "um-examining-123")
-sv.write_json(sv.SETTINGS_FILE, {**sv.settings(), "gemini_project": ""})
-check("no project for personal accounts", "GOOGLE_CLOUD_PROJECT" not in sv.provider_env("gemini"))
 st = sv.provider_status("gemini")
 check("Gemini status without the CLI or a sign-in", st["installed"] in (True, False) and st["signed_in"] is False)
 

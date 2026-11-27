@@ -7,7 +7,7 @@ Laurea is a macOS app for dissertation examiners. It drafts reports for **BSc, M
 Requires **macOS 14 Sonoma or later** on Apple silicon or Intel, Apple’s Command Line Tools, and one of:
 - a Claude account with access to Claude Code;
 - a ChatGPT account with access to Codex;
-- a Google account for Gemini CLI. Google AI Pro and Ultra give higher daily limits. Google Workspace and school accounts also need a Google Cloud project from your IT department.
+- a Google account for Gemini CLI. Google AI Pro and Ultra give higher daily limits. Whether a Google Workspace or school account works depends on your organisation’s Gemini settings.
 
 Examination, revision and teaching use your signed-in plan’s allowance and any extra usage enabled on that account. [Claude plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) · [Codex subscription sign-in](https://learn.chatgpt.com/docs/auth?surface=cli) · [Gemini CLI quotas](https://github.com/google-gemini/gemini-cli/blob/main/docs/resources/quota-and-pricing.md)
 
@@ -80,7 +80,7 @@ Revisions reuse the existing report and evidence, reopening only the pages the c
   - The summary length.
 
   Each examination keeps the weights, scale and summary length it started with.
-- **Engine**: the signed-in subscription (Claude, ChatGPT or Gemini), model and thoroughness. Gemini offers **Adaptive** and **Standard** thoroughness, and a **Google Cloud project** field for Workspace and school accounts.
+- **Engine**: the signed-in subscription (Claude, ChatGPT or Gemini), model and thoroughness. Gemini offers **Adaptive** and **Standard** thoroughness.
 
 ## Examining standards and calibration
 
@@ -103,7 +103,7 @@ Laurea sends the material needed for each examination or revision to your select
 
 - **The engine cannot start.** Install Apple’s Command Line Tools. The engine log is at `~/Library/Application Support/Laurea/engine.log`.
 - **Examination stops before starting.** Open **Settings → Engine** and check that the selected engine is installed and signed in.
-- **Gemini asks you to sign in again.** Open **Settings → Engine** and click **Sign In…**. With a Google Workspace or school account, enter the **Google Cloud project** your IT department gives you (with Gemini Code Assist enabled) under Gemini in **Settings → Engine**, then sign in again.
+- **Gemini asks you to sign in again.** Open **Settings → Engine** and click **Sign In…**. If a Google Workspace or school account cannot sign in, your organisation has not enabled Gemini CLI for it; use a personal Google account.
 - **The Word export is missing your signature.** Add it in **Settings → General** and save the report again.
 - **Export says the Word document could not be produced.** Read the message at the top of the report, fix any problem it lists, save with **⌘S**, then export again.
 
