@@ -526,6 +526,8 @@ final class AppModel {
     // MARK: Report editor view state (lives here: the app builds without the SwiftUI macro plugin)
 
     var vivaExpanded = true
+    /// The Settings tab to show: "general", "marking" or "engine".
+    var settingsTab = "general"
     var correctionsExpanded = true
 
     /// The examining standards in use: taught ones in the data folder, else the app's own.

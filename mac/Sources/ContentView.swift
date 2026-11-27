@@ -276,6 +276,7 @@ struct ExamToolbar: ToolbarContent {
 
 struct StartView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.openSettings) private var openSettings
     let detail: ExamDetail
 
     var body: some View {
@@ -305,18 +306,25 @@ struct StartView: View {
             .pickerStyle(.segmented)
             .frame(width: 240)
             .help("BSc, MSc or PhD: the expected standard and your calibration depend on the level")
-            Button { Task { await model.examine() } } label: {
-                Text(detail.state == "new" ? "Examine \(model.newLevel.noun)" : "Run Again").frame(minWidth: 180)
+            HStack(spacing: 10) {
+                Button { Task { await model.examine() } } label: {
+                    Text(detail.state == "new" ? "Examine \(model.newLevel.noun)" : "Run Again").frame(minWidth: 180)
+                }
+                .buttonStyle(.borderedProminent)
+                .keyboardShortcut(.defaultAction)
+                Button {
+                    model.settingsTab = "marking"
+                    openSettings()
+                } label: {
+                    Label("Marking Weights…", systemImage: "slider.horizontal.3")
+                }
+                .help("Change the marking weights, grading scale and summary length")
             }
-            .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .keyboardShortcut(.defaultAction)
             let sc = detail.markingScheme
-            HStack(spacing: 4) {
-                Text("Marked out of \(sc.dissertationMax), viva out of \(sc.viva) · usually 20–60 minutes ·")
-                SettingsLink { Text("Change weights…") }.buttonStyle(.link)
-            }
-            .font(.caption).foregroundStyle(.tertiary)
+            Text("Marked out of \(sc.dissertationMax), viva out of \(sc.viva). An examination takes a while; you can keep working in Laurea meanwhile.")
+                .font(.caption).foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center).frame(maxWidth: 460)
         }
         .padding(40)
         .frame(maxWidth: .infinity, maxHeight: .infinity)

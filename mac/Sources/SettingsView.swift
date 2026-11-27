@@ -7,7 +7,7 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var model = model
         let s = $model.settings
-        TabView {
+        TabView(selection: $model.settingsTab) {
             Form {
                 Section("Examiner") {
                     TextField("Name", text: Binding(get: { s.wrappedValue.examiner_name ?? "" }, set: { s.wrappedValue.examiner_name = $0; scheduleSave() }),
@@ -20,6 +20,7 @@ struct SettingsView: View {
             }
             .formStyle(.grouped)
             .tabItem { Label("General", systemImage: "gearshape") }
+            .tag("general")
 
             Form {
                 MarkingSchemeSection(scheme: Binding(
@@ -54,12 +55,14 @@ struct SettingsView: View {
             }
             .formStyle(.grouped)
             .tabItem { Label("Marking", systemImage: "chart.bar.doc.horizontal") }
+            .tag("marking")
 
             Form {
                 EngineSection()
             }
             .formStyle(.grouped)
             .tabItem { Label("Engine", systemImage: "cpu") }
+            .tag("engine")
         }
         // Fixed size with scrolling forms: tall content never pushes the window off screen.
         .frame(width: 540, height: 620)
