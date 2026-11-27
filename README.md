@@ -33,7 +33,7 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 ## Review a paper
 
 1. Click **New Paper Review…** (**⇧⌘N**) or drop a paper PDF into Laurea and choose **Papers to Review**.
-2. Choose the target venue: a conference such as NeurIPS, ICML, ICLR, ACL Rolling Review, CVPR or Interspeech, or a journal such as TMLR, IEEE TPAMI, Pattern Recognition, the Physical Review journals or MNRAS. **Other conference** and **Other journal** use general scales. Click **Review Paper**.
+2. Choose the target venue: a conference such as NeurIPS, ICML, ICLR, ACL Rolling Review, CVPR or Interspeech, or a journal such as TMLR, IEEE TPAMI, Pattern Recognition, the Physical Review journals, Journal of Physics Communications or MNRAS. **Other conference** and **Other journal** use general scales. Click **Review Paper**.
 3. Check the draft. Click the venue's scale to change the recommendation (a dot marks the proposal), and adjust the scores and confidence. Edit the text as you would a report; page references open the paper at the cited page.
 4. Under **Copy and Export**, copy each field, or the whole review laid out as the venue's form (**⇧⌘C**), or export a Word copy.
 

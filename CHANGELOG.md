@@ -6,7 +6,7 @@
 - **Review journal and conference papers before submission**, beside examining dissertations. Laurea reviews the paper as a careful referee at your target venue would, on that venue's own form and scale, so you can see what to fix first.
 - **Venues** with their reviewer forms and recommendation scales, checked against each venue's published guidelines in November 2026:
   - **Conferences**: NeurIPS, ICML, ICLR, ACL Rolling Review (ACL, EMNLP, NAACL), CVPR, ICCV/ECCV, AAAI, IJCAI, Interspeech and ICASSP.
-  - **Journals**: TMLR, JMLR, IEEE TPAMI, TNNLS and TASLP, Pattern Recognition, Computer Speech & Language, Computer Physics Communications, Astronomy and Computing, the Physical Review journals, MNRAS, ApJ/AJ, A&A and Machine Learning: Science and Technology.
+  - **Journals**: TMLR, JMLR, IEEE TPAMI, TNNLS and TASLP, Pattern Recognition, Computer Speech & Language, Computer Physics Communications, Astronomy and Computing, the Physical Review journals, Journal of Physics Communications, MNRAS, ApJ/AJ, A&A and Machine Learning: Science and Technology.
   - **Other conference** and **Other journal**, with general scales.
 
   Where a venue does not publish its form, Laurea says so and follows its recent practice. Each review keeps the form it was written for.

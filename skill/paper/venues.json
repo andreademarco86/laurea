@@ -756,6 +756,27 @@
       "sources": ["https://www.aanda.org/"]
     },
     {
+      "id": "jphys-comms",
+      "name": "Journal of Physics Communications",
+      "full_name": "Journal of Physics Communications (IOP Publishing)",
+      "kind": "journal",
+      "fields": ["physics", "astro", "computing"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "journal"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "journal"}],
+      "criteria": ["Is the paper scientifically correct and robust?", "Are the mathematics and statistics correct?", "Does the interpretation follow from the results?", "Is the work original?"],
+      "policy": {
+        "level": "unknown",
+        "text": "IOP's reviewer pages did not state a rule on AI tools when this list was checked. Check IOP's reviewer guidance before sharing a manuscript."
+      },
+      "notes": "Reviewed for scientific validity and rigour only: no judgement of perceived novelty or potential significance. Negative and null results and replications are welcome if they advance knowledge. Authors choose single- or double-anonymous review. The recommendation options follow IOP's usual accept / revise / reject decisions; the journal's own form is not public.",
+      "sources": ["https://publishingsupport.iopscience.iop.org/journals/journal-of-physics-communications/about-journal-physics-communications/", "https://publishingsupport.iopscience.iop.org/questions/general-review-procedure-on-IOP-journals/"]
+    },
+    {
       "id": "mlst",
       "name": "Machine Learning: Science and Technology",
       "full_name": "Machine Learning: Science and Technology (IOP Publishing)",
