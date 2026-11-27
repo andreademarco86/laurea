@@ -246,7 +246,10 @@ struct ReviewHeader: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text(review.paper.isEmpty ? "Untitled paper" : review.paper)
                     .font(.title3.weight(.semibold)).lineLimit(3)
-                Text(rec.map { $0.label } ?? "No recommendation yet").foregroundStyle(.secondary)
+                // The big tile shows the number on numeric scales, so name the option here; worded scales already show it.
+                if rec?.isNumeric ?? true {
+                    Text(rec.map { $0.label } ?? "No recommendation yet").foregroundStyle(.secondary)
+                }
                 HStack(spacing: 8) {
                     ToneCapsule(text: venue.name, tone: nil)
                     if let p = model.detail?.proposed_review?.recommendation, let o = venue.recommendation.option(p) {
@@ -278,11 +281,9 @@ struct RatingsSection: View {
             VStack(alignment: .leading, spacing: 8) {
                 ScaleStrip(options: venue.recommendation.options, selected: review.recommendation,
                            proposed: proposed?.recommendation, onSelect: { rec.wrappedValue = $0 })
-                if let o = venue.recommendation.option(review.recommendation) {
-                    Text(o.text).font(.callout.weight(.semibold))
-                    if let m = o.meaning, !m.isEmpty {
-                        Text(m).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
+                // What the chosen option means at this venue, when the venue says.
+                if let m = venue.recommendation.option(review.recommendation)?.meaning, !m.isEmpty {
+                    Text(m).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.vertical, 4)

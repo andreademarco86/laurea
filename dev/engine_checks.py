@@ -219,6 +219,8 @@ check("the copy-ready form follows the venue's fields and ratings",
       [f["title"] for f in form["fields"]][:2] == ["Summary", "Strengths and Weaknesses"]
       and "Overall: 4: Borderline accept" in form["text"] and "hidden text" in form["text"])
 tmlr = sv.venue_by_id("tmlr")
+check("a worded scale shows its label, not its internal value",
+      "| **Recommendation** | Minor revision |" in sv.write_review({**review, "recommendation": "minor", "scores": {}, "confidence": ""}, sv.venue_by_id("pattern-recognition")))
 check("a venue without scores or confidence writes and parses",
       sv.parse_review(sv.write_review({**review, "recommendation": "leaning-accept", "scores": {}, "confidence": ""}, tmlr), tmlr)["recommendation"] == "leaning-accept")
 

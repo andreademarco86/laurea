@@ -397,10 +397,11 @@ struct VenueOption: Codable, Hashable {
     var tone: String?
     var meaning: String?
 
-    /// "4: Borderline accept"
-    var text: String { "\(value): \(label)" }
+    var isNumeric: Bool { Double(value) != nil }
+    /// "4: Borderline accept" on numeric scales; just the label on worded ones ("Minor revision").
+    var text: String { isNumeric ? "\(value): \(label)" : label }
     /// What a compact control shows: the number on numeric scales, else the label.
-    var short: String { Double(value) != nil ? value : label }
+    var short: String { isNumeric ? value : label }
 }
 
 struct VenueScale: Codable, Hashable {

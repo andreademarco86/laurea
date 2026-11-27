@@ -983,8 +983,15 @@ def option_value(entry, options):
 
 
 def option_text(value, options):
+    """'4: Borderline accept' on numeric scales; the label alone on worded ones ('Minor revision')."""
     o = next((o for o in options if str(o["value"]) == str(value)), None)
-    return f"{o['value']}: {o['label']}" if o else ""
+    if not o:
+        return ""
+    try:
+        float(o["value"])
+    except ValueError:
+        return o["label"]
+    return f"{o['value']}: {o['label']}"
 
 
 def _review_section(md, title):
