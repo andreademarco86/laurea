@@ -111,6 +111,8 @@ struct PanelFeedback: Codable {
     let examiners: [String: [String: Double]]
     let chair: [String: Double]
     let notes: [String: String]
+    /// Each reader's overall grade, given before the criteria.
+    let overall: [String: String]?
     let summary: String?
     let decisions: [String: String]
     let low_confidence: [String]

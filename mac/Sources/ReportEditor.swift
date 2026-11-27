@@ -81,7 +81,7 @@ struct PanelReview: View {
     let panel: PanelFeedback
     let scheme: Scheme
 
-    private let roles = ["methods", "field", "sceptic", "chair"]
+    private let roles = ["methods", "field", "holistic", "chair"]
 
     private func title(_ role: String) -> String { role.capitalized }
 
@@ -91,7 +91,7 @@ struct PanelReview: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Panel and Chair").font(.subheadline.weight(.semibold))
+            Text("Readers and Chair").font(.subheadline.weight(.semibold))
             Grid(horizontalSpacing: 10, verticalSpacing: 10) {
                 GridRow {
                     Text("Criterion").frame(maxWidth: .infinity, alignment: .leading)
@@ -132,6 +132,16 @@ struct PanelReview: View {
                     }
                 }
                 .fontWeight(.semibold)
+
+                if let overall = panel.overall, !overall.isEmpty {
+                    GridRow {
+                        Text("Overall grade").frame(maxWidth: .infinity, alignment: .leading)
+                        ForEach(roles, id: \.self) { role in
+                            Text(overall[role] ?? "").font(.caption.weight(.semibold))
+                                .help(role == "chair" ? "" : "\(title(role))'s grade for the dissertation as a whole, given before the criteria")
+                        }
+                    }
+                }
             }
 
             // One line per examiner and one for the chair; the detailed deliberation stays in the work folder.
@@ -147,7 +157,23 @@ struct PanelReview: View {
                     }
                 }
             }
-            Text("Chair scores are shown before calibration.").font(.caption).foregroundStyle(.secondary)
+            // Rulings on disputed criteria: the advocate's and critic's cases are kept in the work folder.
+            let rulings = scheme.specs.compactMap { spec in panel.decisions[spec.key].map { (spec, $0) } }
+            if !rulings.isEmpty {
+                Grid(alignment: .topLeading, horizontalSpacing: 12, verticalSpacing: 6) {
+                    ForEach(rulings, id: \.0.key) { spec, ruling in
+                        GridRow {
+                            Text("(\(spec.key))").fontWeight(.semibold).frame(width: 64, alignment: .leading)
+                                .help("Disputed: \(spec.name)")
+                            Text(Self.plain(ruling)).foregroundStyle(.secondary).textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .font(.callout)
+                    }
+                }
+            }
+            Text("Chair scores are shown before calibration. Rulings are for criteria where the readers disagreed.")
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -194,7 +220,7 @@ struct MarksSections: View {
                             .gaugeStyle(.accessoryLinearCapacity)
                             .tint(Gradient(colors: [.blue, .indigo]))
                             .frame(width: 70)
-                            .animation(.spring(duration: 0.4), value: c.mark)
+                            .animation(.snappy(duration: 0.18), value: c.mark)
                         // Fixed-width columns keep the bars and numbers aligned across rows.
                         Group {
                             if let p = detail?.proposedMark(c.spec.key) {
@@ -321,8 +347,14 @@ struct QuestionSections: View {
     @Environment(AppModel.self) private var model
     @Binding var questions: [QuestionDraft]
 
+    /// Recommended number of questions for the examination's level.
+    private var range: ClosedRange<Int> {
+        switch model.detail?.status.level { case "bsc": 3...5; case "phd": 8...10; default: 4...6 }
+    }
+
     var body: some View {
         @Bindable var model = model
+        let range = range
         Section {
             DisclosureGroup(isExpanded: $model.vivaExpanded) {
                 VStack(alignment: .leading, spacing: 14) {
@@ -349,15 +381,15 @@ struct QuestionSections: View {
                     }
                     Button { questions.append(QuestionDraft()) } label: { Label("Add Viva Question", systemImage: "plus.circle") }
                         .buttonStyle(.borderless)
-                        .disabled(questions.count >= 5)
+                        .disabled(questions.count >= range.upperBound)
                 }
                 .padding(.top, 8)
             } label: {
                 HStack {
                     Text("Viva Questions").font(.headline)
                     Spacer()
-                    Text("\(questions.count) (3–5)").font(.caption).monospacedDigit()
-                        .foregroundStyle((3...5).contains(questions.count) ? Color.secondary : Color.orange)
+                    Text("\(questions.count) (\(range.lowerBound)–\(range.upperBound))").font(.caption).monospacedDigit()
+                        .foregroundStyle(range.contains(questions.count) ? Color.secondary : Color.orange)
                 }
             }
         }
@@ -435,14 +467,6 @@ struct DeclarationSection: View {
 
     var body: some View {
         Section("Declaration") {
-            LabeledContent("Signature") {
-                if let img = model.signatureImage {
-                    Image(nsImage: img).resizable().scaledToFit().frame(height: 52)
-                        .padding(6).background(.white, in: .rect(cornerRadius: 6))
-                } else {
-                    Text("No signature found").foregroundStyle(.secondary)
-                }
-            }
             // On by default: an undated report is dated on the day it is exported.
             Toggle("Date the report", isOn: Binding(get: { !model.dateOptOut },
                                                    set: { on in model.dateOptOut = !on; if !on { draft.date = "" } else { model.dirty = true } }))

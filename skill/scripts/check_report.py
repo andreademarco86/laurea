@@ -26,6 +26,23 @@ def section(text, start_pat, end_pat=r"^## "):
     return rest[: e.start()] if e else rest
 
 
+VIVA_QUESTIONS = {"bsc": (3, 5), "msc": (4, 6), "phd": (8, 10)}
+
+
+def report_level(path, text):
+    """bsc, msc or phd: from the examination's status.json next to the report, else the report title (default msc)."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(path)), "status.json"), encoding="utf-8") as f:
+            level = json.load(f).get("level")
+        if level in VIVA_QUESTIONS:
+            return level
+    except Exception:
+        pass
+    m = re.search(r'^title:\s*"?([^"\n]*)', text[:300], re.M)
+    title = (m.group(1) if m else "").lower()
+    return "phd" if "phd" in title or "thesis" in title else "bsc" if "bsc" in title else "msc"
+
+
 def bullets(block):
     return [l for l in block.splitlines() if re.match(r"^\s*[-*]\s+\S", l)]
 
@@ -138,8 +155,9 @@ def main():
         errors.append("section '## 3. Viva questions' missing")
     else:
         qn = re.findall(r"^\*\*Q\d+\.", qs, re.M)
-        if not 3 <= len(qn) <= 5:
-            errors.append(f"{len(qn)} viva questions, expected 3-5")
+        lo, hi = VIVA_QUESTIONS[report_level(path, text)]
+        if not lo <= len(qn) <= hi:
+            errors.append(f"{len(qn)} viva questions, expected {lo}-{hi} at {report_level(path, text).upper()} level")
         exp = len(re.findall(r"Expected / acceptable answer", qs))
         if exp < len(qn):
             errors.append(f"{len(qn) - exp} viva question(s) without an expected/acceptable answer")

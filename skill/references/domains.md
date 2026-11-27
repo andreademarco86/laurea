@@ -1,6 +1,6 @@
 # Fields covered and which checklists to use
 
-The common thread is AI/ML and computational work in numerate sciences. In Phase 2, identify the dissertation's field(s) here; in Phase 4, apply every checklist listed for those fields. Work that spans fields (e.g. ML for astronomy) gets all relevant checklists, and each part is judged by the standard of its own field.
+The common thread is AI/ML and computational work in numerate sciences. In step 2, identify the dissertation's field(s) here; in step 4, the Methods reader applies every checklist listed for those fields. Work that spans fields (e.g. ML for astronomy) gets all relevant checklists, and each part is judged by the standard of its own field.
 
 ## Primary fields (full checklists)
 
@@ -34,7 +34,7 @@ For these, combine the closest primary checklists above with the field-specific 
 | Music information retrieval and acoustics | speech-language + ML | Audio and annotation provenance; artist- or recording-level splits; perceptual evaluation design; room and instrument acoustics measured correctly. |
 | Clinical and educational speech technology | speech-language + ML | Clinically validated labels; ethics and consent for vulnerable speakers; agreement with expert raters; fairness across speaker groups. |
 
-## Scholarly sources by field (for Phase 5)
+## Scholarly sources by field (for the Field reader)
 
 - Computing and engineering: IEEE Xplore, ACM Digital Library, USENIX, DBLP, arXiv cs.
 - ML and vision: OpenReview, PMLR, CVF Open Access, arXiv cs.LG/cs.CV.

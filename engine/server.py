@@ -9,6 +9,7 @@ Only the Python standard library is used.
 import datetime as dt
 import difflib
 import glob
+import hashlib
 import json
 import os
 import re
@@ -33,6 +34,7 @@ SETTINGS_FILE = ROOT / "settings.json"
 SKILL = ROOT / "examiner"
 STANDARDS = SKILL / "standards"
 CURRENT_STANDARDS = STANDARDS / "current"
+BUNDLED = (Path(os.environ["DE_RESOURCES"]) if os.environ.get("DE_RESOURCES") else APP_DIR.parent) / "skill"
 LEGACY_SKILL = Path.home() / ".claude" / "skills" / "dissertation-examiner"
 SKILL_CONFIG = SKILL / "config.json"
 CALIBRATION = SKILL / "references" / "calibration-notes.md"
@@ -462,20 +464,16 @@ def assistant_label(provider=None):
     return f"{PROVIDERS[provider]} · {model or 'default model'}"
 
 
-def ensure_helpers():
-    """Copy the app's prebuilt PDF helpers into the skill (sandboxed agents cannot compile into the skill folder)."""
+def copy_helpers(scripts):
+    """Copy the app's prebuilt PDF helpers into an examination's scripts (sandboxed agents cannot compile them)."""
     res = os.environ.get("DE_RESOURCES")
-    if not res:
+    src = Path(res) / "bin" if res else None
+    if not src or not src.is_dir():
         return
-    src, dst = Path(res) / "bin", SKILL.resolve() / "scripts" / "bin"
-    if not src.is_dir():
-        return
-    dst.mkdir(parents=True, exist_ok=True)
+    (scripts / "bin").mkdir(parents=True, exist_ok=True)
     for f in src.iterdir():
-        t = dst / f.name
-        if not t.exists() or t.stat().st_size != f.stat().st_size or t.stat().st_mtime < f.stat().st_mtime:
-            shutil.copy2(f, t)
-            os.chmod(t, 0o755)
+        shutil.copy2(f, scripts / "bin" / f.name)
+        os.chmod(scripts / "bin" / f.name, 0o755)
 
 
 def safe_name(name):
@@ -656,12 +654,12 @@ def write_report(r, scheme=None):
 
 def check_and_render(d):
     rp = report_path(d)
-    args = [PYTHON, str(SKILL / "scripts" / "check_report.py"), str(rp)]
+    args = [PYTHON, str(BUNDLED / "scripts" / "check_report.py"), str(rp)]
     mp = meta_path(d)
     if mp:
         args += ["--meta", str(mp)]
     chk = subprocess.run(args, capture_output=True, text=True, env=ENV)
-    ren = subprocess.run(["bash", str(SKILL / "scripts" / "render_report.sh"), str(rp)],
+    ren = subprocess.run(["bash", str(BUNDLED / "scripts" / "render_report.sh"), str(rp)],
                          capture_output=True, text=True, env=ENV, cwd=str(d))
     if ren.returncode != 0:  # never leave a Word file that no longer matches the report
         rp.with_suffix(".docx").unlink(missing_ok=True)
@@ -824,16 +822,19 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
              "parts of the standards and the source pages needed to verify new or changed claims. "
              "Keep the declaration date unless the examiner asks to change it. Follow the full examination workflow "
              "only if the examiner explicitly requests a fresh examination. " if revision else
-             "Read SKILL.md completely. Have all marking perspectives use the shared evidence log. Reopen only decisive "
-             "source pages for disagreements. Where a finding has a short verbatim passage on its cited page, append "
-             "' | Quote: ' and 6–18 exact words to its evidence.md line. Use a figure or table label in the source "
-             "when the evidence is visual. Leave the declaration date blank for Laurea to fill in. ")
+             "Read SKILL.md completely and follow its three independent readings and the chair: each reader reads the "
+             "whole text, keeps their own evidence and gives an overall grade before marking the criteria; the chair "
+             "weights each criterion by the reader who leads on it and settles disputes with an advocate and a critic. "
+             "When consolidating evidence.md, append ' | Quote: ' and 6–18 exact words where a finding has a short "
+             "verbatim passage on its cited page, and use a figure or table label when the evidence is visual. "
+             "Leave the declaration date blank for Laurea to fill in. ")
     panel = ("Write this run's panel.json in the extraction work folder with the examiners and chair scores and "
-             "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and sceptic: "
-             "one short sentence per examiner giving their overall view, as a colleague would say it aloud, for "
+             "low_confidence criteria from the standards. Add notes as an object keyed by methods, field and holistic: "
+             "one short sentence per reader giving their overall view, as a colleague would say it aloud, for "
              "example \"Solid build, but the evaluation is too thin to back the safety claims.\" Add resolution as "
              "an object with summary (one or two short sentences on what the chair settled and why) and criteria "
-             "(an object keyed by criterion letter, one short sentence for each material disagreement acted on). "
+             "(an object keyed by criterion letter: for each disputed criterion, one short sentence giving the ruling "
+             "between the advocate and the critic and why). "
              "In notes and resolution, write plain English: no page lists, no jargon, no filler such as restating "
              "that marks are evidence-based. Save the chair's marks before calibration. "
              "Use the final chat message for integrity findings, limitations or other caveats that are missing "
@@ -859,7 +860,10 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
             "Keep individual panel scores, role labels, disagreements, and the chair's deliberation in panel.json and "
             "internal run notes only. In the examiner report, present the agreed findings and the resulting report marks, written "
             "in the first person as the examiner (\"I found\", \"In my view\") in a measured academic tone. Never refer in the "
-            "report to a panel, other examiners, a chair, an expert review or reviewers. "
+            "report to a panel, other examiners, a chair, an expert review or reviewers. Write strengths, weaknesses and "
+            "corrections as natural academic prose, the way an experienced examiner writes, not constructed formulas: say "
+            "what the work does or misses and why it matters, put the page reference at the end, vary how points open, "
+            "and avoid stacked noun phrases and \"X, which Y, thereby Z\" chains. Keep the field's technical vocabulary. "
             "Write and check the Markdown report. Laurea exports the Word file locally after the run. Skip the Word "
             "render command even if the standards ask for it. "
             f"Complete the work without asking questions.\n\n{task}"
@@ -867,12 +871,13 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
                if document_map else ""))
 
 
+PANEL_ROLES = ("methods", "field", "holistic")
+
 PHASES = [
     ("extract", "Extract text and page numbers"),
     ("map", "Map structure, aims and objectives"),
-    ("read", "Read chapters, figures and tables"),
-    ("evidence", "Log evidence and technical issues"),
-    ("research", "Review literature and originality internally"),
+    ("read", "Three examiners read the dissertation"),
+    ("chair", "Chair settles disputed criteria"),
     ("marks", "Decide marks and apply calibration"),
     ("report", "Write the report"),
     ("verify", "Verify page references and checks"),
@@ -886,10 +891,10 @@ def phase_of(item):
     cmd, path, tool = item.get("cmd", ""), Path(item.get("path", "")).name, item.get("tool")
     if "extract_pdf" in cmd:
         return "extract"
-    if "render_pages" in cmd or "pages.txt" in cmd or (tool == "Read" and (path == "pages.txt" or path.startswith("page-"))):
+    if ("render_pages" in cmd or "pages.txt" in cmd or tool in ("WebSearch", "WebFetch")
+            or (tool == "Read" and (path == "pages.txt" or path.startswith("page-")))
+            or (tool in ("Write", "Edit") and Path(item.get("path", "")).parent.name == "panel")):
         return "read"
-    if tool in ("WebSearch", "WebFetch") or (tool in ("Write", "Edit") and path == "external.md"):
-        return "research"
     if "check_report" in cmd:
         return "verify"
     if "render_report" in cmd:
@@ -897,8 +902,8 @@ def phase_of(item):
     if tool in ("Write", "Edit"):
         if path == "structure.md":
             return "map"
-        if path == "evidence.md":
-            return "evidence"
+        if path in ("evidence.md", "panel.json", "claims.md"):
+            return "chair"
         if path == "proposed_marks.json":
             return "marks"
         if path.endswith("_examiner_report.md"):
@@ -1032,7 +1037,7 @@ def panel_feedback(d, meta, scheme):
     if not isinstance(data, dict):
         return None
     maxima = {key: maximum for key, _, maximum in crit(scheme)}
-    roles = ("methods", "field", "sceptic")
+    roles = PANEL_ROLES
 
     def scores(values):
         if not isinstance(values, dict):
@@ -1056,7 +1061,16 @@ def panel_feedback(d, meta, scheme):
     decisions = notes(resolution.get("criteria"), maxima) if isinstance(resolution, dict) else {}
     confidence = data.get("low_confidence")
     concerns = [key for key in maxima if isinstance(confidence, list) and key in confidence]
-    return {"examiners": marks, "chair": chair, "notes": notes(data.get("notes"), roles),
+    disputes = data.get("disputes")
+    if isinstance(disputes, dict):  # fall back to the rulings recorded with each dispute
+        for key in maxima:
+            ruling = disputes.get(key, {}).get("ruling") if isinstance(disputes.get(key), dict) else None
+            if key not in decisions and isinstance(ruling, str) and ruling.strip():
+                decisions[key] = ruling.strip()[:500]
+    overall = data.get("overall")
+    overall = {role: overall[role].strip()[:24] for role in roles
+               if isinstance(overall, dict) and isinstance(overall.get(role), str) and overall[role].strip()}
+    return {"examiners": marks, "chair": chair, "notes": notes(data.get("notes"), roles), "overall": overall,
             "summary": summary, "decisions": decisions, "low_confidence": concerns}
 
 
@@ -1101,7 +1115,7 @@ def review_disputed_criteria(d, work, panel, provider, path, workspace, model, s
                     flagged[flag["criterion"]] = reason
     disputed = {}
     for key, name, maximum in crit(exam_scheme(d)):
-        roles = (panel_marks.get(role, {}) for role in ("methods", "field", "sceptic"))
+        roles = (panel_marks.get(role, {}) for role in PANEL_ROLES)
         marks = [role.get(key) if isinstance(role, dict) else None for role in roles]
         if not all(type(mark) in (int, float) and 0 <= mark <= maximum for mark in marks):
             continue
@@ -1369,7 +1383,7 @@ or ask about the skill. They are an academic, not a programmer: reply in short, 
 examining standards: never mention Claude, Anthropic, AI, language models or "the skill"; call it "your examining standards".
 
 When they ask for a change, make the smallest careful edit that achieves it, in the file where it belongs:
-- SKILL.md: workflow and writing style; references/marking-rubric.md: bands, levels and calibration rules;
+- SKILL.md: workflow and writing style; references/marking-rubric.md: the default grading scale, levels and calibration rules;
   references/ml-cv-checklist.md and references/astro-ml-checklist.md: technical checks;
   references/computing-checklist.md and references/speech-language-checklist.md: further technical checks;
   references/domains.md: which fields are covered and which checklists apply (add new fields here, following its template);
@@ -1418,8 +1432,20 @@ def save_standards(store, before, after, message, parent=None):
     return revision
 
 
+BUNDLED_REVISION = "bundled"  # parent of the first taught revision: the app's own standards
+
+
+def current_standards():
+    """The standards in use: the examiner's taught revision, else the app's own (read in place, never copied)."""
+    return CURRENT_STANDARDS if CURRENT_STANDARDS.is_dir() else BUNDLED
+
+
 def standards_revision():
-    return CURRENT_STANDARDS.resolve().parent.name
+    return CURRENT_STANDARDS.resolve().parent.name if CURRENT_STANDARDS.is_dir() else None
+
+
+def revision_files(revision):
+    return BUNDLED if revision == BUNDLED_REVISION else STANDARDS / revision / "files"
 
 
 def skill_history(limit=None):
@@ -1449,9 +1475,9 @@ def undo_standards(revision):
     entry = next((entry for entry in skill_history() if entry["revision"] == revision), None)
     if entry is None:
         raise ValueError("This change is unavailable in Laurea's local history.")
-    old = standard_files(STANDARDS / entry["parent"] / "files")
+    old = standard_files(revision_files(entry["parent"]))
     applied = standard_files(STANDARDS / revision / "files")
-    current = standard_files(CURRENT_STANDARDS)
+    current = standard_files(current_standards())
     restored = current.copy()
     for path in entry["files"]:
         if current.get(path) == old.get(path):
@@ -1517,7 +1543,7 @@ def run_skill_chat(message, provider, path):
     chat["messages"].append(reply)
     try:
         save_chat(chat)
-        baseline = standard_files(CURRENT_STANDARDS)
+        baseline = standard_files(current_standards())
         with tempfile.TemporaryDirectory(prefix="laurea-teaching-", dir=ROOT) as draft:
             work = Path(draft)
             write_standards(work, baseline)
@@ -1546,7 +1572,7 @@ def run_skill_chat(message, provider, path):
                 reply["text"] = final or "Your standards are up to date."
                 if baseline != revised:
                     label = re.sub(r"\s+", " ", message)[:72]
-                    revision = save_standards(STANDARDS, baseline, revised, label, standards_revision())
+                    revision = save_standards(STANDARDS, baseline, revised, label, standards_revision() or BUNDLED_REVISION)
                     changes = read_json(STANDARDS / revision / "revision.json", {})
                     reply.update(revision=revision, files=changes["files"], diff=standards_diff(baseline, revised))
     except Exception as e:
@@ -1775,12 +1801,13 @@ class Handler(BaseHTTPRequestHandler):
             if s.get("provider") not in PROVIDERS:
                 s["provider"] = "claude"
             write_json(SETTINGS_FILE, s)
-        skill_mtime = (CURRENT_STANDARDS.resolve().parent / "revision.json").stat().st_mtime
+        taught = CURRENT_STANDARDS.resolve().parent / "revision.json" if CURRENT_STANDARDS.is_dir() else None
+        skill_mtime = (taught if taught and taught.is_file() else BUNDLED / "SKILL.md").stat().st_mtime
         self.send(200, {**cfg, **settings(), "marking_scheme": current_scheme(), "default_scheme": DEFAULT_SCHEME,
                         "summary_words": current_summary_words(),
                         "grading_scale": current_grading_scale(), "grading_presets": GRADING_PRESETS,
                         "assistant_name": PROVIDERS[settings().get("provider", "claude")],
-                        "model_label": assistant_label(), "skill_path": str(CURRENT_STANDARDS),
+                        "model_label": assistant_label(), "skill_path": str(current_standards().resolve()),
                         "skill_updated": dt.datetime.fromtimestamp(skill_mtime).strftime("%Y-%m-%d %H:%M"),
                         "data_path": str(EXAMS)})
 
@@ -1946,54 +1973,44 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, {"error": "unknown action"})
 
 
+def bundle_stamp(source):
+    """Identifies the app build: its build-id, or (running from source) a hash of the bundled standards."""
+    build_id = source.parent / "build-id"
+    if build_id.is_file():
+        return build_id.read_text(encoding="utf-8").strip()
+    return hashlib.sha256(json.dumps(standard_files(source), sort_keys=True).encode()).hexdigest()
+
+
 def install_examiner():
-    if SKILL.is_dir() and not SKILL.is_symlink():
-        return
-    if SKILL.exists() or SKILL.is_symlink():
-        raise RuntimeError("The application-managed examiner folder must be a real directory.")
-    resources = os.environ.get("DE_RESOURCES")
-    source = Path(resources) / "skill" if resources else APP_DIR.parent / "skill"
-    bundled = standard_files(source)
-    problems = validate_skill(bundled)
+    """Laurea reads its examining standards and scripts from the app itself. Application Support holds only the
+    examiner's own data and what they teach. A new app build clears taught standards, the teaching chat and stale
+    copies from earlier versions, so the standards always match the installed app. Settings, signature, calibration
+    and examinations are kept."""
+    problems = validate_skill(standard_files(BUNDLED))
     if problems:
         raise RuntimeError("The bundled examining standards are incomplete: " + "; ".join(problems))
-    legacy = next((p for p in (LEGACY_SKILL, ROOT / "skill") if (p / "SKILL.md").is_file()), None)
-    with tempfile.TemporaryDirectory(prefix="laurea-install-", dir=ROOT) as staging:
-        install = Path(staging) / "examiner"
-        (install / "templates").mkdir(parents=True)
-        (install / "references").mkdir()
-        (install / "scripts").mkdir()
-        for p in (source / "scripts").iterdir():
-            if p.is_file() and p.suffix in (".py", ".sh", ".swift"):
-                shutil.copy2(p, install / "scripts" / p.name)
-        shutil.copy2(source / "config.example.json", install / "config.example.json")
-        local = bundled
-        if legacy:
-            imported = {**bundled, **standard_files(legacy)}
-            if not validate_skill(imported):
-                local = imported
-            for name in ("config.json", "templates/signature.png", "references/calibration-notes.md",
-                         "references/calibration-history.json"):
-                if (legacy / name).is_file():
-                    shutil.copy2(legacy / name, install / name)
-        save_standards(install / "standards", {}, local, "Initial examining standards")
-        install.replace(SKILL)
+    if SKILL.exists() and (SKILL.is_symlink() or not SKILL.is_dir()):
+        raise RuntimeError("The application-managed examiner folder must be a real directory.")
+    for folder in ("references", "templates"):
+        (SKILL / folder).mkdir(parents=True, exist_ok=True)
+    stamp, marker = bundle_stamp(BUNDLED), SKILL / "bundle-stamp"
+    if marker.is_file() and marker.read_text(encoding="utf-8").strip() == stamp:
+        return
+    for stale in (STANDARDS, SKILL / "scripts", ROOT / "evidence-reviews", ROOT / "skill"):
+        if stale.is_dir() and not stale.is_symlink():
+            shutil.rmtree(stale)
+    for stale in (SKILL_CHAT, SKILL / "config.example.json", SKILL / "SKILL.md"):
+        stale.unlink(missing_ok=True)
+    marker.write_text(stamp, encoding="utf-8")
 
 
 def prepare_exam_skill(skill, d):
-    write_standards(skill, standard_files(CURRENT_STANDARDS))
-    shutil.copytree(SKILL / "scripts", skill / "scripts", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    # Scripts are not taught: always use the app's bundled versions, so existing installations get script
-    # improvements without replacing their saved standards.
-    bundled = Path(os.environ.get("DE_RESOURCES") or APP_DIR.parent) / "skill" / "scripts"
-    if bundled.is_dir():
-        for source in bundled.iterdir():
-            if source.is_file() and not source.is_symlink() and source.suffix in (".py", ".sh", ".swift"):
-                shutil.copy2(source, skill / "scripts" / source.name)
-        # The report layout is the app's too: the editor, checker and Word export depend on its sections.
-        template = bundled.parent / "templates" / "examiner-report.md"
-        if template.is_file() and not template.is_symlink():
-            shutil.copy2(template, skill / "templates" / "examiner-report.md")
+    write_standards(skill, standard_files(current_standards()))
+    # Scripts and the report layout always come from the app: they are not taught, and the editor, checker and
+    # Word export depend on the layout.
+    shutil.copytree(BUNDLED / "scripts", skill / "scripts", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+    copy_helpers(skill / "scripts")
+    shutil.copy2(BUNDLED / "templates" / "examiner-report.md", skill / "templates" / "examiner-report.md")
     cfg = read_json(SKILL_CONFIG, {})
     write_json(skill / "config.json", {k: cfg[k] for k in ("examiner_name", "institution", "output_formats")
                                       if k in cfg})
@@ -2006,8 +2023,8 @@ def prepare_exam_skill(skill, d):
 
 def ensure_personal_files():
     """config.json, calibration notes and history are personal (not in git); create them on first run."""
-    if not SKILL_CONFIG.exists() and (SKILL / "config.example.json").exists():
-        shutil.copyfile(SKILL / "config.example.json", SKILL_CONFIG)
+    if not SKILL_CONFIG.exists() and (BUNDLED / "config.example.json").exists():
+        shutil.copyfile(BUNDLED / "config.example.json", SKILL_CONFIG)
     if not HISTORY.exists():
         write_json(HISTORY, [])
     write_calibration_notes(read_json(HISTORY, []))
@@ -2017,10 +2034,6 @@ def main():
     EXAMS.mkdir(parents=True, exist_ok=True)
     install_examiner()
     ensure_personal_files()
-    try:
-        ensure_helpers()
-    except Exception as e:
-        print(f"helpers: {e}", file=sys.stderr)
     def alive(pid):
         try:
             os.kill(int(pid), 0)

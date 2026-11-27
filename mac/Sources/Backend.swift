@@ -22,7 +22,6 @@ final class Backend: @unchecked Sendable {
     }
     var examsDir: URL { dataDir.appendingPathComponent("examinations") }
     var examinerDir: URL { dataDir.appendingPathComponent("examiner") }
-    var skillDir: URL { examinerDir.appendingPathComponent("standards/current") }
     var calibrationNotes: URL { examinerDir.appendingPathComponent("references/calibration-notes.md") }
     var signatureURL: URL { examinerDir.appendingPathComponent("templates/signature.png") }
 

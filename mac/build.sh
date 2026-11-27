@@ -43,6 +43,8 @@ cp "$ENGINE" "$APP/Contents/Resources/server.py"
   mkdir -p "$APP/Contents/Resources/$(dirname "$f")"
   cp "../$f" "$APP/Contents/Resources/$f"
 done
+# A new build replaces the installed examining standards and clears teaching history (see install_examiner).
+uuidgen > "$APP/Contents/Resources/build-id"
 # PDF helpers (PDFKit), prebuilt so sandboxed engines never need to compile them
 mkdir -p "$APP/Contents/Resources/bin"
 for tool in pdftext pdfrender; do

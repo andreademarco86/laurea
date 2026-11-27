@@ -10,12 +10,12 @@ cd laurea
 bash mac/build.sh
 ```
 
-The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/`. It bundles the tracked examiner skill and precompiled PDFKit helpers. Python’s standard library is sufficient. If `pypdf` or PyMuPDF is installed, the extraction script can also use it.
+The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/`. It bundles the tracked examiner skill, precompiled PDFKit helpers and a unique `build-id`. The version is set in `mac/build.sh`. Python’s standard library is sufficient. If `pypdf` or PyMuPDF is installed, the extraction script can also use it.
 
 ### Release checklist
 
 1. On `development`, run `bash dev/check.sh --build`. All checks must pass.
-2. Smoke-test the built app with a fresh data directory (see below): set up an engine, examine one short PDF, edit and save, export an undated report, export with the date turned off, and switch examinations during an export.
+2. Smoke-test the built app with a fresh data directory (see below): set up an engine, examine one short PDF, check the internal notes and a highlighted page reference, edit and save, export an undated report, export with the date turned off, and switch examinations during an export.
 3. Update `CHANGELOG.md` and the version in `mac/build.sh`.
 4. Merge `development` into `main`, tag the merge `vX.Y` and push the tag.
 5. Create the GitHub Release from the tag, using the changelog entry as the notes. Upload `dist/Laurea X.Y.dmg` **renamed to `Laurea.dmg`**: the README download link uses that filename to serve the latest release.
@@ -24,26 +24,27 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
 
 | Path | Purpose |
 |---|---|
-| `mac/Sources/` | SwiftUI interface, setup, report editor, PDF viewer, calibration and teaching |
+| `mac/Sources/` | SwiftUI interface, setup, settings, report editor, PDF viewer, calibration and teaching |
 | `mac/build.sh` | Universal build, ad hoc signing and DMG packaging |
-| `engine/server.py` | Loopback service that runs the selected engine and manages report files, calibration and standards |
-| `skill/SKILL.md` | Examiner workflow and reporting instructions |
-| `skill/references/` | Marking rubric, field checklists and house preferences |
-| `skill/templates/` | Word report source template |
+| `engine/server.py` | Loopback service that runs the selected engine and manages report files, grading scales, calibration and taught standards |
+| `skill/SKILL.md` | Examiner workflow: three independent readings, the chair, report content and writing style |
+| `skill/references/` | Marking rubric and default grading scale, field checklists and house preferences |
+| `skill/templates/` | Report template (owned by the app: the editor, checker and Word export depend on its sections) |
 | `skill/scripts/` | PDF extraction and rendering, integrity and report checks, Word generation and benchmarking |
+| `dev/` | Offline checks (`check.sh`, `engine_checks.py`) and the sample report fixture |
 
 ## Local development
 
 - **Check before committing or merging** with `bash dev/check.sh` (about 15 seconds). It type-checks the Swift with the Command Line Tools (catching APIs such as `@State` that need Xcode's macro plugin), compiles the engine and skill scripts, checks shell syntax, validates the bundled skill, runs the report checker and Word writer on `dev/fixtures/sample-report.md`, and runs offline engine logic checks in a temporary data folder. It uses no PDFs, network or assistant sessions. Add `--build` to also build the DMG.
-- **Scripts reach existing installations automatically.** Each examination uses the app's bundled `skill/scripts`; only the standards (SKILL.md, references, template) stay as installed and taught.
-- **Test bundled standards** with a fresh data directory. Existing installations preserve their installed standards, local teaching and preferences.
+- **The standards live in the app.** Laurea reads `skill/` from the app bundle (or the repository when the engine runs from source). The data directory holds only examinations, settings, signature, calibration and taught revisions. When a build with a new `build-id` first runs, it clears taught revisions, the teaching chat and copies left by older versions. From source, the `build-id` is a hash of the standards, so editing them has the same effect.
+- **Test with a fresh data directory** to see a first run:
   ```bash
   LAUREA_DATA_DIR=/path/to/laurea-test-data mac/build/Laurea.app/Contents/MacOS/Laurea
   ```
 - **Add a field** by following the template in [the field guide](skill/references/domains.md).
 - **Run the engine on its own** with `DE_PORT=8765 python3 engine/server.py`. It listens on `127.0.0.1`. Send the `X-DE-App` header with the value of `DE_APP_TOKEN`, which defaults to `1` for a standalone engine.
 - **Capture screenshots** with `DE_SNAPSHOT_DIR=/path/to/screenshots mac/build/Laurea.app/Contents/MacOS/Laurea`. Add `DE_SNAPSHOT_DARK=1` for dark mode.
-- **Run the installed skill in Claude Code** with `/dissertation-examiner path/to/thesis.pdf --level msc`. Standalone runs can enable external research for citation verification and repository checks.
+- **Run the skill in Claude Code** by linking `skill/` to `~/.claude/skills/dissertation-examiner`, then `/dissertation-examiner path/to/thesis.pdf --level msc`. Without Laurea's run instructions it uses the defaults: the University of Malta scale, the default weights and a 350-word summary. Standalone runs can enable external research for citation verification and repository checks.
 
 ## Benchmark draft marks
 
@@ -53,4 +54,4 @@ After saving final reports, run:
 python3 skill/scripts/benchmark.py "$HOME/Library/Application Support/Laurea/examinations"
 ```
 
-The script compares draft and final marks and writes `benchmark.md` with error, bias, band agreement and rank agreement by criterion and degree level. To measure a change to the standards, repeat the benchmark after re-examining the same dissertations.
+The script compares draft and final marks and writes `benchmark.md` with error, bias, grade agreement (on each examination's grading scale) and rank agreement by criterion and degree level. To measure a change to the standards, repeat the benchmark after re-examining the same dissertations.

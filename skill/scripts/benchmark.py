@@ -7,7 +7,7 @@ Usage: python3 benchmark.py <examinations_dir> [--out DIR]
 For every examination folder with both the original draft (report.original.md) and the saved final
 report (*_examiner_report.md), compares the five criterion marks and the total. Reports, per level
 and overall: mean absolute error (marks and % of the criterion maximum), bias (+ = the examiner gave
-more than the draft), band agreement, and rank agreement across dissertations (Spearman).
+more than the draft), grade agreement on each examination's grading scale, and rank agreement across dissertations (Spearman).
 Each run is saved to benchmark-history.json in --out (default: the examinations folder), and the
 report shows the change since the previous run - so after changing the examining standards and
 re-examining a few dissertations, you can see whether agreement improved.
@@ -21,7 +21,9 @@ import re
 import sys
 
 KEYS = ["a", "b", "c", "d", "e"]
-BANDS = [(85, "Outstanding"), (70, "Excellent"), (60, "Very good"), (50, "Good"), (40, "Weak"), (0, "Inadequate")]
+# Default grading scale (University of Malta): lower bound (% of the maximum) and grade, highest first.
+# Each examination's own scale, saved in its scheme.json, takes precedence.
+DEFAULT_SCALE = [(80, "A"), (70, "B"), (55, "C"), (50, "D"), (45, "E"), (0, "F")]
 
 
 def marks(md):
@@ -34,8 +36,17 @@ def marks(md):
     return out
 
 
-def band(pct):
-    return next(name for lo, name in BANDS if pct >= lo)
+def grade(pct, scale):
+    return next((name for lo, name in scale if int(pct) >= lo), scale[-1][1])
+
+
+def exam_scale(d):
+    try:
+        bands = json.load(open(os.path.join(d, "scheme.json"), encoding="utf-8"))["grading_scale"]["bands"]
+        scale = [(int(b["min"]), str(b["grade"])) for b in bands]
+        return scale if scale and scale[-1][0] == 0 else DEFAULT_SCALE
+    except Exception:
+        return DEFAULT_SCALE
 
 
 def spearman(xs, ys):
@@ -76,7 +87,7 @@ def collect(root):
             level = json.load(open(os.path.join(d, "status.json"))).get("level", "msc")
         except Exception:
             level = "msc"
-        rows.append({"id": os.path.basename(d), "level": level, "draft": a, "final": b})
+        rows.append({"id": os.path.basename(d), "level": level, "draft": a, "final": b, "scale": exam_scale(d)})
     return rows
 
 
@@ -87,9 +98,10 @@ def summarise(rows):
     for k in KEYS:
         diffs = [r["final"][k][0] - r["draft"][k][0] for r in rows]
         pcts = [abs(r["final"][k][0] - r["draft"][k][0]) / r["final"][k][1] * 100 for r in rows]
-        same = [band(r["final"][k][0] / r["final"][k][1] * 100) == band(r["draft"][k][0] / r["draft"][k][1] * 100) for r in rows]
+        same = [grade(r["final"][k][0] / r["final"][k][1] * 100, r["scale"])
+                == grade(r["draft"][k][0] / r["draft"][k][1] * 100, r["scale"]) for r in rows]
         s["criteria"][k] = {"mae": round(sum(map(abs, diffs)) / len(diffs), 2), "mae_pct": round(sum(pcts) / len(pcts), 1),
-                            "bias": round(sum(diffs) / len(diffs), 2), "band_agree": round(100 * sum(same) / len(same))}
+                            "bias": round(sum(diffs) / len(diffs), 2), "grade_agree": round(100 * sum(same) / len(same))}
     tot_d = [sum(r["draft"][k][0] for k in KEYS) for r in rows]
     tot_f = [sum(r["final"][k][0] for k in KEYS) for r in rows]
     dmax = [sum(r["final"][k][1] for k in KEYS) for r in rows]
@@ -143,10 +155,10 @@ def main():
         if not s:
             continue
         lines += [f"## {g.upper() if g != 'all' else 'All levels'} ({s['n']})", "",
-                  "| Criterion | Mean error (marks) | Mean error (% of max) | Bias | Same band |", "|---|---:|---:|---:|---:|"]
+                  "| Criterion | Mean error (marks) | Mean error (% of max) | Bias | Same grade |", "|---|---:|---:|---:|---:|"]
         for k in KEYS:
             c = s["criteria"][k]
-            lines.append(f"| ({k}) | {c['mae']}{delta(g, k, 'mae')} | {c['mae_pct']}% | {c['bias']:+}{delta(g, k, 'bias')} | {c['band_agree']}% |")
+            lines.append(f"| ({k}) | {c['mae']}{delta(g, k, 'mae')} | {c['mae_pct']}% | {c['bias']:+}{delta(g, k, 'bias')} | {c['grade_agree']}% |")
         t = s["total"]
         lines += [f"| **Total** | **{t['mae']}**{delta(g, 'total', 'mae')} | {t['mae_pct']}% | {t['bias']:+} | |", "",
                   f"Rank agreement (Spearman, totals): {t['spearman'] if t['spearman'] is not None else 'needs 3+ examinations'}", ""]

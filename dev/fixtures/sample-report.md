@@ -112,6 +112,12 @@ The system is carefully built, and the corpus work is the strongest part of the 
 - *Expected / acceptable answer:* A clear explanation with evidence.
 - *Weak answer:* A vague answer.
 
+**Q4. Sample viva question 4?** (§5.4, p. 52)
+
+- *Why asked:* To test understanding.
+- *Expected / acceptable answer:* A clear explanation with evidence.
+- *Weak answer:* A vague answer.
+
 ## 4. Substantial corrections
 
 1. §5.3, p. 52: results come from a single test split -> report the mean and spread over five random splits using the existing models.

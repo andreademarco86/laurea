@@ -90,6 +90,8 @@ title: "{{DOC_TITLE - BSc Dissertation - Examiner's Report / MSc Dissertation - 
 
 ## 3. Viva questions
 
+{{VIVA_COUNT - 3-5 questions for a BSc, 4-6 for an MSc, 8-10 for a PhD; delete this line}}
+
 **Q1. {{Question - broad and open, about methodology, outcomes, knowledge of the field, something the report leaves unclear, or limitations and next steps; may focus on a subsection, but never on a specific value, parameter, citation or label}}** ({{§x.y it grows from}})
 
 - *Why asked:* {{what the examiners want to find out about the candidate's understanding}}

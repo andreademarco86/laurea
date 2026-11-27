@@ -72,7 +72,7 @@ struct SettingsView: View {
                 Button("Show in Finder") { NSWorkspace.shared.open(model.backend.examsDir) }.buttonStyle(.link)
             }
             LabeledContent("Examining standards") {
-                Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }.buttonStyle(.link)
+                Button("Show in Finder") { if let url = model.standardsURL { NSWorkspace.shared.activateFileViewerSelecting([url]) } }.buttonStyle(.link)
             }
             LabeledContent("Calibration notes") {
                 Button("Open") { model.openCalibrationNotes() }.buttonStyle(.link)

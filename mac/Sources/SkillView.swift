@@ -58,7 +58,7 @@ struct SkillView: View {
                         }
                     }
                     Divider()
-                    Button("Show in Finder") { NSWorkspace.shared.open(model.backend.skillDir) }
+                    Button("Show in Finder") { if let url = model.standardsURL { NSWorkspace.shared.activateFileViewerSelecting([url]) } }
                 } label: {
                     Label("History", systemImage: "clock.arrow.circlepath")
                 }

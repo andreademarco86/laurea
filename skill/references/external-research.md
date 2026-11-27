@@ -1,4 +1,4 @@
-# External research, reference checks and originality (Phase 5)
+# External research, reference checks and originality (the Field reader)
 
 An examiner of international standing does not judge a dissertation only from inside its own covers. Check it against the current state of the field, check that its references are real and used honestly, and check that the work is the student's own. Record everything in `<work>/external.md`: each search (query, source, date), what you found, and what it means for the marks.
 

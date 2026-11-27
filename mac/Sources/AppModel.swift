@@ -528,6 +528,9 @@ final class AppModel {
     var vivaExpanded = true
     var correctionsExpanded = true
 
+    /// The examining standards in use: taught ones in the data folder, else the app's own.
+    var standardsURL: URL? { settings.skill_path.map { URL(fileURLWithPath: $0) } }
+
     /// The examiner turned the declaration date off for this examination: export must not add one.
     var dateOptOut = false
 

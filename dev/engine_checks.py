@@ -46,6 +46,25 @@ check("scheme not totalling 100 rejected", not sv.valid_scheme({**custom, "viva"
 out = sv.write_report(r, custom)
 check("custom scheme written into the report", "**62 / 85**" in out and "/ 15" in out)
 
+# Standards are read from the app; only taught changes live in the data folder, and a new build clears them
+sv.install_examiner()
+check("untaught standards are read from the app, not copied",
+      sv.current_standards() == sv.BUNDLED and not sv.STANDARDS.exists() and not (sv.SKILL / "scripts").exists())
+before = sv.standard_files(sv.current_standards())
+sv.save_standards(sv.STANDARDS, before, {**before, "references/house-preferences.md": "# House preferences\n\n- taught\n"},
+                  "Taught rule", sv.standards_revision() or sv.BUNDLED_REVISION)
+sv.write_json(sv.SKILL_CHAT, {"messages": [{"role": "user", "text": "old"}]})
+check("a taught change is used and can be undone", sv.current_standards() == sv.CURRENT_STANDARDS
+      and [e["message"] for e in sv.skill_history()] == ["Taught rule"])
+sv.undo_standards(sv.skill_history()[0]["revision"])
+check("undoing restores the app's standards", sv.standard_files(sv.current_standards()) == before)
+sv.install_examiner()
+check("the same build keeps teaching", sv.STANDARDS.exists() and sv.SKILL_CHAT.exists())
+(sv.SKILL / "bundle-stamp").write_text("an older build")
+sv.install_examiner()
+check("a new build clears taught standards, history and chat",
+      sv.current_standards() == sv.BUNDLED and not sv.skill_history() and not sv.SKILL_CHAT.exists())
+
 # Grading scales
 check("both grading presets are valid", all(sv.valid_grading_scale(g) for g in sv.GRADING_PRESETS))
 um = next(g for g in sv.GRADING_PRESETS if g["name"] == "University of Malta")
@@ -97,6 +116,17 @@ quotes = sv.evidence_quotes(d, report, work / "meta.json")
 check("a logged report point carries its quote", list(quotes.values()) == ["the exact words on the page"], str(quotes))
 edited = sv.parse_report(fixture.replace(logged, logged + " Reworded."))
 check("a reworded point no longer claims the quote", not sv.evidence_quotes(d, edited, work / "meta.json"))
+
+# Panel record: three readers with overall grades, and a ruling on a disputed criterion
+sv.write_json(work / "panel.json", {
+    "examiners": {r: {"a": 7, "b": 14, "c": 18, "d": 15 + i, "e": 7} for i, r in enumerate(sv.PANEL_ROLES)},
+    "overall": {"methods": "B", "field": "B", "holistic": "C"}, "chair": {"a": 7, "b": 14, "c": 18, "d": 16, "e": 7},
+    "disputes": {"d": {"above": "x", "below": "y", "ruling": "B holds: the baselines are fair."}}, "low_confidence": ["d"],
+    "notes": {"methods": "Solid build.", "field": "Well placed.", "holistic": "Claims run ahead of the results."}})
+fb = sv.panel_feedback(d, work / "meta.json", sv.DEFAULT_SCHEME)
+check("panel record reads all three readers, their overall grades and the ruling",
+      fb and set(fb["examiners"]) == set(sv.PANEL_ROLES) and fb["overall"]["holistic"] == "C"
+      and fb["decisions"].get("d", "").startswith("B holds") and fb["notes"].get("holistic"), str(fb)[:200])
 
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)
