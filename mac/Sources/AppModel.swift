@@ -641,6 +641,15 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    /// Saves the Google Cloud project used by Gemini with Workspace or school accounts.
+    func saveGeminiProject() async {
+        struct Body: Encodable { let gemini_project: String }
+        do {
+            settings = try await backend.send("PUT", "/api/settings",
+                                              Body(gemini_project: (settings.gemini_project ?? "").trimmingCharacters(in: .whitespaces)))
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     func installEngine(_ e: Engine) async {
         await engineAction("install", for: e)
     }

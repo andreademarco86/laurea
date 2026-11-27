@@ -128,5 +128,45 @@ check("panel record reads all three readers, their overall grades and the ruling
       fb and set(fb["examiners"]) == set(sv.PANEL_ROLES) and fb["overall"]["holistic"] == "C"
       and fb["decisions"].get("d", "").startswith("B holds") and fb["notes"].get("holistic"), str(fb)[:200])
 
+# Gemini: stream events become progress items, and runs are locked down
+g = sv.GeminiStream()
+events = [{"type": "init", "model": "gemini-2.5-pro"}, {"type": "message", "role": "user", "content": "x"},
+          {"type": "message", "role": "assistant", "content": "Reading ", "delta": True},
+          {"type": "message", "role": "assistant", "content": "the thesis.", "delta": True},
+          {"type": "tool_use", "tool_name": "write_file", "tool_id": "1", "parameters": {"file_path": "/w/evidence.md"}},
+          {"type": "tool_result", "tool_id": "1", "status": "error", "error": {"type": "x", "message": "denied"}},
+          {"type": "message", "role": "assistant", "content": "Done.", "delta": True},
+          {"type": "result", "status": "success", "stats": {"duration_ms": 5}}]
+items = [i for e in events for i in g(e)]
+kinds = [i["kind"] for i in items]
+check("Gemini stream: text is gathered, tools map to Laurea's names, the result closes the run",
+      kinds == ["info", "text", "tool", "warn", "text", "result"] and items[1]["text"] == "Reading the thesis."
+      and items[2]["tool"] == "Write" and sv.phase_of(items[2]) == "chair" and items[-1]["text"] is None, str(items)[:200])
+failed = sv.GeminiStream()({"type": "result", "status": "error", "error": {"message": "Quota exceeded"}})
+check("Gemini stream: a failed result is reported as an error", failed[-1]["is_error"] and failed[-1]["text"] == "Quota exceeded")
+skill = Path(tmp) / "run-skill"
+(skill / "scripts").mkdir(parents=True)
+(skill / "scripts" / "check_report.py").write_text("")
+(skill / "scripts" / "render_report.sh").write_text("")
+cmd = sv.report_command("gemini", "/x/gemini", d, "PROMPT", skill, selection=("gemini-2.5-pro", "medium"))
+run_home = Path(cmd[1].split("=", 1)[1])
+settings_file = run_home / ".gemini" / "settings.json"
+core = json.loads(settings_file.read_text())["tools"]["core"]
+gsettings = json.loads(settings_file.read_text())
+check("Gemini runs allow only file tools and Laurea's scripts, with no web tools, extensions or telemetry",
+      f"run_shell_command(python3 {skill}/scripts/check_report.py)" in core
+      and f"run_shell_command(bash {skill}/scripts/render_report.sh)" in core
+      and not any("web" in t for t in core) and "-e" in cmd and cmd[cmd.index("-e") + 1] == "none"
+      and gsettings["privacy"]["usageStatisticsEnabled"] is False and gsettings["security"]["toolSandboxing"] is True
+      and gsettings["mcpServers"] == {} and cmd[-2:] == ["-p", "PROMPT"])
+sv.finish_gemini_run(cmd)
+check("a Gemini run's private home is removed afterwards", not run_home.exists())
+sv.write_json(sv.SETTINGS_FILE, {**sv.settings(), "gemini_project": "um-examining-123"})
+check("a Google Cloud project reaches Gemini runs", sv.provider_env("gemini").get("GOOGLE_CLOUD_PROJECT") == "um-examining-123")
+sv.write_json(sv.SETTINGS_FILE, {**sv.settings(), "gemini_project": ""})
+check("no project for personal accounts", "GOOGLE_CLOUD_PROJECT" not in sv.provider_env("gemini"))
+st = sv.provider_status("gemini")
+check("Gemini status without the CLI or a sign-in", st["installed"] in (True, False) and st["signed_in"] is False)
+
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)

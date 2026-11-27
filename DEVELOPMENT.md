@@ -26,7 +26,7 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
 |---|---|
 | `mac/Sources/` | SwiftUI interface, setup, settings, report editor, PDF viewer, calibration and teaching |
 | `mac/build.sh` | Universal build, ad hoc signing and DMG packaging |
-| `engine/server.py` | Loopback service that runs the selected engine and manages report files, grading scales, calibration and taught standards |
+| `engine/server.py` | Loopback service that runs the selected engine (Claude Code, Codex or Gemini CLI) and manages report files, grading scales, calibration and taught standards |
 | `skill/SKILL.md` | Examiner workflow: three independent readings, the chair, report content and writing style |
 | `skill/references/` | Marking rubric and default grading scale, field checklists and house preferences |
 | `skill/templates/` | Report template (owned by the app: the editor, checker and Word export depend on its sections) |
@@ -41,6 +41,7 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
   ```bash
   LAUREA_DATA_DIR=/path/to/laurea-test-data mac/build/Laurea.app/Contents/MacOS/Laurea
   ```
+- **Gemini CLI** is installed from the official npm package into `bin/gemini-cli` with a launcher, using Node.js 20+ (Laurea downloads the LTS release when none is found). Its sign-in lives in `engine-accounts/gemini/.gemini`. Each run gets a private `GEMINI_CLI_HOME` holding Laurea's settings for that run (allowed tools and scripts, sandboxed shell, no telemetry, extensions or MCP servers) and a copy of the sign-in; a refreshed sign-in is copied back and the folder is deleted. Runs decline Google's consent prompt, so an expired sign-in fails at once instead of waiting.
 - **Add a field** by following the template in [the field guide](skill/references/domains.md).
 - **Run the engine on its own** with `DE_PORT=8765 python3 engine/server.py`. It listens on `127.0.0.1`. Send the `X-DE-App` header with the value of `DE_APP_TOKEN`, which defaults to `1` for a standalone engine.
 - **Capture screenshots** with `DE_SNAPSHOT_DIR=/path/to/screenshots mac/build/Laurea.app/Contents/MacOS/Laurea`. Add `DE_SNAPSHOT_DARK=1` for dark mode.

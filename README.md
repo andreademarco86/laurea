@@ -4,14 +4,19 @@ Laurea is a macOS app for dissertation examiners. It drafts reports for **BSc, M
 
 **[Download the latest Laurea for macOS (.dmg)](https://github.com/andreademarco86/laurea/releases/latest/download/Laurea.dmg)** · [Release notes](https://github.com/andreademarco86/laurea/releases/latest) · [Changelog](CHANGELOG.md)
 
-Requires **macOS 14 Sonoma or later** on Apple silicon or Intel, Apple’s Command Line Tools, and a Claude or ChatGPT account with access to Claude Code or Codex. Examination, revision and teaching use your signed-in plan’s allowance and any extra usage enabled on that account. [Claude plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) · [Codex subscription sign-in](https://learn.chatgpt.com/docs/auth?surface=cli)
+Requires **macOS 14 Sonoma or later** on Apple silicon or Intel, Apple’s Command Line Tools, and one of:
+- a Claude account with access to Claude Code;
+- a ChatGPT account with access to Codex;
+- a Google account for Gemini CLI. Google AI Pro and Ultra give higher daily limits. Google Workspace and school accounts also need a Google Cloud project from your IT department.
+
+Examination, revision and teaching use your signed-in plan’s allowance and any extra usage enabled on that account. [Claude plan usage](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) · [Codex subscription sign-in](https://learn.chatgpt.com/docs/auth?surface=cli) · [Gemini CLI quotas](https://github.com/google-gemini/gemini-cli/blob/main/docs/resources/quota-and-pricing.md)
 
 ## Install and sign in
 
 1. Download `Laurea.dmg`, open it and drag **Laurea** into **Applications**.
 2. Install Apple’s Command Line Tools if needed by running `xcode-select --install` in Terminal.
 3. Open Laurea. This build is ad hoc signed. If macOS blocks the first launch and you trust the GitHub download, use **System Settings → Privacy & Security → Open Anyway**. [Apple’s instructions](https://support.apple.com/en-us/102445)
-4. In the Setup Assistant, choose **Claude** or **ChatGPT**, click **Install** if needed and click **Sign In…**. Complete the provider’s sign-in in your browser, then return to Laurea.
+4. In the Setup Assistant, choose **Claude**, **ChatGPT** or **Gemini**, click **Install** if needed and click **Sign In…**. Complete the provider’s sign-in in your browser, then return to Laurea. Gemini CLI runs on Node.js: Laurea uses your Mac’s Node.js 20 or later if you have it, or installs its own copy.
 5. Set your name, institution, marking weights and optional signature. You can change these later in **Settings**.
 
 To update, quit Laurea and replace the copy in **Applications**. Your examinations, settings, signature and calibration are kept. A new version starts from its own examining standards, so anything taught in an earlier version is cleared.
@@ -75,7 +80,7 @@ Revisions reuse the existing report and evidence, reopening only the pages the c
   - The summary length.
 
   Each examination keeps the weights, scale and summary length it started with.
-- **Engine**: the signed-in subscription, model and thoroughness.
+- **Engine**: the signed-in subscription (Claude, ChatGPT or Gemini), model and thoroughness. Gemini offers **Adaptive** and **Standard** thoroughness, and a **Google Cloud project** field for Workspace and school accounts.
 
 ## Examining standards and calibration
 
@@ -92,12 +97,13 @@ Use **Evidence for learned offsets** to see how many examinations support each a
 
 ## Dissertation data
 
-Laurea sends the material needed for each examination or revision to your selected provider. Your account’s training and retention settings apply. App runs disable web searches and local provider session history. Examinations, settings, your signature, calibration history and anything you teach are stored on your Mac in `~/Library/Application Support/Laurea`; the examining standards themselves are part of the app. [Claude data usage](https://code.claude.com/docs/en/data-usage) · [ChatGPT and Codex data controls](https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt)
+Laurea sends the material needed for each examination or revision to your selected provider. Your account’s training and retention settings apply. App runs disable web searches and local provider session history. Examinations, settings, your signature, calibration history and anything you teach are stored on your Mac in `~/Library/Application Support/Laurea`; the examining standards themselves are part of the app. [Claude data usage](https://code.claude.com/docs/en/data-usage) · [ChatGPT and Codex data controls](https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt) · [Gemini Code Assist for individuals privacy notice](https://developers.google.com/gemini-code-assist/resources/privacy-notice-gemini-code-assist-individuals)
 
 ## Troubleshooting
 
 - **The engine cannot start.** Install Apple’s Command Line Tools. The engine log is at `~/Library/Application Support/Laurea/engine.log`.
 - **Examination stops before starting.** Open **Settings → Engine** and check that the selected engine is installed and signed in.
+- **Gemini asks you to sign in again.** Open **Settings → Engine** and click **Sign In…**. With a Google Workspace or school account, enter the **Google Cloud project** your IT department gives you (with Gemini Code Assist enabled) under Gemini in **Settings → Engine**, then sign in again.
 - **The Word export is missing your signature.** Add it in **Settings → General** and save the report again.
 - **Export says the Word document could not be produced.** Read the message at the top of the report, fix any problem it lists, save with **⌘S**, then export again.
 

@@ -254,7 +254,7 @@ struct EngineSection: View {
                 let list = model.models[active.rawValue]?.models ?? []
                 let selected = model.settings.model ?? ""
                 let availableEfforts = list.first { $0.id == selected }?.efforts ?? []
-                let defaults = active == .claude ? ["low", "medium", "high"] : ["low", "medium", "high", "xhigh"]
+                let defaults = active.defaultEfforts
                 let efforts = [Engine.adaptiveEffort] + (availableEfforts.isEmpty ? defaults : availableEfforts)
                 if !list.isEmpty {
                     Picker("Model", selection: Binding(
@@ -284,6 +284,27 @@ struct EngineSection: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Link("\(active.label) data controls", destination: active.dataControlsURL)
+            }
+            if active == .gemini {
+                TextField("Google Cloud project", text: Binding(
+                    get: { model.settings.gemini_project ?? "" },
+                    set: { value in
+                        model.settings.gemini_project = value
+                        model.settingsSaveTask?.cancel()
+                        guard Engine.isValidGeminiProject(value) else { return }  // save only complete IDs
+                        model.settingsSaveTask = Task {
+                            try? await Task.sleep(for: .milliseconds(800))
+                            guard !Task.isCancelled else { return }
+                            await model.saveGeminiProject()
+                        }
+                    }), prompt: Text("Only for Workspace or school accounts"))
+                if !Engine.isValidGeminiProject(model.settings.gemini_project ?? "") {
+                    Label("A project ID has 6 to 30 lowercase letters, digits or hyphens and starts with a letter.",
+                          systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+                Text("Leave empty for a personal Google account. A Google Workspace or school account needs a Google Cloud project with Gemini Code Assist enabled; ask your IT department for its ID.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         } header: {
             Text("Examination Engine")

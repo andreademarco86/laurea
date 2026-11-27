@@ -112,7 +112,7 @@ private struct EngineStep: View {
     var body: some View {
         VStack(spacing: 14) {
             StepHeader(icon: "person.crop.circle.badge.checkmark", title: "Connect Your Subscription",
-                       subtitle: "Install Claude Code or Codex, then sign in with the account you use for your subscription.")
+                       subtitle: "Choose Claude, ChatGPT or Gemini, install its engine, then sign in with the account you use for your subscription.")
             Form { EngineSection() }
                 .formStyle(.grouped)
                 .padding(.horizontal, 12)

@@ -6,6 +6,7 @@ with the app's installed examining standards.
 
 Only the Python standard library is used.
 """
+import base64
 import datetime as dt
 import difflib
 import glob
@@ -194,11 +195,13 @@ HEADER_FIELDS = [("student", "Student name"), ("title", "Dissertation title"), (
                  ("institution", "Institution"), ("examiner", "Examiner")]
 APP_SUPPORT = Path.home() / "Library" / "Application Support" / "Laurea"
 APP_BIN = APP_SUPPORT / "bin"
-PROVIDERS = {"claude": "Claude", "openai": "ChatGPT"}
+PROVIDERS = {"claude": "Claude", "openai": "ChatGPT", "gemini": "Gemini"}
 CLAUDE_DEFAULT_MODEL = "opus"
 DEFAULT_EFFORT = "medium"
 ADAPTIVE_EFFORT = "adaptive"
-DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": ADAPTIVE_EFFORT, "claude_path": "", "codex_path": ""}
+DEFAULT_SETTINGS = {"provider": "claude", "model": "", "effort": ADAPTIVE_EFFORT, "claude_path": "", "codex_path": "",
+                    "gemini_path": "", "gemini_project": ""}
+GEMINI_PROJECT = re.compile(r"[a-z][a-z0-9-]{4,28}[a-z0-9]")  # Google Cloud project ID format
 HISTORY = SKILL / "references" / "calibration-history.json"
 LEVELS = [("bsc", "BSc"), ("msc", "MSc"), ("phd", "PhD")]
 LEVEL_WHAT = {"bsc": "BSc dissertation", "msc": "MSc dissertation", "phd": "PhD thesis"}
@@ -270,8 +273,37 @@ def find_codex():
     return None, None
 
 
+def find_node():
+    """A Node.js runtime (20 or later) for Gemini CLI: Laurea's own copy first, then the system's."""
+    for c in [str(APP_BIN / "node"), "/opt/homebrew/bin/node", "/usr/local/bin/node", shutil.which("node", path=ENV["PATH"])]:
+        if not c:
+            continue
+        try:
+            out = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=20, env=ASSISTANT_ENV).stdout
+            m = re.match(r"v(\d+)\.", out.strip())
+            if m and int(m.group(1)) >= 20:
+                return c
+        except Exception:
+            continue
+    return None
+
+
+def find_gemini():
+    s = settings().get("gemini_path")
+    cands = [c for c in [s, str(APP_BIN / "gemini"), str(Path.home() / ".npm-global/bin/gemini"), "/opt/homebrew/bin/gemini",
+                         "/usr/local/bin/gemini", shutil.which("gemini", path=ENV["PATH"])] if c]
+    for c in cands:
+        try:
+            r = subprocess.run([c, "--version"], capture_output=True, text=True, timeout=30, env=provider_env("gemini"))
+            if r.returncode == 0 and re.match(r"\d+\.\d+", r.stdout.strip()):
+                return c, "Gemini CLI " + r.stdout.strip()
+        except Exception:
+            continue
+    return None, None
+
+
 def provider_binary(provider):
-    return find_codex() if provider == "openai" else find_claude()
+    return {"openai": find_codex, "gemini": find_gemini}.get(provider, find_claude)()
 
 
 INSTALLING = {}
@@ -287,8 +319,124 @@ def provider_home(provider):
 def provider_env(provider):
     folder = provider_home(provider)
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+    if provider == "gemini":
+        # Gemini CLI keeps its sign-in and settings under GEMINI_CLI_HOME/.gemini. System-wide settings and
+        # defaults are pointed at files that don't exist, so only Laurea's settings apply.
+        write_gemini_settings(folder)
+        # Google Workspace and school accounts need a Google Cloud project; personal accounts don't.
+        project = settings().get("gemini_project") or ""
+        extra = {"GOOGLE_CLOUD_PROJECT": project} if GEMINI_PROJECT.fullmatch(project) else {}
+        return {**ASSISTANT_ENV, **extra, "GEMINI_CLI_HOME": str(folder), "GEMINI_CLI_TRUST_WORKSPACE": "true",
+                "GEMINI_CLI_SYSTEM_SETTINGS_PATH": str(folder / "no-system-settings.json"),
+                "GEMINI_CLI_SYSTEM_DEFAULTS_PATH": str(folder / "no-system-defaults.json"),
+                "PATH": os.pathsep.join([str(APP_BIN), ASSISTANT_ENV.get("PATH", "")])}
     var = "CODEX_HOME" if provider == "openai" else "CLAUDE_CONFIG_DIR"
     return {**ASSISTANT_ENV, var: str(folder)}
+
+
+GEMINI_SIGN_IN_FILES = ("oauth_creds.json", "google_accounts.json")
+
+
+def write_gemini_settings(home, core_tools=()):
+    """Laurea's Gemini CLI settings in `home`/.gemini/settings.json: Google sign-in, no telemetry, extensions, MCP
+    servers or auto-update, sandboxed shell commands, and only the listed tools."""
+    (home / ".gemini").mkdir(mode=0o700, parents=True, exist_ok=True)
+    data = {"security": {"auth": {"selectedType": "oauth-personal"}, "folderTrust": {"enabled": False},
+                         "toolSandboxing": True},
+            "privacy": {"usageStatisticsEnabled": False},
+            "telemetry": {"enabled": False, "logPrompts": False},
+            "general": {"enableAutoUpdate": False, "enableAutoUpdateNotification": False,
+                        "checkpointing": {"enabled": False}},
+            "mcpServers": {},
+            "tools": {"core": list(core_tools)}}
+    path = home / ".gemini" / "settings.json"
+    text = json.dumps(data, indent=2)
+    if not path.is_file() or path.read_text(encoding="utf-8") != text:
+        path.write_text(text, encoding="utf-8")
+    return path
+
+
+def gemini_run_home(core_tools):
+    """A private Gemini CLI home for one run: Laurea's settings with this run's tools, and a copy of the sign-in.
+    Runs never share settings, and the run's session history goes when the folder is removed."""
+    home = provider_home("gemini") / "runs" / uuid.uuid4().hex
+    write_gemini_settings(home, core_tools)
+    for name in GEMINI_SIGN_IN_FILES:
+        source = provider_home("gemini") / ".gemini" / name
+        if source.is_file() and not source.is_symlink():
+            shutil.copy2(source, home / ".gemini" / name)
+            os.chmod(home / ".gemini" / name, 0o600)
+    return home
+
+
+def finish_gemini_run(cmd):
+    """Keep a sign-in the run refreshed, then remove the run's Gemini CLI home."""
+    home = next((Path(a.split("=", 1)[1]) for a in cmd if a.startswith("GEMINI_CLI_HOME=")), None)
+    runs = (provider_home("gemini") / "runs").resolve()
+    if not home or home.resolve().parent != runs:
+        return
+    for name in GEMINI_SIGN_IN_FILES:
+        used, main = home / ".gemini" / name, provider_home("gemini") / ".gemini" / name
+        if used.is_file() and not used.is_symlink() and (not main.is_file() or used.read_bytes() != main.read_bytes()):
+            if name != "oauth_creds.json" or read_json(used, {}).get("refresh_token"):
+                shutil.copy2(used, main)
+    shutil.rmtree(home, ignore_errors=True)
+
+
+def gemini_credentials():
+    return provider_home("gemini") / ".gemini" / "oauth_creds.json"
+
+
+def forget_gemini_history():
+    """Gemini CLI always records sessions; Laurea keeps no local history, so remove any after sign-in."""
+    for folder in ("tmp", "history"):
+        shutil.rmtree(provider_home("gemini") / ".gemini" / folder, ignore_errors=True)
+
+
+def download(url, dest=None, timeout=600):
+    """Fetch over HTTPS with the system curl (it trusts the macOS keychain; some Python builds have no certificates).
+    Returns the body as text when no destination is given."""
+    cmd = ["/usr/bin/curl", "-fsSL", "--proto", "=https", "--max-time", str(timeout), url]
+    r = subprocess.run(cmd + (["-o", str(dest)] if dest else []), capture_output=True, env=ENV, timeout=timeout + 30)
+    if r.returncode != 0:
+        raise RuntimeError(f"Download failed: {url} ({r.stderr.decode(errors='replace').strip()[:200]})")
+    return None if dest else r.stdout.decode()
+
+
+def install_gemini():
+    """Gemini CLI from the official npm package (checked against its published integrity hash), run with Node.js.
+    Without a suitable Node.js, Laurea installs the current LTS release from nodejs.org (checked against SHASUMS256)."""
+    APP_BIN.mkdir(parents=True, exist_ok=True)
+    node = find_node()
+    with tempfile.TemporaryDirectory(prefix="laurea-gemini-", dir=APP_SUPPORT) as staging:
+        staging = Path(staging)
+        if not node:
+            releases = json.loads(download("https://nodejs.org/dist/index.json", timeout=60))
+            version = next(r["version"] for r in releases if r.get("lts"))
+            arch = "arm64" if os.uname().machine == "arm64" else "x64"
+            name = f"node-{version}-darwin-{arch}"
+            download(f"https://nodejs.org/dist/{version}/{name}.tar.gz", staging / "node.tgz")
+            sums = download(f"https://nodejs.org/dist/{version}/SHASUMS256.txt", timeout=60)
+            expected = next(line.split()[0] for line in sums.splitlines() if line.endswith(f" {name}.tar.gz"))
+            if hashlib.sha256((staging / "node.tgz").read_bytes()).hexdigest() != expected:
+                raise RuntimeError("The Node.js download did not match its published checksum.")
+            subprocess.run(["/usr/bin/tar", "-xzf", str(staging / "node.tgz"), "-C", str(staging), f"{name}/bin/node"],
+                           check=True, capture_output=True)
+            os.replace(staging / name / "bin" / "node", APP_BIN / "node")
+            os.chmod(APP_BIN / "node", 0o755)
+            node = str(APP_BIN / "node")
+        meta = json.loads(download("https://registry.npmjs.org/@google/gemini-cli/latest", timeout=60))
+        download(meta["dist"]["tarball"], staging / "gemini.tgz")
+        algorithm, _, digest = meta["dist"]["integrity"].partition("-")
+        if algorithm != "sha512" or base64.b64encode(hashlib.sha512((staging / "gemini.tgz").read_bytes()).digest()).decode() != digest:
+            raise RuntimeError("The Gemini CLI download did not match its published integrity hash.")
+        subprocess.run(["/usr/bin/tar", "-xzf", str(staging / "gemini.tgz"), "-C", str(staging)], check=True, capture_output=True)
+        target = APP_BIN / "gemini-cli"
+        shutil.rmtree(target, ignore_errors=True)
+        os.replace(staging / "package", target)
+    launcher = APP_BIN / "gemini"
+    launcher.write_text(f'#!/bin/sh\nexec "{node}" "{target / "bundle" / "gemini.js"}" "$@"\n', encoding="utf-8")
+    os.chmod(launcher, 0o755)
 
 
 def install_provider(provider):
@@ -300,6 +448,10 @@ def install_provider(provider):
                                capture_output=True, text=True, env=ENV, timeout=1200)
             ok = find_claude()[0] is not None
             msg = "" if ok else (r.stderr or r.stdout).strip()[-400:]
+        elif provider == "gemini":
+            install_gemini()
+            ok = find_gemini()[0] is not None
+            msg = "" if ok else "Gemini CLI was installed but does not start."
         else:
             arch = "aarch64" if os.uname().machine == "arm64" else "x86_64"
             APP_BIN.mkdir(parents=True, exist_ok=True)
@@ -328,6 +480,8 @@ def install_provider(provider):
 
 def signed_in_to_plan(provider, path):
     try:
+        if provider == "gemini":  # signed in with a Google account: a cached OAuth credential with a refresh token
+            return bool(read_json(gemini_credentials(), {}).get("refresh_token"))
         if provider == "openai":
             check = subprocess.run([path, *CODEX_SUBSCRIPTION, "login", "status"], capture_output=True,
                                    text=True, env=provider_env(provider), timeout=15, cwd=provider_home(provider))
@@ -348,12 +502,23 @@ def provider_status(provider):
 
 
 def sign_in_to_provider(provider, path):
-    cmd = ([path, *CODEX_SUBSCRIPTION, "login"] if provider == "openai"
-           else [path, "auth", "login", "--claudeai"])
+    if provider == "gemini":
+        # Gemini CLI has no separate login command: a minimal request with no tools starts Sign in with Google
+        # in the browser (the consent prompt is answered on stdin) and caches the credential.
+        cmd = [path, "-p", "Reply with the single word OK.", "-o", "json", "-e", "none", "--approval-mode", "default"]
+    else:
+        cmd = ([path, *CODEX_SUBSCRIPTION, "login"] if provider == "openai"
+               else [path, "auth", "login", "--claudeai"])
     success = False
     try:
         with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                               env=provider_env(provider), cwd=provider_home(provider)) as proc:
+            if provider == "gemini":
+                try:
+                    proc.stdin.write(b"y\n")
+                    proc.stdin.flush()
+                except OSError:
+                    pass
             with LOCK:
                 SIGN_IN_PROCESSES[provider] = proc
                 if SIGN_INS[provider]["state"] == "cancelled":
@@ -362,8 +527,9 @@ def sign_in_to_provider(provider, path):
                 success = proc.wait(timeout=300) == 0
             except subprocess.TimeoutExpired:
                 proc.kill()
-        if success:
-            success = signed_in_to_plan(provider, path)
+        if provider == "gemini":
+            forget_gemini_history()
+        success = signed_in_to_plan(provider, path) if (success or provider == "gemini") else False
     except OSError:
         pass
     finally:
@@ -387,6 +553,12 @@ def selected_engine(body):
 
 def model_catalog(provider, path):
     """Read the signed-in client's model picker without sending a model prompt."""
+    if provider == "gemini":
+        r = subprocess.run([path, "models", "list", "-o", "json"], capture_output=True, text=True, timeout=60,
+                           env=provider_env(provider), cwd=provider_home(provider), stdin=subprocess.DEVNULL)
+        models = json.loads(r.stdout or "[]") if r.returncode == 0 else []
+        return [{"id": m["id"], "name": m.get("displayName") or m["id"], "efforts": []}
+                for m in models if isinstance(m, dict) and m.get("id") and m["id"] != "auto"]  # "auto" is the engine default
     if provider == "openai":
         cmd = [path, "app-server", *CODEX_SUBSCRIPTION, "-c", 'mcp_servers={}',
                "-c", "features.apps=false", "-c", "features.plugins=false"]
@@ -728,16 +900,71 @@ def condense_codex(ev):
     return out
 
 
+class GeminiStream:
+    """Turn `gemini --output-format stream-json` events into UI progress items. Assistant text arrives in deltas,
+    so it is gathered and emitted as one item before each tool call and at the end."""
+    TOOLS = {"run_shell_command": "Bash", "read_file": "Read", "read_many_files": "Read", "write_file": "Write",
+             "replace": "Edit", "glob": "Glob", "grep_search": "Grep", "list_directory": "Glob",
+             "google_web_search": "WebSearch", "web_fetch": "WebFetch"}
+
+    def __init__(self):
+        self.text = ""
+
+    def flush(self):
+        text, self.text = self.text.strip(), ""
+        return [{"kind": "text", "text": text}] if text else []
+
+    def __call__(self, ev):
+        t = ev.get("type")
+        if t == "init":
+            return [{"kind": "info", "text": f"Session started ({ev.get('model', '')})"}]
+        if t == "message" and ev.get("role") == "assistant":
+            self.text += ev.get("content") or ""
+            return []
+        if t == "tool_use":
+            p = ev.get("parameters") or {}
+            name = self.TOOLS.get(ev.get("tool_name"), ev.get("tool_name") or "Tool")
+            path = p.get("file_path") or p.get("absolute_path") or ""
+            cmd = p.get("command") or ""
+            detail = p.get("description") or cmd[:140] or Path(path).name or p.get("pattern") or ""
+            return self.flush() + [{"kind": "tool", "tool": name, "text": detail, "cmd": cmd[:400], "path": path}]
+        if t == "tool_result" and ev.get("status") == "error":
+            return [{"kind": "warn", "text": ((ev.get("error") or {}).get("message") or "A tool failed.")[:300]}]
+        if t == "error":
+            return [{"kind": "warn", "text": (ev.get("message") or "")[:300]}]
+        if t == "result":
+            out = self.flush()
+            if ev.get("status") == "error":
+                message = (ev.get("error") or {}).get("message") or "Gemini stopped with an error."
+                return out + [{"kind": "result", "text": message, "is_error": True, "duration_ms": None}]
+            return out + [{"kind": "result", "text": None, "is_error": False,
+                           "duration_ms": (ev.get("stats") or {}).get("duration_ms")}]
+        return []
+
+
 def run_stream(cmd, cwd, provider, on_item, register):
     """Run the installed provider client with a fresh report session."""
-    with subprocess.Popen(cmd, cwd=str(cwd), env=provider_env(provider), stdout=subprocess.PIPE,
-                          stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT, text=True, bufsize=1) as proc:
-        register(proc)
-        return read_stream(proc, provider, on_item)
+    gemini = provider == "gemini"
+    try:
+        with subprocess.Popen(cmd, cwd=str(cwd), env=provider_env(provider), stdout=subprocess.PIPE,
+                              stdin=subprocess.PIPE if gemini else subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                              text=True, bufsize=1) as proc:
+            if gemini:  # never start a sign-in during a run: decline Google's consent prompt, so it fails at once
+                try:
+                    proc.stdin.write("n\n")
+                    proc.stdin.close()
+                except OSError:
+                    pass
+            register(proc)
+            return read_stream(proc, provider, on_item)
+    finally:
+        if gemini:
+            finish_gemini_run(cmd)
 
 
 def read_stream(proc, provider, on_item):
     final, is_error, last_text, diagnostic = None, False, "", ""
+    condense_event = {"openai": condense_codex, "gemini": GeminiStream()}.get(provider, condense)
     for line in proc.stdout:
         try:
             ev = json.loads(line)
@@ -745,7 +972,7 @@ def read_stream(proc, provider, on_item):
             if line.strip():
                 diagnostic = line.strip()[:500]
             continue
-        items = condense_codex(ev) if provider == "openai" else condense(ev)
+        items = condense_event(ev)
         for item in items:
             if item["kind"] == "text":
                 last_text = item["text"]
@@ -755,6 +982,9 @@ def read_stream(proc, provider, on_item):
                 final, is_error = item["text"], bool(item.get("is_error"))
             on_item(item)
     code = proc.wait()
+    diagnostic = re.sub(r"\x1b\[[0-9;]*m", "", diagnostic)
+    if provider == "gemini" and code and "authentication" in diagnostic.lower():
+        diagnostic = "Gemini needs you to sign in again. Open Settings → Engine and click Sign In…"
     return code, (final if final is not None else last_text) or (diagnostic if code else ""), is_error
 
 
@@ -786,6 +1016,31 @@ def report_command(provider, path, cwd, prompt, skill=None, *, selection=None):
         if model:
             cmd += ["-m", model]
         return cmd + ["--", prompt]
+
+    if provider == "gemini":
+        # Only file tools inside the workspace (and the standards folder), plus Laurea's own scripts by exact
+        # command; everything else, including web search and fetch, is denied. Shell commands run in Gemini CLI's
+        # macOS sandbox without network access. Extensions and MCP servers are off.
+        core = ["read_file", "read_many_files", "write_file", "replace", "glob", "grep_search", "list_directory"]
+        if skill:
+            for script in sorted((skill / "scripts").iterdir()):
+                for root in {str(skill / "scripts"), str((skill / "scripts").resolve())}:
+                    target = f"{root}/{script.name}"
+                    if script.suffix == ".py":
+                        core += [f"run_shell_command(python3 {target})", f"run_shell_command({PYTHON} {target})"]
+                    elif script.suffix == ".sh":
+                        core += [f"run_shell_command(bash {target})"]
+            core += ["run_shell_command(wc)", "run_shell_command(ls)"]
+        project = Path(cwd) / ".gemini"  # project settings could loosen the run; a run never needs them
+        if project.is_dir() and not project.is_symlink():
+            shutil.rmtree(project)
+        cmd = ["/usr/bin/env", f"GEMINI_CLI_HOME={gemini_run_home(core)}", path,
+               "--output-format", "stream-json", "--approval-mode", "default", "-e", "none"]
+        if model:
+            cmd += ["-m", model]
+        if skill:
+            cmd += ["--include-directories", str(skill)]
+        return cmd + ["-p", prompt]
 
     tools = ["Read", "Write", "Edit", "Glob", "Grep"]
     allowed = tools.copy()
@@ -1765,10 +2020,15 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 if RUNNING or SKILL_RUN["status"] or provider in SIGN_IN_PROCESSES:
                     return self.send(409, {"error": "Finish the current task or sign-in before signing out."})
-                cmd = ([path, *CODEX_SUBSCRIPTION, "logout"] if provider == "openai" else [path, "auth", "logout"])
-                result = subprocess.run(cmd, capture_output=True, timeout=15, env=provider_env(provider),
-                                        cwd=provider_home(provider), stdin=subprocess.DEVNULL)
-                if result.returncode != 0 and signed_in_to_plan(provider, path):
+                if provider == "gemini":  # signing out removes the cached Google credential and account
+                    for name in ("oauth_creds.json", "google_accounts.json"):
+                        (gemini_credentials().parent / name).unlink(missing_ok=True)
+                    returncode = 0
+                else:
+                    cmd = ([path, *CODEX_SUBSCRIPTION, "logout"] if provider == "openai" else [path, "auth", "logout"])
+                    returncode = subprocess.run(cmd, capture_output=True, timeout=15, env=provider_env(provider),
+                                                cwd=provider_home(provider), stdin=subprocess.DEVNULL).returncode
+                if returncode != 0 and signed_in_to_plan(provider, path):
                     return self.send(500, {"error": f"Could not sign out of {PROVIDERS[provider]}."})
                 SIGN_INS.pop(provider, None)
             return self.send(200, {"ok": True})
@@ -1795,6 +2055,12 @@ class Handler(BaseHTTPRequestHandler):
                 cfg["grading_scale"] = _norm_grading_scale(b["grading_scale"])
             write_json(SKILL_CONFIG, cfg)
             s = settings()
+            if "gemini_project" in b:
+                project = str(b["gemini_project"] or "").strip()
+                if project and not GEMINI_PROJECT.fullmatch(project):
+                    return self.send(400, {"error": "Enter a Google Cloud project ID: 6 to 30 lowercase letters, digits "
+                                                    "or hyphens, starting with a letter."})
+                s["gemini_project"] = project
             for k in ("provider", "model", "effort", "claude_path", "codex_path"):
                 if k in b:
                     s[k] = b[k]

@@ -233,6 +233,8 @@ struct SettingsInfo: Codable {
     var default_scheme: [String: Int]?
     var grading_scale: GradingScale?
     var grading_presets: [GradingScale]?
+    /// Google Cloud project for Gemini with a Workspace or school account (empty for personal accounts).
+    var gemini_project: String?
 }
 
 struct SaveResult: Codable {
@@ -425,7 +427,7 @@ struct SkillRevision: Codable, Identifiable, Hashable {
     var undoable: Bool?
 }
 
-// MARK: - Examination engines (Claude Code / Codex)
+// MARK: - Examination engines (Claude Code / Codex / Gemini CLI)
 
 struct InstallState: Codable, Hashable {
     let state: String
@@ -460,14 +462,34 @@ struct ModelsInfo: Codable {
 }
 
 enum Engine: String, CaseIterable, Identifiable {
-    case claude, openai
+    case claude, openai, gemini
     var id: String { rawValue }
-    var label: String { self == .claude ? "Claude" : "ChatGPT" }
-    var tool: String { self == .claude ? "Claude Code" : "Codex" }
-    var icon: String { self == .claude ? "asterisk" : "circle.hexagongrid" }
+    var label: String { ["claude": "Claude", "openai": "ChatGPT", "gemini": "Gemini"][rawValue]! }
+    var tool: String { ["claude": "Claude Code", "openai": "Codex", "gemini": "Gemini CLI"][rawValue]! }
+    var icon: String { ["claude": "asterisk", "openai": "circle.hexagongrid", "gemini": "sparkle"][rawValue]! }
 
     var dataControlsURL: URL {
-        URL(string: self == .claude ? "https://claude.ai/settings/data-privacy-controls" : "https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt")!
+        URL(string: [
+            "claude": "https://claude.ai/settings/data-privacy-controls",
+            "openai": "https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt",
+            "gemini": "https://developers.google.com/gemini-code-assist/resources/privacy-notice-gemini-code-assist-individuals",
+        ][rawValue]!)!
+    }
+
+    /// Thoroughness levels offered when the model list doesn't say. Gemini CLI has no reasoning-effort setting,
+    /// so it offers Adaptive (which adds focused second opinions) and Standard.
+    var defaultEfforts: [String] {
+        switch self {
+        case .claude: ["low", "medium", "high"]
+        case .openai: ["low", "medium", "high", "xhigh"]
+        case .gemini: ["medium"]
+        }
+    }
+
+    /// Empty (personal account) or a Google Cloud project ID.
+    static func isValidGeminiProject(_ id: String) -> Bool {
+        let id = id.trimmingCharacters(in: .whitespaces)
+        return id.isEmpty || id.range(of: "^[a-z][a-z0-9-]{4,28}[a-z0-9]$", options: .regularExpression) != nil
     }
 
     static let defaultEffort = "adaptive"  // Standard base pass, Thorough only for disputed criteria
