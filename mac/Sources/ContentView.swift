@@ -255,11 +255,11 @@ struct ExamToolbar: ToolbarContent {
                 Button { Task { await model.exportWord() } } label: {
                     Label("Export Report", systemImage: "square.and.arrow.up")
                 }
-                .help("Save the report as a Word document (⇧⌘E)")
+                .help(model.exportBlocker ?? "Export the signed Word report with the viva and final marks (⇧⌘E)")
                 Button { Task { await model.save() } } label: {
                     if model.isSaving { ProgressView().controlSize(.small) } else { Label("Save", systemImage: "checkmark") }
                 }
-                .help("Save the report and update the Word document (⌘S)")
+                .help("Save the report (⌘S)")
                 .disabled(!model.canSave)
             }
             if detail.state != "running" {
@@ -437,7 +437,7 @@ struct ReviseSheet: View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 12) {
             Text("Revise the Report").font(.headline)
-            Text("Describe the change. The report is revised, its page references are re-checked and the Word document is updated.")
+            Text("Describe the change. The report is revised and its page references are re-checked.")
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $model.reviseText)
                 .font(.body)

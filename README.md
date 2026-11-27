@@ -26,7 +26,7 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 1. Drop a PDF into Laurea or press **⌘N**. Choose **BSc**, **MSc** or **PhD** and click **Examine**. The sidebar shows the examination’s progress.
 2. Open the draft when it’s ready. Click any page reference to check it against the dissertation: the PDF panel opens at that page with the quoted passage, or the figure or table label, highlighted. If neither appears, Laurea lightly highlights the sentence that best matches the comment, but only when one sentence clearly stands out.
 3. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. The header shows the percentage and grade on your scale: for the final mark once you add the viva mark, and for the dissertation mark until then. Press **⇧⌘R** to request a revision.
-4. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report. **Date the report** under **Declaration** is on by default, so an undated report is dated on the day you export it. Pick another date, or turn it off to sign and date by hand. Export always uses a Word file produced from the current report; if it can’t be produced, nothing is exported.
+4. Add the viva mark after the oral. Press **⌘S** to save as you go. When the report is final, click **Export Word Report…** at the end of the report (or press **⇧⌘E**). Laurea produces the Word report only then: signed with your signature, with the viva and final marks, from the report as you left it, saves it with the examination and shows it in Finder. Export asks for the viva mark and your signature if either is missing. **Date the report** under **Declaration** is on by default, so an undated report is dated on the day you export it. Pick another date, or turn it off to sign and date by hand.
 
 ## What the report contains
 
@@ -104,7 +104,8 @@ Laurea sends the material needed for each examination or revision to your select
 - **The engine cannot start.** Install Apple’s Command Line Tools. The engine log is at `~/Library/Application Support/Laurea/engine.log`.
 - **Examination stops before starting.** Open **Settings → Engine** and check that the selected engine is installed and signed in.
 - **Gemini asks you to sign in again.** Open **Settings → Engine** and click **Sign In…**. If a Google Workspace or school account cannot sign in, your organisation has not enabled Gemini CLI for it; use a personal Google account.
-- **The Word export is missing your signature.** Add it in **Settings → General** and save the report again.
-- **Export says the Word document could not be produced.** Read the message at the top of the report, fix any problem it lists, save with **⌘S**, then export again.
+- **Export asks for your signature.** Add it in **Settings → General**, then export again.
+- **Export says the Word report could not be produced.** Read the message, fix any problem it lists, save with **⌘S**, then export again.
+- **The checker says a cited page doesn’t exist.** For PDFs without built-in page numbers, Laurea reads them from the page text and repairs numbers that break the sequence. If a page is still missing, check the citation against the PDF.
 
 [Build from source and development guide](DEVELOPMENT.md)

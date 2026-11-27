@@ -25,7 +25,7 @@ Below, `$SKILL` means the skill directory Laurea supplies (standalone: `~/.claud
 
 ## Outputs
 
-Next to the PDF: `<stem>_examiner_report.md` (from `templates/examiner-report.md`), its Word copy, and `<stem>_examiner_work/` holding the audit trail: `pages.txt`, `structure.md`, `integrity.md`, `numbers.md`, `refcheck.md`, `repo.md`, `panel/` (the three readings), `evidence.md` and `claims.md` (as the chair decided them), `panel.json`, `proposed_marks.json`.
+Next to the PDF: `<stem>_examiner_report.md` (from `templates/examiner-report.md`), its Word copy when run standalone (Laurea produces the Word report at export), and `<stem>_examiner_work/` holding the audit trail: `pages.txt`, `structure.md`, `integrity.md`, `numbers.md`, `refcheck.md`, `repo.md`, `panel/` (the three readings), `evidence.md` and `claims.md` (as the chair decided them), `panel.json`, `proposed_marks.json`.
 
 ## Confidentiality and integrity
 
@@ -148,7 +148,7 @@ The chair's marks are the **raw marks**. Apply the rubric's calibration rules, t
 python3 $SKILL/scripts/check_report.py "<report.md>" --meta "<work>/meta.json"
 ```
 
-4. Render with `bash $SKILL/scripts/render_report.sh "<report.md>"` (Laurea does this itself; skip it when told to).
+4. In a Laurea run, stop here: Laurea produces the signed Word report when the examiner exports it after the viva. Standalone, render with `bash $SKILL/scripts/render_report.sh "<report.md>"`.
 
 Finish with a short chat message: anything in `integrity.md` and any serious integrity concern first; then the proposed marks per criterion, the disputed criteria with the readers' grades and the ruling, unsupported numbers, important missed literature, the issues that drove the mark, and anything you could not verify. Do not paste the report.
 

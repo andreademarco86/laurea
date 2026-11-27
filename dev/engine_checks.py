@@ -164,5 +164,35 @@ check("a Gemini run's private home is removed afterwards", not run_home.exists()
 st = sv.provider_status("gemini")
 check("Gemini status without the CLI or a sign-in", st["installed"] in (True, False) and st["signed_in"] is False)
 
+# Export: the Word report comes last, signed and with the viva mark
+(d / "Sample_examiner_report.md").write_text(fixture, encoding="utf-8")
+_, problem = sv.export_word(d)
+check("export waits for the viva mark", problem and "viva" in problem)
+(d / "Sample_examiner_report.md").write_text(sv.write_report({**sv.parse_report(fixture), "viva": 8}, sv.DEFAULT_SCHEME), encoding="utf-8")
+sv.SIGNATURE.unlink(missing_ok=True)
+_, problem = sv.export_word(d)
+check("export needs the examiner's signature", problem and "signature" in problem)
+import struct, zlib
+def tiny_png():
+    raw = b"\x00\xff\xff\xff"
+    chunk = lambda t, data: struct.pack(">I", len(data)) + t + data + struct.pack(">I", zlib.crc32(t + data) & 0xffffffff)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
+sv.SIGNATURE.parent.mkdir(parents=True, exist_ok=True)
+sv.SIGNATURE.write_bytes(tiny_png())
+path, problem = sv.export_word(d)
+import zipfile
+docx = zipfile.ZipFile(path) if path else None
+check("the exported Word report is signed and includes the final mark",
+      docx is not None and any(n.startswith("word/media/") for n in docx.namelist())
+      and "/ 100" in docx.read("word/document.xml").decode(), str(problem))
+sv.check_report(d)
+check("saving or a new run removes an earlier Word report", not (d / "Sample_examiner_report.docx").exists())
+
+# Guessed page numbers: a table row or contents entry that breaks the sequence is repaired
+guessed = ["i", "ii", "iii", "36", "72", "105", "194", "viii", "1", "2", "3"] + [str(n) for n in range(4, 76)] + ["2", "4", "78", "79"]
+fixed = sv.repair_labels(guessed)
+check("guessed page numbers that break the sequence are repaired",
+      fixed[3:7] == ["iv", "v", "vi", "vii"] and fixed[-4:-2] == ["76", "77"] and sv.repair_labels(["1", "2", "3"]) == ["1", "2", "3"])
+
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)

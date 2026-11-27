@@ -36,6 +36,8 @@ SKILL = ROOT / "examiner"
 STANDARDS = SKILL / "standards"
 CURRENT_STANDARDS = STANDARDS / "current"
 BUNDLED = (Path(os.environ["DE_RESOURCES"]) if os.environ.get("DE_RESOURCES") else APP_DIR.parent) / "skill"
+sys.path.insert(0, str(BUNDLED / "scripts"))
+from page_labels import repair_labels  # noqa: E402  (shared with the report checker)
 LEGACY_SKILL = Path.home() / ".claude" / "skills" / "dissertation-examiner"
 SKILL_CONFIG = SKILL / "config.json"
 CALIBRATION = SKILL / "references" / "calibration-notes.md"
@@ -820,19 +822,41 @@ def write_report(r, scheme=None):
     return "\n".join(L)
 
 
-def check_and_render(d):
+def check_report(d):
+    """Run the report checker. The Word file is produced only when the examiner exports the final report, so any
+    earlier one no longer matches and is removed."""
     rp = report_path(d)
+    rp.with_suffix(".docx").unlink(missing_ok=True)
     args = [PYTHON, str(BUNDLED / "scripts" / "check_report.py"), str(rp)]
     mp = meta_path(d)
     if mp:
         args += ["--meta", str(mp)]
     chk = subprocess.run(args, capture_output=True, text=True, env=ENV)
-    ren = subprocess.run(["bash", str(BUNDLED / "scripts" / "render_report.sh"), str(rp)],
-                         capture_output=True, text=True, env=ENV, cwd=str(d))
-    if ren.returncode != 0:  # never leave a Word file that no longer matches the report
-        rp.with_suffix(".docx").unlink(missing_ok=True)
     return {"check_ok": chk.returncode == 0, "check": (chk.stdout + chk.stderr).strip(),
-            "render_ok": ren.returncode == 0, "render": (ren.stdout + ren.stderr).strip()}
+            "render_ok": True, "render": ""}
+
+
+SIGNATURE = SKILL / "templates" / "signature.png"
+
+
+def export_word(d):
+    """Produce the final Word report, after the examiner's review and the viva: it needs the viva mark (so the
+    final mark is filled in) and the examiner's signature. Returns (path, None) or (None, message)."""
+    rp = report_path(d)
+    if not rp.is_file():
+        return None, "There is no report to export yet."
+    if parse_report(rp.read_text(encoding="utf-8")).get("viva") is None:
+        return None, "Add the viva mark after the oral, then export. The Word report includes the viva and final marks."
+    if not SIGNATURE.is_file() or SIGNATURE.is_symlink():
+        return None, "Add your signature in Settings → General, then export. The Word report is signed."
+    out = rp.with_suffix(".docx")
+    out.unlink(missing_ok=True)
+    r = subprocess.run([PYTHON, str(BUNDLED / "scripts" / "md_to_docx.py"), str(rp), str(out),
+                        "--resource-path", str(SIGNATURE.parent)], capture_output=True, text=True, env=ENV, cwd=str(d))
+    if r.returncode != 0 or not out.is_file():
+        out.unlink(missing_ok=True)
+        return None, "The Word report could not be produced: " + (r.stderr or r.stdout).strip()[-400:]
+    return out, None
 
 
 # ---------------------------------------------------------------- claude runs
@@ -1115,8 +1139,8 @@ def build_exam_prompt(task, skill, extracted=None, *, revision=False, document_m
             "corrections as natural academic prose, the way an experienced examiner writes, not constructed formulas: say "
             "what the work does or misses and why it matters, put the page reference at the end, vary how points open, "
             "and avoid stacked noun phrases and \"X, which Y, thereby Z\" chains. Keep the field's technical vocabulary. "
-            "Write and check the Markdown report. Laurea exports the Word file locally after the run. Skip the Word "
-            "render command even if the standards ask for it. "
+            "Write and check the Markdown report. Do not produce a Word file: Laurea produces it when the examiner exports "
+            "the final report after the viva. Skip the Word render command even if the standards ask for it. "
             f"Complete the work without asking questions.\n\n{task}"
             + (f"\n\nOptional unverified document map, for navigation only:\n{json.dumps(document_map, ensure_ascii=False)}"
                if document_map else ""))
@@ -1132,7 +1156,6 @@ PHASES = [
     ("marks", "Decide marks and apply calibration"),
     ("report", "Write the report"),
     ("verify", "Verify page references and checks"),
-    ("word", "Produce the Word file"),
 ]
 
 
@@ -1148,8 +1171,6 @@ def phase_of(item):
         return "read"
     if "check_report" in cmd:
         return "verify"
-    if "render_report" in cmd:
-        return "word"
     if tool in ("Write", "Edit"):
         if path == "structure.md":
             return "map"
@@ -1461,9 +1482,8 @@ def run_exam(eid, prompt, kind, provider, path):
                 # The declaration is dated when the examiner exports the final Word report, not at drafting.
                 shutil.copyfile(rp, d / "report.original.md")
                 snapshot_proposal(d)
-            out = check_and_render(d)
-            append_progress(d, {"kind": "info", "text": "Checker: " + ("OK" if out["check_ok"] else "issues found") +
-                                "; Word file " + ("updated" if out["render_ok"] else "not rendered")})
+            out = check_report(d)
+            append_progress(d, {"kind": "info", "text": "Checker: " + ("OK" if out["check_ok"] else "issues found")})
             set_status(d, state="done", message=final or "", finished=now())
         else:
             set_status(d, state="error", message=final or f"{PROVIDERS[provider]} stopped (exit code {code}).", finished=now())
@@ -2140,7 +2160,10 @@ class Handler(BaseHTTPRequestHandler):
                 info["report"] = parse_report(rp.read_text(encoding="utf-8"))
                 info["has_docx"] = rp.with_suffix(".docx").exists()
             mp = meta_path(d)
-            info["page_labels"] = read_json(mp, {}).get("page_labels", []) if mp else []
+            meta = read_json(mp, {}) if mp else {}
+            info["page_labels"] = meta.get("page_labels", [])
+            if meta.get("label_source") == "heuristic-from-text":  # guessed numbers: repair sequence breaks
+                info["page_labels"] = repair_labels([str(l) for l in info["page_labels"]])
             if rp.exists():
                 info["panel"] = panel_feedback(d, mp, info["scheme"])
                 info["quotes"] = evidence_quotes(d, info["report"], mp)
@@ -2209,11 +2232,19 @@ class Handler(BaseHTTPRequestHandler):
                 marks = {k: v.get("mark") for k, v in r["criteria"].items()}
             if "date_opt_out" in b:
                 set_status(d, date_opt_out=bool(b["date_opt_out"]))
-            out = check_and_render(d)
+            out = check_report(d)
             with LOCK:
                 cal = record_calibration(d, marks, note=b.get("note"))
             out["calibration"] = cal
             return self.send(200, out)
+        if method == "POST" and action == "export":
+            with LOCK:
+                if eid in RUNNING:
+                    return self.send(409, {"error": "Wait for the examination to finish before exporting."})
+            path, problem = export_word(d)
+            if problem:
+                return self.send(400, {"error": problem})
+            return self.send(200, {"path": str(path)})
         if method == "POST" and action == "reveal":
             word = report_path(d).with_suffix(".docx")
             subprocess.run(["open", "-R", str(word if word.is_file() else d / st["pdf"])])

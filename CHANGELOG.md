@@ -47,10 +47,12 @@
 - A new app icon: a round gold laurel emblem around a checked page, on an indigo-violet background, sized to the macOS icon grid.
 
 **Exporting**
+- **The Word report comes last.** Laurea no longer writes a Word file during the examination or on save. **Export Word Report…**, at the end of the report and in the toolbar, produces it after your review and the viva: signed, with the viva and final marks, saved with the examination and shown in Finder. It asks for the viva mark and your signature if either is missing.
 - **Date the report** is on by default: the declaration is dated on the day you export, not when the draft is written. Pick another date, or turn the toggle off to sign and date by hand.
-- Export always uses a Word file produced from the current report, and never another examination’s file. If the Word file can’t be produced, nothing is exported.
+- Export always produces the Word report from the current report, and never from another examination.
 - Saving is safe while you keep editing: newer edits are never cleared or overwritten.
 - The signature appears only in the exported document, not in the editor.
+- **More reliable page numbers** for PDFs without built-in page labels: a number taken from a table row or contents entry no longer replaces the real page number, so citations and the checker agree with the PDF.
 
 **Calibration**
 - A learned offset needs at least three examinations in which you changed that mark in the same direction. Marks you accept unchanged can strengthen an offset but cannot create or reverse one. Recent decisions carry more weight.

@@ -23,6 +23,7 @@ struct ReportEditor: View {
             QuestionSections(questions: d.questions, level: detail?.status.level).equatable()
             CorrectionsSection(substantial: d.substantial, corrections: d.corrections).equatable()
             DeclarationSection(draft: draft)
+            ExportSection(blocker: model.exportBlocker)
             if let detail, let panel = detail.panel {
                 InternalNotesSection(panel: panel, scheme: detail.markingScheme).equatable()
             }
@@ -540,6 +541,32 @@ struct CorrectionsSection: View, Equatable {
                     Text("\(substantial) substantial · \(minor) minor").font(.caption).monospacedDigit().foregroundStyle(.secondary)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Export
+
+/// The last step: the signed Word report, with the viva and final marks, once the review and the viva are done.
+struct ExportSection: View {
+    @Environment(AppModel.self) private var model
+    let blocker: String?
+
+    var body: some View {
+        Section {
+            VStack(spacing: 8) {
+                Button { Task { await model.exportWord() } } label: {
+                    Label("Export Word Report…", systemImage: "doc.richtext").frame(minWidth: 220)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .disabled(blocker != nil || model.isSaving)
+                Text(blocker ?? "Saves your edits, dates the report if needed, and produces the signed Word report with the viva and final marks, shown in Finder.")
+                    .font(.caption).foregroundStyle(blocker == nil ? Color.secondary : Color.orange)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
         }
     }
 }

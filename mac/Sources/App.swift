@@ -32,7 +32,7 @@ struct LaureaApp: App {
                     .disabled(!model.canSave)
                 Button("Export Report…") { Task { await model.exportWord() } }
                     .keyboardShortcut("e", modifiers: [.command, .shift])
-                    .disabled(model.draft == nil || model.detail?.state == "running")  // export re-renders a missing Word file
+                    .disabled(model.draft == nil || model.detail?.state == "running")  // export explains what's missing
             }
             CommandMenu("Examination") {
                 Button("Examine Dissertation") { Task { await model.examine() } }

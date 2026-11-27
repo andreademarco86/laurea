@@ -16,6 +16,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from page_labels import repair_labels  # noqa: E402
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROMAN = re.compile(r"^(?=[ivxlcdm]+$)m{0,3}(cm|cd|d?c{0,3})(xc|xl|l?x{0,3})(ix|iv|v?i{0,3})$", re.I)
 
@@ -157,15 +160,21 @@ def write_integrity(work, findings, removed):
 def guess_label(text, max_page):
     """Find a printed page number in the first/last lines of a page's text."""
     lines = [l.strip() for l in text.splitlines() if l.strip()]
-    for cand in lines[-2:][::-1] + lines[:2]:
-        # e.g. "12", "- 12 -", "Page 12", "12 Chapter 3. Method", "Chapter 3. Method 12"
+    cands = lines[-2:][::-1] + lines[:2]
+
+    def valid(tok):
+        return (tok.isdigit() and 0 < int(tok) <= max_page) or (not tok.isdigit() and ROMAN.match(tok))
+
+    # A line that is only a page number first ("12", "- 12 -", "Page 12"), then a number beside a running head
+    # ("12 Chapter 3. Method", "Chapter 3. Method 12"), which a table row can imitate.
+    for cand in cands:
         m = re.fullmatch(r"(?:page\s+)?[-–]?\s*(\d{1,4}|[ivxlcdm]{1,7})\s*[-–]?(?:\s+of\s+\d+)?", cand, re.I)
-        if not m:
-            m = re.match(r"^(\d{1,4})\s+\S", cand) or re.search(r"\S\s+(\d{1,4})$", cand)
-        if m:
-            tok = m.group(1)
-            if (tok.isdigit() and 0 < int(tok) <= max_page) or (not tok.isdigit() and ROMAN.match(tok)):
-                return tok.lower() if not tok.isdigit() else tok
+        if m and valid(m.group(1)):
+            return m.group(1).lower() if not m.group(1).isdigit() else m.group(1)
+    for cand in cands:
+        m = re.match(r"^(\d{1,4})\s+\S", cand) or re.search(r"\S\s+(\d{1,4})$", cand)
+        if m and valid(m.group(1)):
+            return m.group(1)
     return ""
 
 
@@ -195,6 +204,8 @@ def main():
     if not explicit:
         for p in pages:
             p["label"] = guess_label(p["text"], len(pages))
+        for p, label in zip(pages, repair_labels([p["label"] for p in pages])):
+            p["label"] = label
 
     findings = integrity_scan(pdf, pages)
     removed = redact_hidden(pages, findings)

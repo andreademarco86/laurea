@@ -403,7 +403,7 @@ final class AppModel {
 
     var canSave: Bool { draft != nil && dirty && !isSaving }
 
-    /// Saves the report; returns true only when the report was stored and its Word file rendered.
+    /// Saves the report; returns true when it was stored. The Word report is produced only at export.
     @discardableResult
     func save() async -> Bool {
         commitEdits()
@@ -418,7 +418,7 @@ final class AppModel {
             let r: SaveResult = try await backend.send("PUT", "/api/exams/\(id)/report", Body(report: d.payload, note: note, date_opt_out: dateOptOut))
             let issues = r.check.split(separator: "\n").filter { $0.hasPrefix("ERROR") || $0.hasPrefix("WARNING") }
                 .map { $0.replacingOccurrences(of: "ERROR: ", with: "").replacingOccurrences(of: "WARNING: ", with: "") }
-            var text = "Saved and Word document updated."
+            var text = "Saved."
             if let c = r.calibration { text += " Learned \(Level(rawValue: detail?.status.level ?? "msc")?.label ?? "") offset: \(Fmt.signed(c.total, digits: 1)) from \(c.n) examination\(c.n == 1 ? "" : "s")." }
             if !r.render_ok {
                 banner = Banner(kind: .failure, text: "Saved, but the Word document could not be produced.\n" + r.render)
@@ -445,57 +445,49 @@ final class AppModel {
         }
     }
 
-    /// Exporting is the examiner's confirmation of marks, comments and questions, so an undated report is dated now
-    /// (unless the examiner turned the date off). Everything is pinned to the examination selected when export began.
+    /// Why the report can't be exported yet, or nil. The Word report comes last: after the review and the viva,
+    /// signed, with the viva and final marks.
+    var exportBlocker: String? {
+        guard let d = draft else { return "There is no report to export yet." }
+        if d.viva == nil { return "Add the viva mark after the oral, then export." }
+        if !hasSignature { return "Add your signature in Settings → General, then export." }
+        return nil
+    }
+
+    /// Exporting is the examiner's confirmation of the final report, so it saves any edits, dates an undated report
+    /// (unless the examiner turned the date off), then produces the signed Word report with the viva and final marks.
+    /// Everything is pinned to the examination selected when export began.
     func exportWord() async {
         commitEdits()
-        guard let id = selectedExamID, let exam = detail, exam.id == id, let d0 = draft else { return }
-        if dirty { errorMessage = "Save your changes first, so the Word document includes them."; return }
-        let student = d0.student
-        let src = backend.examsDir.appendingPathComponent(id)
-            .appendingPathComponent("\((exam.pdf as NSString).deletingPathExtension)_examiner_report.docx")
-        if d0.date.trimmingCharacters(in: .whitespaces).isEmpty && !dateOptOut {
-            var d = d0
+        guard let id = selectedExamID, let exam = detail, exam.id == id, var d = draft else { return }
+        if let blocker = exportBlocker { errorMessage = blocker; return }
+        if d.date.trimmingCharacters(in: .whitespaces).isEmpty && !dateOptOut {
             let f = DateFormatter(); f.dateFormat = "dd/MM/yyyy"
             d.date = f.string(from: .now)
             draft = d
             dirty = true
-            let saved = await save()
-            guard selectedExamID == id else {
-                errorMessage = "The selection changed while the report was being dated. Open the examination and export again."
-                return
-            }
-            guard saved else {
-                errorMessage = "The report could not be dated and saved, so nothing was exported. Check the message above and try again."
-                return
-            }
         }
-        // Export only a Word file rendered from the current report; re-render once if it is missing or older.
-        let md = src.deletingPathExtension().appendingPathExtension("md")
-        func fresh() -> Bool {
-            let fm = FileManager.default
-            guard let w = (try? fm.attributesOfItem(atPath: src.path))?[.modificationDate] as? Date,
-                  let m = (try? fm.attributesOfItem(atPath: md.path))?[.modificationDate] as? Date else { return false }
-            return w >= m
-        }
-        if !fresh() {
+        if dirty {
             let saved = await save()
             guard selectedExamID == id else { errorMessage = "The selection changed during export. Export again."; return }
-            guard saved, fresh() else {
-                errorMessage = "The Word document could not be produced from the current report, so nothing was exported."
+            guard saved else {
+                errorMessage = "The report could not be saved, so nothing was exported. Check the message above and try again."
                 return
             }
         }
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [UTType(filenameExtension: "docx") ?? .data]
-        let who = (student.isEmpty ? "Dissertation" : student).replacingOccurrences(of: "/", with: "-")
-        panel.nameFieldStringValue = "\(who) - Examiner's Report.docx"
-        panel.canCreateDirectories = true
-        if panel.runModal() == .OK, let dest = panel.url {
-            try? FileManager.default.removeItem(at: dest)
-            do { try FileManager.default.copyItem(at: src, to: dest); NSWorkspace.shared.activateFileViewerSelecting([dest]) }
-            catch { errorMessage = error.localizedDescription }
+        struct Exported: Decodable { let path: String }
+        let exported: Exported
+        do {
+            exported = try await backend.send("POST", "/api/exams/\(id)/export", [String: String]())
+        } catch {
+            errorMessage = error.localizedDescription
+            return
         }
+        guard selectedExamID == id else { errorMessage = "The selection changed during export. Export again."; return }
+        // The Word report is saved with the examination; show it in Finder.
+        let url = URL(fileURLWithPath: exported.path)
+        banner = Banner(kind: .success, text: "Word report exported: \(url.lastPathComponent)")
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     func revealInFinder() {

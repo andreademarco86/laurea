@@ -15,7 +15,7 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
 ### Release checklist
 
 1. On `development`, run `bash dev/check.sh --build`. All checks must pass.
-2. Smoke-test the built app with a fresh data directory (see below): set up an engine, examine one short PDF, check the internal notes and a highlighted page reference, edit and save, export an undated report, export with the date turned off, and switch examinations during an export.
+2. Smoke-test the built app with a fresh data directory (see below): set up an engine, examine one short PDF, check the internal notes and a highlighted page reference, edit and save, try exporting before adding the viva mark (it should ask for it), export an undated report, export with the date turned off, and switch examinations during an export.
 3. Update `CHANGELOG.md` and the version in `mac/build.sh`.
 4. Merge `development` into `main`, tag the merge `vX.Y` and push the tag.
 5. Create the GitHub Release from the tag, using the changelog entry as the notes. Upload `dist/Laurea X.Y.dmg` **renamed to `Laurea.dmg`**: the README download link uses that filename to serve the latest release.

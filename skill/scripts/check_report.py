@@ -10,6 +10,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from page_labels import repair_labels  # noqa: E402
 from scheme import KEYS, dissertation_max, load_scheme, load_summary_limit  # noqa: E402
 
 MAX = {}  # filled from the marking scheme in main()
@@ -228,7 +229,10 @@ def main():
 
     # Page references exist in the PDF
     if meta:
-        labels = {str(l).lower() for l in meta.get("page_labels", []) if l}
+        labels = meta.get("page_labels", [])
+        if meta.get("label_source") == "heuristic-from-text":  # guessed numbers: repair sequence breaks
+            labels = repair_labels([str(l) for l in labels])
+        labels = {str(l).lower() for l in labels if l}
         bad = set()
         for m in PAGE_REF.finditer(text):
             for part in re.split(r"[ \t]?[-–][ \t]?", m.group(1)):
