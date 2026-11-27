@@ -37,9 +37,10 @@
 
 **Reviewing a draft**
 - **Page references highlight what they cite.** Clicking any page reference opens the PDF with the quoted passage, or the figure or table label, highlighted. If neither appears, the sentence that best matches the comment is lightly highlighted, but only when one sentence clearly stands out.
-- The editor shows the total’s percentage and grade, for example “72% · B”. The report itself gives marks only.
+- The editor shows the percentage and grade, for example “72% · B”: for the final mark once the viva mark is in, otherwise for the dissertation mark. The report itself gives marks only.
 - **Internal notes** show each examiner’s marks and overall grade, the chair’s marks before calibration, a one-line view from each, and the chair’s ruling on each disputed criterion. They stay in Laurea.
-- Viva questions and corrections fold away. Marks, calibration and results line up in fixed columns, and the mark rings follow the calibration slider without lag.
+- The summary, the strengths and weaknesses for criteria (a)–(e) (now under one heading), the viva questions and the corrections each fold away.
+- Typing and the calibration slider stay responsive: a keystroke redraws only its own field, and moving the slider redraws only the marks. Marks, calibration and results line up in fixed columns.
 - Running examinations show their progress in the sidebar. Selected sidebar rows stay readable.
 - Settings are arranged in **General**, **Marking** and **Engine** tabs that scroll. The unused default-degree setting has been removed.
 - The report’s Markdown source stays internal; you work in the editor.

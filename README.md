@@ -25,7 +25,7 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 
 1. Drop a PDF into Laurea or press **⌘N**. Choose **BSc**, **MSc** or **PhD** and click **Examine**. The sidebar shows the examination’s progress.
 2. Open the draft when it’s ready. Click any page reference to check it against the dissertation: the PDF panel opens at that page with the quoted passage, or the figure or table label, highlighted. If neither appears, Laurea lightly highlights the sentence that best matches the comment, but only when one sentence clearly stands out.
-3. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. The header shows the total’s percentage and grade on your scale. Press **⇧⌘R** to request a revision.
+3. Edit the text and individual marks, or use **Overall Calibration** to adjust the total. The header shows the percentage and grade on your scale: for the final mark once you add the viva mark, and for the dissertation mark until then. Press **⇧⌘R** to request a revision.
 4. Add the viva mark after the oral. Press **⌘S** to save and **⇧⌘E** to export the Word report. Exporting confirms the report. **Date the report** under **Declaration** is on by default, so an undated report is dated on the day you export it. Pick another date, or turn it off to sign and date by hand. Export always uses a Word file produced from the current report; if it can’t be produced, nothing is exported.
 
 ## What the report contains
@@ -42,7 +42,7 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 - **Minor corrections**: quick fixes, written plainly for the student: what is wrong, then what to do.
 - **Declaration**: your signature and the date.
 
-The report is written in your voice as the examiner. It gives marks only, never a grade or classification. In the editor, the viva questions and corrections fold away.
+The report is written in your voice as the examiner. It gives marks only, never a grade or classification. In the editor, the summary, strengths and weaknesses, viva questions and corrections each fold away.
 
 ## How Laurea examines
 

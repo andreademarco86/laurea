@@ -1,3 +1,4 @@
+import Observation
 import Foundation
 
 // MARK: - Marking scheme (criterion weights = maximum marks; criteria + viva = 100)
@@ -107,7 +108,7 @@ struct CalEntry: Codable, Identifiable {
     var delta: Double { Self.sum(final) - Self.sum(proposed) }
 }
 
-struct PanelFeedback: Codable {
+struct PanelFeedback: Codable, Equatable {
     let examiners: [String: [String: Double]]
     let chair: [String: Double]
     let notes: [String: String]
@@ -253,18 +254,41 @@ enum Level: String, CaseIterable, Identifiable {
 
 // MARK: - Editable draft
 
+/// One text field's edit buffer (see AppModel.buffer): typing updates only this object, so only its field redraws.
+@Observable
+final class EditBuffer {
+    var text: String
+    @ObservationIgnored var pending = false
+    @ObservationIgnored let commit: (String) -> Void
+
+    init(text: String, commit: @escaping (String) -> Void) {
+        self.text = text
+        self.commit = commit
+    }
+}
+
 struct TextItem: Identifiable, Hashable {
     let id = UUID()
     var text: String
 }
 
-struct QuestionDraft: Identifiable {
+struct QuestionDraft: Identifiable, Equatable {
     let id = UUID()
     var question = ""
     var refs = ""
     var why = ""
     var expected = ""
     var weak = ""
+}
+
+/// A criterion's comments without its mark, so the comments don't redraw while marks change.
+struct CriterionText: Identifiable, Equatable {
+    let key: String
+    let name: String
+    let strengths: [TextItem]
+    let weaknesses: [TextItem]
+    var id: String { key }
+    init(_ c: CriterionDraft) { key = c.spec.key; name = c.spec.name; strengths = c.strengths; weaknesses = c.weaknesses }
 }
 
 struct CriterionDraft: Identifiable {

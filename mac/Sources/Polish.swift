@@ -126,10 +126,14 @@ struct ScoreHeader: View {
                 HStack(spacing: 8) {
                     LevelCapsule(level: level)
                     if let scale = model.detail?.grading_scale, draft.dissertationMax > 0 {
-                        let pct = Double(draft.total) * 100 / Double(draft.dissertationMax)
+                        // The final mark (out of 100) once the viva mark is in; until then, the dissertation's share.
+                        let final = draft.viva.map { Double(draft.total) + $0 }
+                        let pct = final ?? Double(draft.total) * 100 / Double(draft.dissertationMax)
                         if let grade = scale.grade(percent: pct) {
                             Pill(text: "\(Int(pct.rounded(.down)))% · \(grade)", icon: "graduationcap", tint: .accentColor)
-                                .help("Grade on the \(scale.name) scale. The report itself gives marks only.")
+                                .help(final != nil
+                                      ? "Grade for the final mark on the \(scale.name) scale. The report itself gives marks only."
+                                      : "Grade for the dissertation mark until the viva mark is added (\(scale.name) scale). The report itself gives marks only.")
                         }
                     }
                     if let pt = model.proposedTotal {

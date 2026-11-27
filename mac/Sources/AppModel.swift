@@ -52,7 +52,71 @@ final class AppModel {
     var detail: ExamDetail?
     var draft: ReportDraft? { didSet { draftRevision &+= 1 } }
     /// Bumped on every change to the draft, so a finishing save can tell whether newer edits exist.
-    private(set) var draftRevision = 0
+    @ObservationIgnored private(set) var draftRevision = 0
+
+    // MARK: Text editing buffers
+    // Typing goes into a small per-field buffer, so a keystroke redraws only that field instead of the whole
+    // report. The draft is updated when typing pauses, and before anything reads it (save, export, revise, switch).
+    @ObservationIgnored private var buffers: [String: EditBuffer] = [:]
+    @ObservationIgnored private var commitTask: Task<Void, Never>?
+
+    func buffer(_ key: String, _ binding: Binding<String>) -> EditBuffer {
+        if let b = buffers[key] { return b }
+        let b = EditBuffer(text: binding.wrappedValue) { binding.wrappedValue = $0 }
+        buffers[key] = b
+        return b
+    }
+
+    /// A binding into one part of the draft, for sections that redraw only when their own content changes.
+    func draftBinding<T>(_ path: WritableKeyPath<ReportDraft, T>) -> Binding<T> {
+        Binding(get: { [unowned self] in (self.draft ?? ReportDraft())[keyPath: path] },
+                set: { [unowned self] value in
+                    guard self.draft != nil else { return }
+                    self.draft![keyPath: path] = value
+                    self.dirty = true
+                })
+    }
+
+    /// Strengths or weaknesses of criterion `index`, safe while the draft is being replaced.
+    func criterionItems(_ index: Int, strengths: Bool) -> Binding<[TextItem]> {
+        Binding(get: { [unowned self] in
+                    guard let d = self.draft, d.criteria.indices.contains(index) else { return [] }
+                    return strengths ? d.criteria[index].strengths : d.criteria[index].weaknesses
+                },
+                set: { [unowned self] items in
+                    guard self.draft?.criteria.indices.contains(index) == true else { return }
+                    if strengths { self.draft!.criteria[index].strengths = items } else { self.draft!.criteria[index].weaknesses = items }
+                    self.dirty = true
+                })
+    }
+
+    func edited(_ b: EditBuffer) {
+        b.pending = true
+        draftRevision &+= 1
+        if !dirty { dirty = true }
+        commitTask?.cancel()
+        commitTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            self?.commitEdits()
+        }
+    }
+
+    /// Write any buffered typing into the draft.
+    func commitEdits() {
+        commitTask?.cancel()
+        commitTask = nil
+        for b in buffers.values where b.pending {
+            b.pending = false
+            b.commit(b.text)
+        }
+    }
+
+    private func resetBuffers() {
+        commitTask?.cancel()
+        commitTask = nil
+        buffers = [:]
+    }
     var dirty = false
     var slider: Double = 0          // position, -1 (harshest) ... +1 (most generous)
     var sliderBase: [Int]?
@@ -158,6 +222,7 @@ final class AppModel {
     }
 
     func confirmDiscard(save: Bool) async {
+        commitEdits()
         if save { await self.save(); if dirty { return } }
         dirty = false
         if case .some(let item) = pendingSelection { await select(item) }
@@ -165,6 +230,7 @@ final class AppModel {
     }
 
     func select(_ item: SidebarItem?) async {
+        resetBuffers()
         selection = item
         pollTask?.cancel()
         detail = nil; draft = nil; dirty = false; banner = nil; progress = nil
@@ -186,6 +252,7 @@ final class AppModel {
             guard selectedExamID == id else { return }
             if let r = ifRevision, draftRevision != r { return }
             detail = d
+            resetBuffers()
             draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
             dateOptOut = d.status.date_opt_out ?? false
             note = d.calibration?.note ?? ""
@@ -249,6 +316,7 @@ final class AppModel {
     }
 
     func revise() async {
+        commitEdits()
         guard let id = selectedExamID else { return }
         let text = reviseText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
@@ -338,6 +406,7 @@ final class AppModel {
     /// Saves the report; returns true only when the report was stored and its Word file rendered.
     @discardableResult
     func save() async -> Bool {
+        commitEdits()
         guard let id = selectedExamID, var d = draft else { return false }
         let revision = draftRevision
         if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return false }
@@ -379,6 +448,7 @@ final class AppModel {
     /// Exporting is the examiner's confirmation of marks, comments and questions, so an undated report is dated now
     /// (unless the examiner turned the date off). Everything is pinned to the examination selected when export began.
     func exportWord() async {
+        commitEdits()
         guard let id = selectedExamID, let exam = detail, exam.id == id, let d0 = draft else { return }
         if dirty { errorMessage = "Save your changes first, so the Word document includes them."; return }
         let student = d0.student
@@ -526,6 +596,8 @@ final class AppModel {
     // MARK: Report editor view state (lives here: the app builds without the SwiftUI macro plugin)
 
     var vivaExpanded = true
+    var summaryExpanded = true
+    var criteriaExpanded = true
     /// The Settings tab to show: "general", "marking" or "engine".
     var settingsTab = "general"
     var correctionsExpanded = true

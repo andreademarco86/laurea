@@ -8,72 +8,61 @@ struct ReportEditor: View {
         let draft = Binding<ReportDraft>(
             get: { model.draft ?? ReportDraft() },
             set: { model.draft = $0; model.dirty = true })
+        let d = draft.wrappedValue
         let detail = model.detail
+        // Sections below the marks get plain values and are equatable: while the slider or a mark changes, only the
+        // header and marks redraw; a text section redraws only when its own text changes.
         Form {
-            Section { ScoreHeader(draft: draft.wrappedValue) }
+            Section { ScoreHeader(draft: d) }
             if let b = model.banner { BannerSection(banner: b) }
             MarksSections(draft: draft)
-
-            Section("Details") {
-                TextField("Student name", text: draft.student)
-                TextField("Title", text: draft.title, axis: .vertical)
-                TextField("Degree", text: draft.degree)
-                TextField("Institution", text: draft.institution)
-                TextField("Examiner", text: draft.examiner)
-            }
-
-            Section {
-                TextEditor(text: draft.summary)
-                    .font(.body)
-                    .frame(minHeight: 170)
-                    .scrollContentBackground(.hidden)
-            } header: {
-                HStack {
-                    Text("Summary")
-                    Spacer()
-                    let n = wordCount(draft.wrappedValue.summary)
-                    let limit = model.detail?.summary_words ?? 350
-                    Text("\(n) / \(limit) words").monospacedDigit()
-                        .foregroundStyle(n > limit ? .red : .secondary)
-                }
-            }
-
-            ForEach(draft.criteria) { $c in
-                let quotes = detail?.quotes ?? [:]
-                Section {
-                    SubHeading("Strengths")
-                    BulletList(items: $c.strengths, prompt: "What the dissertation does well, with § and page", addLabel: "Add Strength",
-                               quotes: quotes)
-                    SubHeading("Weaknesses")
-                    BulletList(items: $c.weaknesses, prompt: "What could have been done better, with § and page", addLabel: "Add Weakness",
-                               quotes: quotes)
-                } header: {
-                    HStack {
-                        Text("(\(c.spec.key)) \(c.spec.name)")
-                        Spacer()
-                        Text("\(c.mark) / \(c.spec.max)").monospacedDigit()
-                    }
-                }
-            }
-
-            QuestionSections(questions: draft.questions)
-
-            CorrectionsSection(draft: draft)
-
+            DetailsSection(student: d.student, title: d.title, degree: d.degree, institution: d.institution,
+                           examiner: d.examiner).equatable()
+            SummarySection(summary: d.summary, limit: detail?.summary_words ?? 350).equatable()
+            CriteriaSection(criteria: d.criteria.map(CriterionText.init), quotes: detail?.quotes ?? [:]).equatable()
+            QuestionSections(questions: d.questions, level: detail?.status.level).equatable()
+            CorrectionsSection(substantial: d.substantial, corrections: d.corrections).equatable()
             DeclarationSection(draft: draft)
-
             if let detail, let panel = detail.panel {
-                Section {
-                    DisclosureGroup("Internal notes") {
-                        PanelReview(panel: panel, scheme: detail.markingScheme)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 8)
-                    }
-                }
+                InternalNotesSection(panel: panel, scheme: detail.markingScheme).equatable()
             }
         }
         .formStyle(.grouped)
         .sensoryFeedback(.success, trigger: model.saveCount)
+    }
+}
+
+struct DetailsSection: View, Equatable {
+    @Environment(AppModel.self) private var model
+    let student, title, degree, institution, examiner: String
+
+    static func == (a: Self, b: Self) -> Bool {
+        (a.student, a.title, a.degree, a.institution, a.examiner) == (b.student, b.title, b.degree, b.institution, b.examiner)
+    }
+
+    var body: some View {
+        Section("Details") {
+            BufferedField("Student name", key: "student", text: model.draftBinding(\.student))
+            BufferedField("Title", key: "title", text: model.draftBinding(\.title), axis: .vertical)
+            BufferedField("Degree", key: "degree", text: model.draftBinding(\.degree))
+            BufferedField("Institution", key: "institution", text: model.draftBinding(\.institution))
+            BufferedField("Examiner", key: "examiner", text: model.draftBinding(\.examiner))
+        }
+    }
+}
+
+struct InternalNotesSection: View, Equatable {
+    let panel: PanelFeedback
+    let scheme: Scheme
+
+    var body: some View {
+        Section {
+            DisclosureGroup("Internal notes") {
+                PanelReview(panel: panel, scheme: scheme)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 8)
+            }
+        }
     }
 }
 
@@ -266,8 +255,8 @@ struct MarksSections: View {
                     }
                 }
             }
-            TextField("Why you adjusted", text: Binding(get: { model.note }, set: { model.note = $0; model.dirty = true }),
-                      prompt: Text("Optional, e.g. “credit honest negative results in (d)”"), axis: .vertical)
+            BufferedField("Why you adjusted", key: "note", text: Binding(get: { model.note }, set: { model.note = $0 }),
+                          prompt: "Optional, e.g. “credit honest negative results in (d)”", axis: .vertical)
             if let applied = model.detail?.applied {
                 let nonZero = CRITERIA.compactMap { s -> String? in
                     guard let v = applied[s.key] ?? nil, v != 0 else { return nil }
@@ -343,53 +332,58 @@ extension ScoreColumns where Control == EmptyView {
 
 // MARK: - Questions
 
-struct QuestionSections: View {
+struct QuestionSections: View, Equatable {
     @Environment(AppModel.self) private var model
-    @Binding var questions: [QuestionDraft]
+    let questions: [QuestionDraft]
+    let level: String?
+
+    static func == (a: Self, b: Self) -> Bool { a.questions == b.questions && a.level == b.level }
 
     /// Recommended number of questions for the examination's level.
     private var range: ClosedRange<Int> {
-        switch model.detail?.status.level { case "bsc": 3...5; case "phd": 8...10; default: 4...6 }
+        switch level { case "bsc": 3...5; case "phd": 8...10; default: 4...6 }
     }
 
     var body: some View {
         @Bindable var model = model
         let range = range
+        let questions = model.draftBinding(\.questions)
         Section {
             DisclosureGroup(isExpanded: $model.vivaExpanded) {
                 VStack(alignment: .leading, spacing: 14) {
-                    ForEach(Array(questions.enumerated()), id: \.element.id) { i, q in
-                        let qb = Binding(get: { questions.first { $0.id == q.id } ?? q },
-                                         set: { nv in if let j = questions.firstIndex(where: { $0.id == q.id }) { questions[j] = nv } })
+                    ForEach(Array(self.questions.enumerated()), id: \.element.id) { i, q in
+                        let qb = Binding(get: { questions.wrappedValue.first { $0.id == q.id } ?? q },
+                                         set: { nv in if let j = questions.wrappedValue.firstIndex(where: { $0.id == q.id }) { questions.wrappedValue[j] = nv } })
                         if i > 0 { Divider() }
                         VStack(alignment: .leading, spacing: 8) {
                             HStack {
                                 Text("Question \(i + 1)").font(.subheadline.weight(.semibold))
                                 Spacer()
-                                Button(role: .destructive) { questions.removeAll { $0.id == q.id } } label: {
+                                Button(role: .destructive) { questions.wrappedValue.removeAll { $0.id == q.id } } label: {
                                     Image(systemName: "trash")
                                 }
                                 .buttonStyle(.borderless)
                                 .help("Remove this question")
                             }
-                            LabeledField("Question", text: qb.question, prompt: "As you would ask it in the viva")
-                            LabeledField("Refers to", text: qb.refs, prompt: "Section it grows from, e.g. §4.2")
-                            LabeledField("Why ask it", text: qb.why, prompt: "The gap or doubt this resolves")
-                            LabeledField("Good answer", text: qb.expected, prompt: "Key points an acceptable answer covers")
-                            LabeledField("Weak answer", text: qb.weak, prompt: "What would indicate a problem")
+                            let k = q.id.uuidString
+                            LabeledField("Question", key: k + "q", text: qb.question, prompt: "As you would ask it in the viva")
+                            LabeledField("Refers to", key: k + "r", text: qb.refs, prompt: "Section it grows from, e.g. §4.2")
+                            LabeledField("Why ask it", key: k + "y", text: qb.why, prompt: "The gap or doubt this resolves")
+                            LabeledField("Good answer", key: k + "g", text: qb.expected, prompt: "Key points an acceptable answer covers")
+                            LabeledField("Weak answer", key: k + "w", text: qb.weak, prompt: "What would indicate a problem")
                         }
                     }
-                    Button { questions.append(QuestionDraft()) } label: { Label("Add Viva Question", systemImage: "plus.circle") }
+                    Button { questions.wrappedValue.append(QuestionDraft()) } label: { Label("Add Viva Question", systemImage: "plus.circle") }
                         .buttonStyle(.borderless)
-                        .disabled(questions.count >= range.upperBound)
+                        .disabled(self.questions.count >= range.upperBound)
                 }
                 .padding(.top, 8)
             } label: {
                 HStack {
                     Text("Viva Questions").font(.headline)
                     Spacer()
-                    Text("\(questions.count) (\(range.lowerBound)–\(range.upperBound))").font(.caption).monospacedDigit()
-                        .foregroundStyle(range.contains(questions.count) ? Color.secondary : Color.orange)
+                    Text("\(self.questions.count) (\(range.lowerBound)–\(range.upperBound))").font(.caption).monospacedDigit()
+                        .foregroundStyle(range.contains(self.questions.count) ? Color.secondary : Color.orange)
                 }
             }
         }
@@ -398,31 +392,124 @@ struct QuestionSections: View {
 
 struct LabeledField: View {
     let label: String
+    let key: String
     @Binding var text: String
     let prompt: String
 
-    init(_ label: String, text: Binding<String>, prompt: String) {
-        self.label = label; self._text = text; self.prompt = prompt
+    init(_ label: String, key: String, text: Binding<String>, prompt: String) {
+        self.label = label; self.key = key; self._text = text; self.prompt = prompt
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label).font(.caption).foregroundStyle(.secondary)
-            TextField(label, text: $text, prompt: Text(prompt), axis: .vertical).labelsHidden()
+            BufferedField(label, key: key, text: $text, prompt: prompt, axis: .vertical).labelsHidden()
             RefChips(text: text).equatable()
+        }
+    }
+}
+
+/// A text field that types into its own edit buffer (see AppModel.buffer), so a keystroke redraws only this field.
+struct BufferedField: View {
+    @Environment(AppModel.self) private var model
+    let label: String
+    let key: String
+    @Binding var text: String
+    var prompt: String? = nil
+    var axis: Axis = .horizontal
+
+    init(_ label: String, key: String, text: Binding<String>, prompt: String? = nil, axis: Axis = .horizontal) {
+        self.label = label; self.key = key; self._text = text; self.prompt = prompt; self.axis = axis
+    }
+
+    var body: some View {
+        let buffer = model.buffer(key, $text)
+        TextField(label, text: Binding(get: { buffer.text }, set: { buffer.text = $0; model.edited(buffer) }),
+                  prompt: prompt.map { Text($0) }, axis: axis)
+    }
+}
+
+// MARK: - Summary and criteria
+
+struct SummarySection: View, Equatable {
+    @Environment(AppModel.self) private var model
+    let summary: String
+    let limit: Int
+
+    static func == (a: Self, b: Self) -> Bool { a.summary == b.summary && a.limit == b.limit }
+
+    var body: some View {
+        @Bindable var model = model
+        let text = model.draftBinding(\.summary)
+        Section {
+            DisclosureGroup(isExpanded: $model.summaryExpanded) {
+                let summary = model.buffer("summary", text)
+                TextEditor(text: Binding(get: { summary.text }, set: { summary.text = $0; model.edited(summary) }))
+                    .font(.body)
+                    .frame(minHeight: 170)
+                    .scrollContentBackground(.hidden)
+                    .padding(.top, 6)
+            } label: {
+                HStack {
+                    Text("Summary").font(.headline)
+                    Spacer()
+                    let n = wordCount(model.buffer("summary", text).text)
+                    Text("\(n) / \(limit) words").font(.caption).monospacedDigit()
+                        .foregroundStyle(n > limit ? Color.red : Color.secondary)
+                }
+            }
+        }
+    }
+}
+
+/// Strengths and weaknesses for criteria (a) to (e), under one heading that folds away.
+struct CriteriaSection: View, Equatable {
+    @Environment(AppModel.self) private var model
+    let criteria: [CriterionText]
+    let quotes: [String: String]
+
+    static func == (a: Self, b: Self) -> Bool { a.criteria == b.criteria && a.quotes == b.quotes }
+
+    var body: some View {
+        @Bindable var model = model
+        Section {
+            DisclosureGroup(isExpanded: $model.criteriaExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(Array(criteria.enumerated()), id: \.element.id) { i, c in
+                        if i > 0 { Divider().padding(.vertical, 4) }
+                        Text("(\(c.key)) \(c.name)").font(.subheadline.weight(.semibold))
+                        SubHeading("Strengths")
+                        BulletList(items: model.criterionItems(i, strengths: true),
+                                   prompt: "What the dissertation does well, with § and page", addLabel: "Add Strength", quotes: quotes)
+                        SubHeading("Weaknesses")
+                        BulletList(items: model.criterionItems(i, strengths: false),
+                                   prompt: "What could have been done better, with § and page", addLabel: "Add Weakness", quotes: quotes)
+                    }
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Text("Strengths and Weaknesses").font(.headline)
+                    Spacer()
+                    Text("Criteria (a)–(e)").font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }
 
 // MARK: - Corrections
 
-struct CorrectionsSection: View {
+struct CorrectionsSection: View, Equatable {
     @Environment(AppModel.self) private var model
-    @Binding var draft: ReportDraft
+    let substantial: [TextItem]
+    let corrections: [TextItem]
+
+    static func == (a: Self, b: Self) -> Bool { a.substantial == b.substantial && a.corrections == b.corrections }
 
     var body: some View {
         @Bindable var model = model
-        let substantial = draft.substantial.count, minor = draft.corrections.count
+        let substantial = self.substantial.count, minor = corrections.count
         Section {
             DisclosureGroup(isExpanded: $model.correctionsExpanded) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -434,7 +521,7 @@ struct CorrectionsSection: View {
                     }
                     Text("Rework that needs real effort but no new research. Leave empty if none is required.")
                         .font(.caption).foregroundStyle(.secondary)
-                    BulletList(items: $draft.substantial, prompt: "§x.y, p. N: what needs reworking → what a satisfactory revision includes",
+                    BulletList(items: model.draftBinding(\.substantial), prompt: "§x.y, p. N: what needs reworking → what a satisfactory revision includes",
                                addLabel: "Add Substantial Correction", numbered: true)
                     Divider()
                     HStack {
@@ -443,7 +530,7 @@ struct CorrectionsSection: View {
                         Text("\(minor) (5–10)").font(.caption)
                             .foregroundStyle((5...10).contains(minor) ? Color.secondary : Color.orange)
                     }
-                    BulletList(items: $draft.corrections, prompt: "p. N, §x.y: issue → fix", addLabel: "Add Minor Correction", numbered: true)
+                    BulletList(items: model.draftBinding(\.corrections), prompt: "p. N, §x.y: issue → fix", addLabel: "Add Minor Correction", numbered: true)
                 }
                 .padding(.top, 8)
             } label: {
@@ -530,7 +617,7 @@ struct BulletList: View {
                 Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
                     .frame(width: 22, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 3) {
-                    TextField("Item", text: b, prompt: Text(prompt), axis: .vertical).labelsHidden()
+                    BufferedField("Item", key: item.id.uuidString, text: b, prompt: prompt, axis: .vertical).labelsHidden()
                     RefChips(text: item.text, highlights: quote.map { [$0] + evidenceAnchors(in: item.text) } ?? []).equatable()
                 }
                 Button(role: .destructive) { items.removeAll { $0.id == item.id } } label: {
