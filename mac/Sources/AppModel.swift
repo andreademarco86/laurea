@@ -547,6 +547,57 @@ final class AppModel {
 
     // MARK: Paper reviews
 
+    /// Changes the review's recommendation and keeps the summary in step: its closing assessment names the
+    /// recommendation in the option's own words, so the old option's wording there becomes the new one's.
+    func setRecommendation(_ value: String) {
+        commitEdits()
+        guard var r = reviewDraft, value != r.recommendation, let scale = detail?.venue_form?.recommendation else { return }
+        if let old = scale.option(r.recommendation), let new = scale.option(value) {
+            r.summary = Self.retarget(r.summary, from: old.label, to: new.label, labels: scale.options.map(\.label))
+        }
+        r.recommendation = value
+        reviewDraft = r
+        dirty = true
+        buffers["summary"]?.text = r.summary  // the open summary editor shows the change at once
+    }
+
+    /// Replaces the old option's wording with the new one's in the summary's closing paragraph only, keeping the
+    /// sentence's capitalisation. Longer labels that contain the old one ('weak accept' for 'accept') are left alone,
+    /// and 'acceptance' and 'rejection' follow their options.
+    static func retarget(_ summary: String, from old: String, to new: String, labels: [String]) -> String {
+        let parts = summary.components(separatedBy: "\n\n")
+        guard var last = parts.last, !old.isEmpty else { return summary }
+        func noun(_ label: String) -> String? { ["accept": "acceptance", "reject": "rejection"][label.lowercased()] }
+        var forms = [(old, new)]
+        if let n = noun(old) { forms.append((n, noun(new) ?? new)) }
+        let longer = labels.filter { $0.count > old.count && $0.range(of: old, options: .caseInsensitive) != nil }
+        for (from, to) in forms {
+            let pattern = #"(?<![\w-])"# + NSRegularExpression.escapedPattern(for: from) + #"(?![\w-])"#
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
+            let ns = last as NSString
+            for m in regex.matches(in: last, range: NSRange(location: 0, length: ns.length)).reversed() {
+                // Skip a match that is part of a longer option's name, e.g. 'accept' inside 'weak accept'.
+                let inLonger = longer.contains { label in
+                    let lr = (ns.lowercased as NSString)
+                    var search = NSRange(location: 0, length: ns.length)
+                    while true {
+                        let f = lr.range(of: label.lowercased(), options: [], range: search)
+                        if f.location == NSNotFound { return false }
+                        if NSIntersectionRange(f, m.range).length > 0 { return true }
+                        search = NSRange(location: f.location + 1, length: ns.length - f.location - 1)
+                    }
+                }
+                if inLonger { continue }
+                let found = ns.substring(with: m.range)
+                var replacement = to
+                if found == found.lowercased() { replacement = to.lowercased() }
+                else if found.first?.isUppercase == true { replacement = to.prefix(1).uppercased() + to.dropFirst() }
+                last = (last as NSString).replacingCharacters(in: m.range, with: replacement)
+            }
+        }
+        return (parts.dropLast() + [last]).joined(separator: "\n\n")
+    }
+
     /// Saves the review; returns true when it was stored.
     @discardableResult
     func saveReview() async -> Bool {

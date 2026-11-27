@@ -21,7 +21,7 @@
 
   Written in your voice as an anonymous reviewer, with the same writing rules as reports.
 - **A panel for papers**: soundness, novelty and clarity reviewers each read the whole paper and give a recommendation before their scores; an area chair settles disagreements with an advocate and a critic. Internal notes show each reviewer's ratings and the rulings.
-- **The review editor** shows the venue's scale as a strip you click to change the recommendation, with the proposal marked, and the scores and confidence beside what was proposed.
+- **The review editor** shows the venue's scale as a strip you click to change the recommendation, with the proposal marked, and the scores and confidence beside what was proposed. Changing the recommendation updates the summary's closing sentence to match, and the checker flags a summary that recommends something else.
 - **Copy and Export**: copy each field, or the whole review laid out as the venue's form (⇧⌘C), or export a Word copy.
 - **Calibration for papers**: one learned tendency across venues, from recommendations you change consistently (at least three reviews moved the same way). It appears under **Calibration → Papers**.
 - The review checker enforces the venue's options, the three tiers and their links to weaknesses, locations and the writing rules, and flags anything that could reveal who you are.

@@ -104,7 +104,7 @@ You act as area chair and decide on the evidence:
 
 1. **What the paper does**: the problem, approach, data and main results, factually, in your own words, so the authors would agree with it.
 2. **What decides the recommendation**: the strengths and weaknesses that weigh most, in words.
-3. **Overall assessment**, on its own: four to six plain sentences on how well the claims are supported, what the paper adds for this venue's audience, what the evidence does not yet show, and your overall judgement, in words rather than the option's number.
+3. **Overall assessment**, on its own: four to six plain sentences on how well the claims are supported, what the paper adds for this venue's audience, what the evidence does not yet show, and your overall judgement. Its last sentence states the recommendation in the option's own words, without its number, e.g. "I recommend major revision." or "I recommend borderline accept." Name no other option in this paragraph: Laurea keeps this sentence in step when the reviewer changes the recommendation.
 
 **Strengths and weaknesses.** Numbered, **most important first**, typically 3-6 strengths and 3-8 weaknesses. Each is one to three sentences: what the paper does or misses, why it matters for its claims, ending with the location. Weaknesses are numbered W1, W2, ... by their position, and the changes and questions refer to them.
 

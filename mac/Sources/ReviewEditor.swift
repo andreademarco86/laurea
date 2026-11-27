@@ -276,11 +276,10 @@ struct RatingsSection: View {
     let proposed: ProposedReview?
 
     var body: some View {
-        let rec = model.reviewBinding(\.recommendation)
         Section {
             VStack(alignment: .leading, spacing: 8) {
                 ScaleStrip(options: venue.recommendation.options, selected: review.recommendation,
-                           proposed: proposed?.recommendation, onSelect: { rec.wrappedValue = $0 })
+                           proposed: proposed?.recommendation, onSelect: { model.setRecommendation($0) })
                 // What the chosen option means at this venue, when the venue says.
                 if let m = venue.recommendation.option(review.recommendation)?.meaning, !m.isEmpty {
                     Text(m).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -302,7 +301,7 @@ struct RatingsSection: View {
         } header: {
             Text(venue.recommendation.name)
         } footer: {
-            Text("Click an option to change the recommendation; the dot marks the proposal. Laurea learns from recommendations you change consistently across reviews.")
+            Text("Click an option to change the recommendation; the dot marks the proposal. The summary's closing sentence follows your choice. Laurea learns from recommendations you change consistently across reviews.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

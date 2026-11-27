@@ -63,6 +63,20 @@ def option_matches(entry, options):
     return None
 
 
+def named_options(paragraph, options):
+    """Indices of the options a paragraph names in words, longest labels first so 'weak accept' is not read as 'accept'."""
+    text, found = paragraph.lower(), []
+    for i in sorted(range(len(options)), key=lambda i: -len(str(options[i]["label"]))):
+        words = str(options[i]["label"]).lower()
+        variants = [words] + {"accept": ["acceptance"], "reject": ["rejection"]}.get(words, [])
+        for v in variants:
+            pattern = rf"(?<![\w-]){re.escape(v)}(?![\w-])"
+            if re.search(pattern, text):
+                found.append(i)
+                text = re.sub(pattern, " ", text)
+    return found
+
+
 def main():
     args = sys.argv[1:]
     if not args:
@@ -127,6 +141,15 @@ def main():
             warnings.append(f"summary has {len(paragraphs)} paragraph(s); end with a separate overall assessment")
         elif len(re.findall(r"[.?](?:\s|$)", paragraphs[-1].strip())) < 4:
             warnings.append("the summary's closing assessment is too short; write four to six plain sentences")
+        if venue and tone is not None and paragraphs:
+            named = named_options(paragraphs[-1], venue["recommendation"]["options"])
+            current = option_matches(header(text, "Recommendation"), venue["recommendation"]["options"])
+            label = venue["recommendation"]["options"][current]["label"]
+            others = [venue["recommendation"]["options"][i]["label"] for i in named if i != current]
+            if others and current not in named:
+                warnings.append(f"the summary's closing assessment recommends '{others[0]}', but the recommendation is '{label}'")
+            elif current not in named:
+                warnings.append(f"the summary's closing assessment does not state the recommendation; end it with, e.g., 'I recommend {label.lower()}.'")
         if PAGE_REF.search(summ) or "§" in summ or re.search(r"\bL\.\s?\d|\blines?\s\d", summ):
             errors.append("the summary contains page, section or line references; remove them (they belong in the points below)")
 

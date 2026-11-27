@@ -238,6 +238,14 @@ bad = md.replace("| **Recommendation** | 4: Borderline accept |", "| **Recommend
 sv.report_path(rd).write_text(bad, encoding="utf-8")
 out = sv.check_review(rd)
 check("the review checker rejects a recommendation off the venue's scale", not out["check_ok"] and "not an option" in out["check"])
+pr = sv.venue_by_id("pattern-recognition")
+sv.write_json(rd / "venue.json", pr)
+closing = "One.\n\nTwo.\n\nIt is sound. It is useful. It needs work. I recommend major revision."
+sv.report_path(rd).write_text(sv.write_review({**review, "recommendation": "minor", "scores": {}, "confidence": "",
+                                                "summary": closing}, pr), encoding="utf-8")
+out = sv.check_review(rd)
+check("the checker flags a summary that recommends another option", "recommends 'Major revision'" in out["check"], out["check"][-300:])
+sv.write_json(rd / "venue.json", neurips)
 sv.report_path(rd).write_text(md, encoding="utf-8")
 info = sv.exam_summary(rd)
 check("the sidebar lists a review with its venue and recommendation",
