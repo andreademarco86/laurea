@@ -38,6 +38,16 @@ python3 dev/engine_checks.py; result $?
 if [ "${1:-}" = "--build" ]; then
   step "Build the app and DMG"
   bash mac/build.sh 2>&1 | grep -E "✓|error" ; result "${PIPESTATUS[0]}"
+
+  step "Built app: the engine starts from the app bundle (catches files missing from the bundle)"
+  res="mac/build/Laurea.app/Contents/Resources"
+  tmpdata=$(mktemp -d)
+  out=$(cd "$res" && DE_DATA="$tmpdata" DE_RESOURCES="$PWD" python3 -c "import server; server.install_examiner(); print('ok')" 2>&1); r=$?
+  rm -rf "$tmpdata"
+  [ $r -ne 0 ] && echo "$out" | tail -3; result $r
+  if [ -n "$(git status --porcelain --untracked-files=all skill engine)" ]; then
+    echo "  note: uncommitted or untracked files in skill/ or engine/ are not bundled until committed"
+  fi
 fi
 
 echo
