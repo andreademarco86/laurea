@@ -309,7 +309,8 @@ struct ScoreColumns<Value: View, Control: View>: View {
             value().monospacedDigit().frame(width: 44, alignment: .trailing)
             Text(max.map { "/ \($0)" } ?? unit ?? "").foregroundStyle(.secondary).monospacedDigit()
                 .frame(width: 44, alignment: .leading)
-            control().frame(width: 20)
+            // A clear placeholder keeps the slot's width in rows without a control (an EmptyView would collapse it).
+            ZStack { Color.clear.frame(width: 20, height: 1); control() }.frame(width: 20)
         }
     }
 }
