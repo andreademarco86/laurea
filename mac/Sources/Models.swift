@@ -400,28 +400,6 @@ func wordCount(_ s: String) -> Int {
     s.split { $0.isWhitespace }.filter { $0.contains(where: { $0.isLetter || $0.isNumber }) }.count
 }
 
-/// Spread `delta` whole marks over criteria in proportion to their maximum, one mark at a time.
-func distribute(_ base: [Int], delta: Int, maxima: [Int]) -> [Int] {
-    let total = Double(max(1, maxima.reduce(0, +)))
-    var out = base
-    var given = Array(repeating: 0, count: base.count)
-    let sign = delta >= 0 ? 1 : -1
-    for _ in 0..<abs(delta) {
-        var best: Int? = nil
-        var bestGap = -Double.infinity
-        for (i, mx) in maxima.enumerated() {
-            let room = sign > 0 ? out[i] < mx : out[i] > 0
-            guard room else { continue }
-            let gap = Double(abs(delta)) * Double(mx) / total - Double(abs(given[i]))
-            if gap > bestGap { bestGap = gap; best = i }
-        }
-        guard let b = best else { break }
-        out[b] += sign
-        given[b] += sign
-    }
-    return out
-}
-
 // MARK: - Skill chat
 
 struct SkillMessage: Codable, Identifiable, Hashable {

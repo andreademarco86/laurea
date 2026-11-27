@@ -20,8 +20,6 @@ enum Snapshot {
             await shot("0-welcome")
             if let e = model.exams.first(where: { $0.state == "done" }) {
                 await model.select(.exam(e.id)); await shot("2-report")
-                model.applySlider(0.5); await shot("3-slider")
-                model.dirty = false
             }
             await model.select(.skill); await shot("8-skill")
             let host = NSHostingView(rootView: SettingsView().environment(model))

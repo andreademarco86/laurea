@@ -40,7 +40,8 @@
 - The editor shows the percentage and grade, for example “72% · B”: for the final mark once the viva mark is in, otherwise for the dissertation mark. The report itself gives marks only.
 - **Internal notes** show each examiner’s marks and overall grade, the chair’s marks before calibration, a one-line view from each, and the chair’s ruling on each disputed criterion. They stay in Laurea.
 - The summary, the strengths and weaknesses for criteria (a)–(e) (now under one heading), the viva questions and the corrections each fold away.
-- Typing and the calibration slider stay responsive: a keystroke redraws only its own field, and moving the slider redraws only the marks. Marks, calibration and results line up in fixed columns.
+- **Marks are adjusted one criterion at a time.** The overall calibration slider is gone: it spread whole marks by weight, so small criteria rarely moved. Raise or lower each mark with its arrows; **Your Adjustment** shows the change from the proposed total, and calibration learns from these per-criterion changes as before.
+- Typing and mark changes stay responsive: a keystroke redraws only its own field, and a mark change redraws only the marks. Marks, adjustments and results line up in fixed columns.
 - Running examinations show their progress in the sidebar. Selected sidebar rows stay readable.
 - Settings are arranged in **General**, **Marking** and **Engine** tabs that scroll. The unused default-degree setting has been removed.
 - The report’s Markdown source stays internal; you work in the editor.

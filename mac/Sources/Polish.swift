@@ -100,7 +100,7 @@ struct MarkRing: View {
                 }
             }
             .frame(width: size, height: size)
-            // Short and snappy: a slow spring restarts on every slider step and trails behind the drag.
+            // Short and snappy: a slow spring trails behind quick mark changes.
             .animation(.snappy(duration: 0.18), value: value)
             Text(caption).font(.caption.weight(.medium)).foregroundStyle(.secondary)
         }

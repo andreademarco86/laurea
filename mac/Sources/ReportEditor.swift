@@ -10,7 +10,7 @@ struct ReportEditor: View {
             set: { model.draft = $0; model.dirty = true })
         let d = draft.wrappedValue
         let detail = model.detail
-        // Sections below the marks get plain values and are equatable: while the slider or a mark changes, only the
+        // Sections below the marks get plain values and are equatable: while a mark changes, only the
         // header and marks redraw; a text section redraws only when its own text changes.
         Form {
             Section { ScoreHeader(draft: d) }
@@ -237,13 +237,6 @@ struct MarksSections: View {
         }
 
         Section {
-            Slider(value: Binding(get: { model.slider }, set: { model.applySlider($0) }), in: -1...1) {
-                Text("Overall")
-            } minimumValueLabel: {
-                Text("Harsher").font(.caption)
-            } maximumValueLabel: {
-                Text("More generous").font(.caption)
-            }
             if let pt = model.proposedTotal {
                 LabeledContent("Proposed mark") {
                     ScoreColumns(max: draft.dissertationMax) { Text("\(pt)").foregroundStyle(.secondary) }
@@ -269,13 +262,9 @@ struct MarksSections: View {
                 }
             }
         } header: {
-            HStack {
-                Text("Overall Calibration")
-                Spacer()
-                Text(model.sliderDelta == 0 ? "0" : Fmt.signed(Double(model.sliderDelta)) + " marks").monospacedDigit()
-            }
+            Text("Your Adjustment")
         } footer: {
-            Text("Moves the whole mark up or down across the criteria. Fine-tune individual marks above. Laurea looks for consistent adjustments across examinations at the same degree level.")
+            Text("Change the marks above with their arrows. Laurea learns from changes you make consistently to the same criterion across examinations at the same degree level.")
                 .font(.caption).foregroundStyle(.secondary)
         }
 

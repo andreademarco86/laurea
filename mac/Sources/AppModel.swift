@@ -118,9 +118,6 @@ final class AppModel {
         buffers = [:]
     }
     var dirty = false
-    var slider: Double = 0          // position, -1 (harshest) ... +1 (most generous)
-    var sliderBase: [Int]?
-    var sliderDelta = 0             // marks added or removed by the slider
     var note = "" { didSet { draftRevision &+= 1 } }
     var banner: Banner?
     var progress: ProgressInfo?
@@ -234,7 +231,7 @@ final class AppModel {
         selection = item
         pollTask?.cancel()
         detail = nil; draft = nil; dirty = false; banner = nil; progress = nil
-        slider = 0; sliderBase = nil; sliderDelta = 0; showPDF = false
+        showPDF = false
         pdfTarget = nil
         pdfCurrentLabel = ""
         switch item {
@@ -257,7 +254,6 @@ final class AppModel {
             dateOptOut = d.status.date_opt_out ?? false
             note = d.calibration?.note ?? ""
             dirty = false
-            slider = 0; sliderBase = nil; sliderDelta = 0
             if !keepBanner { banner = nil }
             if let l = d.status.level, let lv = Level(rawValue: l) { newLevel = lv }
             if d.state == "running" { startPolling(id) }
@@ -356,22 +352,6 @@ final class AppModel {
     func setMark(_ index: Int, _ value: Int) {
         guard var d = draft else { return }
         d.criteria[index].mark = max(0, min(d.criteria[index].spec.max, value))
-        draft = d
-        slider = 0; sliderBase = nil; sliderDelta = 0
-        dirty = true
-    }
-
-    func applySlider(_ value: Double) {
-        guard var d = draft else { return }
-        if sliderBase == nil { sliderBase = d.criteria.map(\.mark) }
-        slider = max(-1, min(1, value))
-        // Progressive response: fine control near the centre, reaching 0 or full marks at the ends.
-        let base = sliderBase!
-        let room = slider >= 0 ? Double(d.dissertationMax - base.reduce(0, +)) : Double(base.reduce(0, +))
-        let delta = Int((slider.sign == .minus ? -1 : 1) * pow(abs(slider), 2.2) * room)
-        sliderDelta = delta
-        let marks = distribute(base, delta: delta, maxima: d.criteria.map(\.spec.max))
-        for i in d.criteria.indices { d.criteria[i].mark = marks[i] }
         draft = d
         dirty = true
     }
