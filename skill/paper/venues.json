@@ -1,0 +1,886 @@
+{
+  "version": 1,
+  "checked": "2026-11-27",
+  "about": "Laurea's venue database. Each venue's reviewer form, recommendation scale and reviewer policy, taken from the venue's own guidelines where they are public. 'form' is 'published' when the scale and fields come from the venue's own pages, 'partial' when the venue does not publish its form and the scale follows its recent practice, and 'generic' for the general-purpose entries. Recommendation, score and confidence options are listed best first. Each option's tone (accept, borderline, revise or reject) drives the editor's colours. Form fields map the review's sections (summary, strengths, weaknesses, questions, changes_major, changes_moderate, changes_minor, limitations, ethics) onto the venue's own form, for copying into the submission system. Add venues here in future releases; ids never change.",
+  "venues": [
+    {
+      "id": "neurips",
+      "name": "NeurIPS",
+      "full_name": "Conference on Neural Information Processing Systems",
+      "kind": "conference",
+      "fields": ["ml", "cv", "nlp", "speech"],
+      "form": "published",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall",
+        "options": [
+          {"value": "6", "label": "Strong Accept", "tone": "accept", "meaning": "Technically flawless, with groundbreaking impact, exceptionally strong evaluation, reproducibility and resources, and no unaddressed ethical considerations."},
+          {"value": "5", "label": "Accept", "tone": "accept", "meaning": "Technically solid, with high impact on at least one sub-area or moderate-to-high impact on several; good-to-excellent evaluation; no unaddressed ethical considerations."},
+          {"value": "4", "label": "Borderline accept", "tone": "borderline", "meaning": "Reasons to accept, such as strong results, outweigh reasons to reject, such as limited evaluation. Use sparingly."},
+          {"value": "3", "label": "Borderline reject", "tone": "borderline", "meaning": "Reasons to reject, such as limited evaluation, outweigh reasons to accept. Use sparingly."},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": "For example technical flaws, weak evaluation, inadequate reproducibility or incompletely addressed ethical considerations."},
+          {"value": "1", "label": "Strong Reject", "tone": "reject", "meaning": "For example well-known results or unaddressed ethical considerations."}
+        ]
+      },
+      "scores": [
+        {"key": "quality", "name": "Quality", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "clarity", "name": "Clarity", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "significance", "name": "Significance", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "originality", "name": "Originality", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {
+        "name": "Confidence",
+        "options": [
+          {"value": "5", "label": "absolutely certain", "meaning": "Very familiar with the related work; math and other details checked carefully."},
+          {"value": "4", "label": "confident, not absolutely certain", "meaning": "Unlikely, but possible, that some parts were misunderstood or some related work is unfamiliar."},
+          {"value": "3", "label": "fairly confident", "meaning": "Possible that some parts were misunderstood; math and details not carefully checked."},
+          {"value": "2", "label": "willing to defend, but likely missed central parts", "meaning": "Math and details not carefully checked."},
+          {"value": "1", "label": "educated guess", "meaning": "Outside my area or difficult to understand."}
+        ]
+      },
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": "Summarise the paper and its contributions in your own words; not a critique and not the abstract."},
+        {"title": "Strengths and Weaknesses", "from": ["strengths", "weaknesses"], "guidance": "Cover quality, clarity, significance and originality, read against the paper's contribution type."},
+        {"title": "Questions", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": "Ideally 3-5 actionable questions or suggestions, with what would raise or lower your score."},
+        {"title": "Limitations", "from": ["limitations"], "guidance": "Whether the authors addressed limitations and potential negative societal impact; answer yes or give constructive suggestions."},
+        {"title": "Ethical concerns", "from": ["ethics"], "guidance": "Flag a clear major concern only where one exists; do not also lower the score for it."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "NeurIPS 2026 lets reviewers use only its own sanctioned assistant in OpenReview, and only on papers where that is allowed. Its confidentiality rules say not to share submissions with any unsanctioned LLM."
+      },
+      "sources": ["https://neurips.cc/Conferences/2026/MainTrackHandbook", "https://neurips.cc/Conferences/2026/ReviewerGuidelines"]
+    },
+    {
+      "id": "icml",
+      "name": "ICML",
+      "full_name": "International Conference on Machine Learning",
+      "kind": "conference",
+      "fields": ["ml"],
+      "form": "published",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall Recommendation",
+        "options": [
+          {"value": "6", "label": "Strong Accept", "tone": "accept", "meaning": "Technically flawless, with exceptional impact on one or more areas."},
+          {"value": "5", "label": "Accept", "tone": "accept", "meaning": "Technically solid, with high impact on at least one sub-area or moderate-to-high impact on several."},
+          {"value": "4", "label": "Weak accept", "tone": "borderline", "meaning": "Technically solid and advances at least one sub-area. Use sparingly."},
+          {"value": "3", "label": "Weak reject", "tone": "borderline", "meaning": "Clear merits, but weaknesses that overall outweigh them. Use sparingly."},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": "For example technical flaws, weak evaluation or inadequate reproducibility."},
+          {"value": "1", "label": "Strong Reject", "tone": "reject", "meaning": "For example well-known results or unaddressed ethical considerations."}
+        ]
+      },
+      "scores": [
+        {"key": "soundness", "name": "Soundness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "presentation", "name": "Presentation", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "significance", "name": "Significance", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "originality", "name": "Originality", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {
+        "name": "Confidence",
+        "options": [
+          {"value": "5", "label": "absolutely certain", "meaning": "Very familiar with the related work; math and other details checked carefully."},
+          {"value": "4", "label": "confident, not absolutely certain", "meaning": ""},
+          {"value": "3", "label": "fairly confident", "meaning": "Math and other details not carefully checked."},
+          {"value": "2", "label": "willing to defend", "meaning": "Quite likely did not understand central parts."},
+          {"value": "1", "label": "educated guess", "meaning": ""}
+        ]
+      },
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": "Briefly summarise the paper and its contributions; not a critique."},
+        {"title": "Strengths and Weaknesses", "from": ["strengths", "weaknesses"], "guidance": "Assess soundness, presentation, significance and originality; justify any fair or poor rating here."},
+        {"title": "Key Questions for Authors", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": "Ideally 3-5 numbered questions, each saying how the answer would change your evaluation."},
+        {"title": "Limitations", "from": ["limitations"], "guidance": "Answer yes if limitations and societal impact are adequately discussed; otherwise give constructive suggestions."},
+        {"title": "Ethical Concerns", "from": ["ethics"], "guidance": "Flag for ethics review only where needed, and explain."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "ICML 2026 assigns each reviewer an LLM policy per paper. Under Policy A any LLM use is prohibited; under Policy B, privacy-compliant LLMs may help you understand the paper and polish the review, but judgement and critique must not be delegated. The Position Paper Track is always Policy A."
+      },
+      "sources": ["https://icml.cc/Conferences/2026/ReviewerInstructions", "https://icml.cc/Conferences/2026/LLM-Policy"]
+    },
+    {
+      "id": "iclr",
+      "name": "ICLR",
+      "full_name": "International Conference on Learning Representations",
+      "kind": "conference",
+      "fields": ["ml"],
+      "form": "partial",
+      "form_year": 2027,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Rating",
+        "options": [
+          {"value": "10", "label": "strong accept", "tone": "accept", "meaning": "Should be highlighted at the conference."},
+          {"value": "8", "label": "accept, good paper", "tone": "accept", "meaning": ""},
+          {"value": "6", "label": "marginally above the acceptance threshold", "tone": "borderline", "meaning": ""},
+          {"value": "4", "label": "marginally below the acceptance threshold", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "reject", "tone": "reject", "meaning": ""},
+          {"value": "0", "label": "strong reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [
+        {"key": "soundness", "name": "Soundness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "presentation", "name": "Presentation", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "contribution", "name": "Contribution", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {
+        "name": "Confidence",
+        "options": [
+          {"value": "5", "label": "absolutely certain", "meaning": ""},
+          {"value": "4", "label": "confident, not absolutely certain", "meaning": ""},
+          {"value": "3", "label": "fairly confident", "meaning": ""},
+          {"value": "2", "label": "willing to defend, but may have missed central parts", "meaning": ""},
+          {"value": "1", "label": "educated guess", "meaning": ""}
+        ]
+      },
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": "Summarise what the paper claims to contribute."},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses"], "guidance": ""},
+        {"title": "Questions", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": "Questions that would clarify your understanding, and feedback to improve the paper."}
+      ],
+      "policy": {
+        "level": "disclose",
+        "text": "ICLR 2027 permits limited, responsible use of AI tools to help write reviews, but disclosure is mandatory: the review form asks for your own original assessment and your LLM interactions."
+      },
+      "notes": "ICLR's review form is on OpenReview and not public. The rating values follow the 2026 cycle's {0, 2, 4, 6, 8, 10} scale; the labels follow earlier ICLR forms.",
+      "sources": ["https://iclr.cc/Conferences/2027/ReviewerGuidelines", "https://iclr.cc/Conferences/2027/AIPolicyForReviewers"]
+    },
+    {
+      "id": "arr",
+      "name": "ACL Rolling Review",
+      "full_name": "ACL Rolling Review (ACL, EMNLP, NAACL, EACL, AACL)",
+      "kind": "conference",
+      "fields": ["nlp", "speech"],
+      "form": "published",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall Assessment",
+        "options": [
+          {"value": "5", "label": "Consider for Award", "tone": "accept", "meaning": "Could be considered for an outstanding paper award (up to the top 2.5% of papers)."},
+          {"value": "4.5", "label": "Borderline Award", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Conference", "tone": "accept", "meaning": "Worthy of the main conference."},
+          {"value": "3.5", "label": "Borderline Conference", "tone": "borderline", "meaning": ""},
+          {"value": "3", "label": "Findings", "tone": "borderline", "meaning": "Sound and reproducible; suitable for Findings."},
+          {"value": "2.5", "label": "Borderline Findings", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "Resubmit next cycle", "tone": "revise", "meaning": "Needs substantial revisions that can be completed by the next ARR cycle."},
+          {"value": "1.5", "label": "Resubmit after next cycle", "tone": "revise", "meaning": ""},
+          {"value": "1", "label": "Do not resubmit", "tone": "reject", "meaning": "Has to be fully redone, or is not relevant to the *ACL community."}
+        ]
+      },
+      "scores": [
+        {"key": "soundness", "name": "Soundness", "options": [
+          {"value": "5", "label": "Excellent", "meaning": "One of the most thorough studies of its type."},
+          {"value": "4.5", "label": "4.5"},
+          {"value": "4", "label": "Strong", "meaning": "Sufficient support for all of its claims."},
+          {"value": "3.5", "label": "3.5"},
+          {"value": "3", "label": "Acceptable", "meaning": "Sufficient support for its main claims."},
+          {"value": "2.5", "label": "2.5"},
+          {"value": "2", "label": "Poor", "meaning": "Some of the main claims are not sufficiently supported."},
+          {"value": "1.5", "label": "1.5"},
+          {"value": "1", "label": "Major Issues", "meaning": "Not yet thorough enough to warrant publication, or not relevant to ACL."}]},
+        {"key": "excitement", "name": "Excitement", "options": [
+          {"value": "5", "label": "Highly Exciting"},
+          {"value": "4.5", "label": "4.5"},
+          {"value": "4", "label": "Exciting"},
+          {"value": "3.5", "label": "3.5"},
+          {"value": "3", "label": "Interesting"},
+          {"value": "2.5", "label": "2.5"},
+          {"value": "2", "label": "Potentially Interesting"},
+          {"value": "1.5", "label": "1.5"},
+          {"value": "1", "label": "Not Exciting"}]},
+        {"key": "reproducibility", "name": "Reproducibility", "options": [
+          {"value": "5", "label": "could easily reproduce the results"},
+          {"value": "4", "label": "could mostly reproduce the results"},
+          {"value": "3", "label": "could reproduce the results with some difficulty"},
+          {"value": "2", "label": "would be hard pressed to reproduce the results"},
+          {"value": "1", "label": "would not be able to reproduce the results"}]}
+      ],
+      "confidence": {
+        "name": "Reviewer Confidence",
+        "options": [
+          {"value": "5", "label": "Positive that my evaluation is correct", "meaning": ""},
+          {"value": "4", "label": "Quite sure", "meaning": ""},
+          {"value": "3", "label": "Pretty sure, but there's a chance I missed something", "meaning": ""},
+          {"value": "2", "label": "Willing to defend my evaluation, but it is fairly likely that I missed some details", "meaning": ""},
+          {"value": "1", "label": "Not my area, or paper is very hard to understand", "meaning": ""}
+        ]
+      },
+      "form_fields": [
+        {"title": "Paper Summary", "from": ["summary"], "guidance": "Describe the paper so the area chair understands its topic and contributions."},
+        {"title": "Summary Of Strengths", "from": ["strengths"], "guidance": "The main reasons to publish at a selective *ACL venue."},
+        {"title": "Summary Of Weaknesses", "from": ["weaknesses"], "guidance": "Numbered concerns that would make you prioritise other papers."},
+        {"title": "Comments, Suggestions And Typos", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": "Other suggestions for improving the paper."},
+        {"title": "Limitations And Societal Impact", "from": ["limitations"], "guidance": ""},
+        {"title": "Ethical Concerns", "from": ["ethics"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "ACL requires reviewers to read the paper fully and write the review's content themselves; generative tools may not draft it. Neither the submission nor the review may be uploaded to a non-privacy-preserving generative tool."
+      },
+      "sources": ["https://aclrollingreview.org/reviewform", "https://aclrollingreview.org/reviewerguidelines", "https://www.aclweb.org/adminwiki/index.php/ACL_Policy_on_Publication_Ethics"]
+    },
+    {
+      "id": "cvpr",
+      "name": "CVPR",
+      "full_name": "IEEE/CVF Conference on Computer Vision and Pattern Recognition",
+      "kind": "conference",
+      "fields": ["cv", "ml"],
+      "form": "partial",
+      "form_year": 2027,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Final Rating",
+        "options": [
+          {"value": "5", "label": "Strong Accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Weak Accept", "tone": "accept", "meaning": ""},
+          {"value": "3", "label": "Borderline", "tone": "borderline", "meaning": "Strong reasons on both sides, or no strong reasons either way: say which."},
+          {"value": "2", "label": "Weak Reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": ""},
+        {"title": "Strengths", "from": ["strengths"], "guidance": "Weigh novelty and potential impact alongside reported performance."},
+        {"title": "Weaknesses", "from": ["weaknesses", "changes_major", "changes_moderate", "changes_minor"], "guidance": "Easily fixed minor flaws are not grounds for rejection; missing comparisons with arXiv-only work are not either."},
+        {"title": "Rating justification", "from": ["questions"], "guidance": "Explain the rating; after the rebuttal, update the rating and its justification."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "CVPR 2027 provides an official LLM assistant inside OpenReview and says this is the only permitted use of LLMs in reviewing; sharing paper or review content with any other tool violates the IEEE confidentiality policy."
+      },
+      "notes": "CVPR's review form is on OpenReview and not public. The rating labels follow the CVPR 2026 reviewer training material.",
+      "sources": ["https://cvpr.thecvf.com/Conferences/2027/ReviewerGuidelines", "https://cvpr.thecvf.com/Conferences/2026/ReviewerTrainingMaterial"]
+    },
+    {
+      "id": "iccv-eccv",
+      "name": "ICCV / ECCV",
+      "full_name": "International / European Conference on Computer Vision",
+      "kind": "conference",
+      "fields": ["cv", "ml"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Final Rating",
+        "options": [
+          {"value": "5", "label": "Strong Accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Weak Accept", "tone": "accept", "meaning": ""},
+          {"value": "3", "label": "Borderline", "tone": "borderline", "meaning": "Strong reasons on both sides, or no strong reasons either way: say which."},
+          {"value": "2", "label": "Weak Reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": "Assess the paper against its declared contribution type."},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses", "changes_major", "changes_moderate", "changes_minor"], "guidance": ""},
+        {"title": "Rating justification", "from": ["questions"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "prohibited",
+        "text": "ECCV 2026 and ICCV 2025 do not allow LLMs or online chatbots in any part of the reviewing process; doing so is treated as highly irresponsible and can lead to desk rejection of the reviewer's own papers."
+      },
+      "notes": "The ICCV and ECCV review forms are not public. The rating labels follow the CVF conferences' recent practice.",
+      "sources": ["https://eccv.ecva.net/Conferences/2026/ReviewerGuide", "https://iccv.thecvf.com/Conferences/2025/ReviewerGuidelines"]
+    },
+    {
+      "id": "aaai",
+      "name": "AAAI",
+      "full_name": "AAAI Conference on Artificial Intelligence",
+      "kind": "conference",
+      "fields": ["ml", "cv", "nlp", "computing"],
+      "form": "partial",
+      "form_year": 2027,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall evaluation",
+        "options": [
+          {"value": "6", "label": "Strong accept", "tone": "accept", "meaning": ""},
+          {"value": "5", "label": "Accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Weak accept", "tone": "borderline", "meaning": ""},
+          {"value": "3", "label": "Weak reject", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Strong reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [
+        {"key": "significance", "name": "Significance and novelty", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "soundness", "name": "Soundness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "clarity", "name": "Clarity", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {"name": "Confidence", "options": [
+        {"value": "5", "label": "expert"}, {"value": "4", "label": "confident"}, {"value": "3", "label": "fairly confident"},
+        {"value": "2", "label": "willing to defend"}, {"value": "1", "label": "educated guess"}]},
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": ""},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses"], "guidance": ""},
+        {"title": "Questions for the authors", "from": ["questions"], "guidance": ""},
+        {"title": "Suggestions for improvement", "from": ["changes_major", "changes_moderate", "changes_minor"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "unknown",
+        "text": "AAAI-27 says all paper content and reviewer information remain confidential. Its public pages do not state a rule on reviewers' own use of LLMs; check the reviewer instructions you received."
+      },
+      "notes": "AAAI's review form is not public. AAAI-27 scores submissions for significance and novelty, soundness of the claims and clarity of exposition; the overall, score and confidence scales here are general conference scales.",
+      "sources": ["https://aaai.org/conference/aaai/aaai-27/main-technical-track-call/", "https://aaai.org/conference/aaai/aaai-27/review-process/"]
+    },
+    {
+      "id": "ijcai",
+      "name": "IJCAI",
+      "full_name": "International Joint Conference on Artificial Intelligence",
+      "kind": "conference",
+      "fields": ["ml", "cv", "nlp", "computing"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall evaluation",
+        "options": [
+          {"value": "6", "label": "Strong accept", "tone": "accept", "meaning": ""},
+          {"value": "5", "label": "Accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Weak accept", "tone": "borderline", "meaning": ""},
+          {"value": "3", "label": "Weak reject", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Strong reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [
+        {"key": "originality", "name": "Novelty and originality", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "correctness", "name": "Correctness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "significance", "name": "Significance and impact", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "clarity", "name": "Clarity and presentation", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {"name": "Confidence", "options": [
+        {"value": "5", "label": "expert"}, {"value": "4", "label": "confident"}, {"value": "3", "label": "fairly confident"},
+        {"value": "2", "label": "willing to defend"}, {"value": "1", "label": "educated guess"}]},
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": ""},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses"], "guidance": ""},
+        {"title": "Questions and suggestions", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": ""},
+        {"title": "Ethical concerns", "from": ["ethics"], "guidance": "The form asks reviewers to flag serious ethical concerns."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "IJCAI lets reviewers use generative AI only to improve the readability of their reports, after removing anything that identifies the submission. Uploading confidential submissions to a third-party system, including LLMs, that does not promise confidentiality is not allowed."
+      },
+      "notes": "IJCAI's review form is not public. Its selection criteria are novelty and originality, correctness, clarity, significance of results, potential impact and quality of presentation; the overall, score and confidence scales here are general conference scales.",
+      "sources": ["https://2026.ijcai.org/principles-of-peer-review-and-recognition"]
+    },
+    {
+      "id": "interspeech",
+      "name": "Interspeech",
+      "full_name": "Interspeech (ISCA)",
+      "kind": "conference",
+      "fields": ["speech", "nlp"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall recommendation",
+        "options": [
+          {"value": "6", "label": "Definite accept", "tone": "accept", "meaning": ""},
+          {"value": "5", "label": "Probable accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Marginal accept", "tone": "borderline", "meaning": ""},
+          {"value": "3", "label": "Marginal reject", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "Probable reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Definite reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [
+        {"key": "novelty", "name": "Novelty and originality", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "correctness", "name": "Technical correctness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "clarity", "name": "Clarity of presentation", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "references", "name": "Quality of references", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {"name": "Reviewer expertise", "options": [
+        {"value": "4", "label": "expert"}, {"value": "3", "label": "knowledgeable"}, {"value": "2", "label": "some familiarity"}, {"value": "1", "label": "outside my area"}]},
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": ""},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses"], "guidance": ""},
+        {"title": "Detailed comments to the authors", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "unknown",
+        "text": "Interspeech's reviewer guidelines were not publicly available when this list was checked. Check the reviewer instructions you received before sharing a submission."
+      },
+      "notes": "Interspeech's review form is not public. The six-point overall scale follows recent Interspeech forms; the sub-scores and expertise scale are Laurea's wording, typical of speech conferences.",
+      "sources": ["https://interspeech2026.org/"]
+    },
+    {
+      "id": "icassp",
+      "name": "ICASSP",
+      "full_name": "IEEE International Conference on Acoustics, Speech and Signal Processing",
+      "kind": "conference",
+      "fields": ["speech", "computing", "ml"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {
+        "name": "Overall evaluation",
+        "options": [
+          {"value": "5", "label": "Strong accept", "tone": "accept", "meaning": ""},
+          {"value": "4", "label": "Accept", "tone": "accept", "meaning": ""},
+          {"value": "3", "label": "Borderline", "tone": "borderline", "meaning": ""},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": ""},
+          {"value": "1", "label": "Strong reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [
+        {"key": "relevance", "name": "Importance/Relevance", "options": [
+          {"value": "4", "label": "Of broad interest"}, {"value": "3", "label": "Of sufficient interest"},
+          {"value": "2", "label": "Of limited interest"}, {"value": "1", "label": "Irrelevant", "meaning": "Implies rejection; justify it."}]},
+        {"key": "novelty", "name": "Novelty/Originality", "options": [
+          {"value": "4", "label": "Very original"}, {"value": "3", "label": "Moderately original"},
+          {"value": "2", "label": "Minor originality"}, {"value": "1", "label": "Has been done before", "meaning": "Implies rejection; give the references."}]},
+        {"key": "correctness", "name": "Technical Correctness", "options": [
+          {"value": "3", "label": "Technically correct"}, {"value": "2", "label": "Has minor errors"},
+          {"value": "1", "label": "Has major problems", "meaning": "Implies rejection; justify it."}]},
+        {"key": "validation", "name": "Experimental Validation", "options": [
+          {"value": "4", "label": "Sufficient validation"}, {"value": "3", "label": "Limited but convincing"},
+          {"value": "2", "label": "Lacking in some respects"}, {"value": "1", "label": "Insufficient validation", "meaning": "Implies rejection; justify it."}]},
+        {"key": "clarity", "name": "Clarity of Presentation", "options": [
+          {"value": "4", "label": "Very clear"}, {"value": "3", "label": "Clear enough"},
+          {"value": "2", "label": "Difficult to follow"}, {"value": "1", "label": "Very difficult to understand"}]},
+        {"key": "references", "name": "Reference to Prior Work", "options": [
+          {"value": "3", "label": "Excellent references"}, {"value": "2", "label": "References missing", "meaning": "List the missing references."},
+          {"value": "1", "label": "Does not cite relevant work", "meaning": "Implies rejection; only for well-known omitted work."}]}
+      ],
+      "confidence": {"name": "Confidence", "options": [
+        {"value": "4", "label": "Expert"}, {"value": "3", "label": "Knowledgeable"}, {"value": "2", "label": "Somewhat knowledgeable"}, {"value": "1", "label": "Not knowledgeable"}]},
+      "form_fields": [
+        {"title": "Justification of the evaluation", "from": ["summary", "strengths", "weaknesses"], "guidance": ""},
+        {"title": "Detailed comments to the authors", "from": ["questions", "changes_major", "changes_moderate", "changes_minor"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "ICASSP asks reviewers to keep all copies of the paper strictly confidential and not to use its ideas until it is public. It is an IEEE conference, and IEEE's reviewer guidance says not to use AI tools to generate or draft reviews."
+      },
+      "notes": "ICASSP's criteria, and the options its editorial policies name (such as Of broad interest, Has been done before, Has major problems), are ICASSP's own. Its full option lists and overall scale are not public; the other options and the overall scale are Laurea's wording.",
+      "sources": ["https://2026.ieeeicassp.org/editorial-policies/", "https://2025.ieeeicassp.org/editorial-procedures/"]
+    },
+    {
+      "id": "tmlr",
+      "name": "TMLR",
+      "full_name": "Transactions on Machine Learning Research",
+      "kind": "journal",
+      "fields": ["ml", "cv", "nlp"],
+      "form": "published",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Decision recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": "Meets both criteria: claims supported by accurate, convincing and clear evidence, and of interest to some of TMLR's audience."},
+          {"value": "leaning-accept", "label": "Leaning accept", "tone": "borderline", "meaning": ""},
+          {"value": "leaning-reject", "label": "Leaning reject", "tone": "borderline", "meaning": ""},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": "Fails at least one criterion."}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Summary of contributions", "from": ["summary"], "guidance": "In your own words, with the key strengths and weaknesses."},
+        {"title": "Strengths and weaknesses", "from": ["strengths", "weaknesses"], "guidance": ""},
+        {"title": "Requested changes", "from": ["changes_major", "changes_moderate", "changes_minor"], "guidance": "Mark each change as critical to acceptance or as one that would simply strengthen the work."},
+        {"title": "Broader impact concerns", "from": ["ethics", "limitations"], "guidance": ""},
+        {"title": "Questions", "from": ["questions"], "guidance": ""}
+      ],
+      "criteria": ["Are the claims made in the submission supported by accurate, convincing and clear evidence?", "Would at least some individuals in TMLR's audience be interested in knowing the findings of this paper?"],
+      "policy": {
+        "level": "permitted",
+        "text": "TMLR expects reviewers to read the paper and form their own opinion first; LLMs and other tools may then assist, for example to find definitions, polish grammar or check the review against TMLR's criteria."
+      },
+      "notes": "TMLR accepts papers that meet its two criteria even when the contribution is modest; novelty and significance are not criteria.",
+      "sources": ["https://jmlr.org/tmlr/reviewer-guide.html", "https://jmlr.org/tmlr/editorial-policies.html"]
+    },
+    {
+      "id": "jmlr",
+      "name": "JMLR",
+      "full_name": "Journal of Machine Learning Research",
+      "kind": "journal",
+      "fields": ["ml"],
+      "form": "published",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": ""},
+          {"value": "conditional-accept", "label": "Conditional accept", "tone": "revise", "meaning": "Give a precise list of changes that can easily be checked on resubmission."},
+          {"value": "revise-resubmit", "label": "Reject with encouragement to revise and resubmit", "tone": "revise", "meaning": ""},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Report", "from": ["summary", "strengths", "weaknesses", "questions"], "guidance": "Cover goals, description, evaluation, significance, related work and clarity."},
+        {"title": "Required changes", "from": ["changes_major", "changes_moderate", "changes_minor"], "guidance": ""}
+      ],
+      "policy": {
+        "level": "unknown",
+        "text": "JMLR's reviewer guide does not state a rule on AI tools. Treat the manuscript as confidential and check with the action editor before sharing it."
+      },
+      "sources": ["https://www.jmlr.org/reviewer-guide.html"]
+    },
+    {
+      "id": "ieee-tpami",
+      "name": "IEEE TPAMI",
+      "full_name": "IEEE Transactions on Pattern Analysis and Machine Intelligence",
+      "kind": "journal",
+      "fields": ["ml", "cv"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "ieee"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "ieee"}],
+      "policy": {"$ref": "ieee"},
+      "notes": "Uses IEEE's journal review process; the journal's own form is in ScholarOne and not public.",
+      "sources": ["https://journals.ieeeauthorcenter.ieee.org/submit-your-article-for-peer-review/become-an-ieee-reviewer/"]
+    },
+    {
+      "id": "ieee-tnnls",
+      "name": "IEEE TNNLS",
+      "full_name": "IEEE Transactions on Neural Networks and Learning Systems",
+      "kind": "journal",
+      "fields": ["ml"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "ieee"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "ieee"}],
+      "policy": {"$ref": "ieee"},
+      "notes": "Uses IEEE's journal review process; the journal's own form is in ScholarOne and not public.",
+      "sources": ["https://journals.ieeeauthorcenter.ieee.org/submit-your-article-for-peer-review/become-an-ieee-reviewer/"]
+    },
+    {
+      "id": "ieee-taslp",
+      "name": "IEEE/ACM TASLP",
+      "full_name": "IEEE/ACM Transactions on Audio, Speech and Language Processing",
+      "kind": "journal",
+      "fields": ["speech", "nlp"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "ieee"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "ieee"}],
+      "policy": {"$ref": "ieee"},
+      "notes": "Uses IEEE's journal review process; the journal's own form is in ScholarOne and not public.",
+      "sources": ["https://journals.ieeeauthorcenter.ieee.org/submit-your-article-for-peer-review/become-an-ieee-reviewer/"]
+    },
+    {
+      "id": "pattern-recognition",
+      "name": "Pattern Recognition",
+      "full_name": "Pattern Recognition (Elsevier)",
+      "kind": "journal",
+      "fields": ["ml", "cv"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "elsevier"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "elsevier"}],
+      "policy": {"$ref": "elsevier"},
+      "notes": "Uses Elsevier's review process; the journal's own questionnaire, if any, is in Editorial Manager.",
+      "sources": ["https://www.elsevier.com/reviewer/how-to-review"]
+    },
+    {
+      "id": "csl",
+      "name": "Computer Speech & Language",
+      "full_name": "Computer Speech & Language (Elsevier)",
+      "kind": "journal",
+      "fields": ["speech", "nlp"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "elsevier"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "elsevier"}],
+      "policy": {"$ref": "elsevier"},
+      "notes": "Uses Elsevier's review process; the journal's own questionnaire, if any, is in Editorial Manager.",
+      "sources": ["https://www.elsevier.com/reviewer/how-to-review"]
+    },
+    {
+      "id": "cpc",
+      "name": "Computer Physics Communications",
+      "full_name": "Computer Physics Communications (Elsevier)",
+      "kind": "journal",
+      "fields": ["physics", "computing"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "elsevier"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "elsevier"}],
+      "policy": {"$ref": "elsevier"},
+      "notes": "Uses Elsevier's review process; the journal's own questionnaire, if any, is in Editorial Manager.",
+      "sources": ["https://www.elsevier.com/reviewer/how-to-review"]
+    },
+    {
+      "id": "astronomy-computing",
+      "name": "Astronomy and Computing",
+      "full_name": "Astronomy and Computing (Elsevier)",
+      "kind": "journal",
+      "fields": ["astro", "computing", "ml"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "elsevier"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "elsevier"}],
+      "policy": {"$ref": "elsevier"},
+      "notes": "Uses Elsevier's review process; the journal's own questionnaire, if any, is in Editorial Manager.",
+      "sources": ["https://www.elsevier.com/reviewer/how-to-review"]
+    },
+    {
+      "id": "physical-review",
+      "name": "Physical Review journals",
+      "full_name": "Physical Review Letters and the Physical Review journals (APS)",
+      "kind": "journal",
+      "fields": ["physics", "astro"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Publish as is", "tone": "accept", "meaning": ""},
+          {"value": "minor", "label": "Publish after minor revision", "tone": "revise", "meaning": ""},
+          {"value": "major", "label": "Reconsider after major revision", "tone": "revise", "meaning": "Say whether you want to see the resubmission."},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Report", "from": ["summary", "strengths", "weaknesses", "questions", "changes_major", "changes_moderate", "changes_minor", "limitations"], "guidance": "For editors and authors. Assess significance and interest to the community as well as validity; for Physical Review Letters, also whether the work is important and of broad interest."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "APS does not permit uploading manuscripts or reports, in whole or in part, to unrestricted AI tools. AI may help you write a review, but not replace your judgement; tools are allowed only if they do not train on uploaded material, and use beyond light editing must be disclosed to the editors."
+      },
+      "notes": "The APS referee server has Assessment, Report, Recommendation and Comments for the Editors sections; the exact recommendation labels are not public.",
+      "sources": ["https://journals.aps.org/prl/referees", "https://journals.aps.org/authors/appropriate-use-ai-tools"]
+    },
+    {
+      "id": "mnras",
+      "name": "MNRAS",
+      "full_name": "Monthly Notices of the Royal Astronomical Society",
+      "kind": "journal",
+      "fields": ["astro", "physics"],
+      "form": "partial",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": ""},
+          {"value": "minor", "label": "Minor revision", "tone": "revise", "meaning": ""},
+          {"value": "moderate", "label": "Moderate revision", "tone": "revise", "meaning": ""},
+          {"value": "major", "label": "Major revision", "tone": "revise", "meaning": ""},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": ""}
+        ]
+      },
+      "scores": [],
+      "confidence": null,
+      "form_fields": [
+        {"title": "Report to the authors", "from": ["summary", "strengths", "weaknesses", "questions", "changes_major", "changes_moderate", "changes_minor", "limitations"], "guidance": "MNRAS requires original research with clear novelty, significant results, clear presentation in good scientific English, and a subject of interest to its readers."}
+      ],
+      "policy": {
+        "level": "unknown",
+        "text": "MNRAS's public instructions do not state a rule on referees' use of AI tools. Treat the manuscript as confidential and check with the editor before sharing it."
+      },
+      "notes": "The options follow the editor decisions MNRAS lists; the referee form itself is not public.",
+      "sources": ["https://academic.oup.com/mnras/pages/general_instructions"]
+    },
+    {
+      "id": "aas",
+      "name": "ApJ / AJ",
+      "full_name": "The Astrophysical Journal and The Astronomical Journal (AAS)",
+      "kind": "journal",
+      "fields": ["astro", "physics"],
+      "form": "generic",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "journal"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "journal"}],
+      "policy": {
+        "level": "unknown",
+        "text": "The AAS referee pages could not be checked when this list was made. Check the AAS referee instructions before sharing a manuscript."
+      },
+      "notes": "Uses a general journal recommendation scale.",
+      "sources": ["https://journals.aas.org/"]
+    },
+    {
+      "id": "aanda",
+      "name": "A&A",
+      "full_name": "Astronomy & Astrophysics",
+      "kind": "journal",
+      "fields": ["astro", "physics"],
+      "form": "generic",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "journal"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "journal"}],
+      "policy": {
+        "level": "unknown",
+        "text": "A&A's referee pages could not be checked when this list was made. Check A&A's referee instructions before sharing a manuscript."
+      },
+      "notes": "Uses a general journal recommendation scale.",
+      "sources": ["https://www.aanda.org/"]
+    },
+    {
+      "id": "mlst",
+      "name": "Machine Learning: Science and Technology",
+      "full_name": "Machine Learning: Science and Technology (IOP Publishing)",
+      "kind": "journal",
+      "fields": ["ml", "physics", "astro"],
+      "form": "generic",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "journal"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "journal"}],
+      "policy": {
+        "level": "unknown",
+        "text": "IOP's reviewer pages could not be checked when this list was made. Check IOP's reviewer guidance before sharing a manuscript."
+      },
+      "notes": "Uses a general journal recommendation scale.",
+      "sources": ["https://iopscience.iop.org/journal/2632-2153"]
+    },
+    {
+      "id": "generic-conference",
+      "name": "Other conference",
+      "full_name": "A conference not in this list",
+      "kind": "conference",
+      "fields": [],
+      "form": "generic",
+      "form_year": 2026,
+      "anonymity": "double",
+      "recommendation": {
+        "name": "Overall recommendation",
+        "options": [
+          {"value": "6", "label": "Strong accept", "tone": "accept", "meaning": "Technically excellent, with high impact; among the best papers at the venue."},
+          {"value": "5", "label": "Accept", "tone": "accept", "meaning": "Technically solid and clearly of value to the venue's audience."},
+          {"value": "4", "label": "Weak accept", "tone": "borderline", "meaning": "Merits outweigh the weaknesses, but not by much."},
+          {"value": "3", "label": "Weak reject", "tone": "borderline", "meaning": "Weaknesses outweigh the merits, but not by much."},
+          {"value": "2", "label": "Reject", "tone": "reject", "meaning": "Flaws in soundness, evaluation or novelty that rule it out."},
+          {"value": "1", "label": "Strong reject", "tone": "reject", "meaning": "Fundamentally flawed, known results, or out of scope."}
+        ]
+      },
+      "scores": [
+        {"key": "soundness", "name": "Soundness", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "presentation", "name": "Presentation", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]},
+        {"key": "contribution", "name": "Contribution", "options": [{"value": "4", "label": "excellent"}, {"value": "3", "label": "good"}, {"value": "2", "label": "fair"}, {"value": "1", "label": "poor"}]}
+      ],
+      "confidence": {"name": "Confidence", "options": [
+        {"value": "5", "label": "absolutely certain"}, {"value": "4", "label": "confident"}, {"value": "3", "label": "fairly confident"},
+        {"value": "2", "label": "willing to defend"}, {"value": "1", "label": "educated guess"}]},
+      "form_fields": [
+        {"title": "Summary", "from": ["summary"], "guidance": ""},
+        {"title": "Strengths", "from": ["strengths"], "guidance": ""},
+        {"title": "Weaknesses", "from": ["weaknesses"], "guidance": ""},
+        {"title": "Questions for the authors", "from": ["questions"], "guidance": ""},
+        {"title": "Suggestions for improvement", "from": ["changes_major", "changes_moderate", "changes_minor"], "guidance": ""},
+        {"title": "Limitations and ethics", "from": ["limitations", "ethics"], "guidance": ""}
+      ],
+      "policy": {"level": "unknown", "text": "Check this venue's reviewer guidelines before sharing a submission."},
+      "sources": []
+    },
+    {
+      "id": "generic-journal",
+      "name": "Other journal",
+      "full_name": "A journal not in this list",
+      "kind": "journal",
+      "fields": [],
+      "form": "generic",
+      "form_year": 2026,
+      "anonymity": "single",
+      "recommendation": {"$ref": "journal"},
+      "scores": [],
+      "confidence": null,
+      "form_fields": [{"$ref": "journal"}],
+      "policy": {"level": "unknown", "text": "Check this journal's reviewer guidelines before sharing a manuscript."},
+      "sources": []
+    }
+  ],
+  "shared": {
+    "ieee": {
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": "Meets IEEE standards for publication with no changes needed."},
+          {"value": "minor", "label": "Minor revision", "tone": "revise", "meaning": "Small adjustments needed."},
+          {"value": "major", "label": "Major revision", "tone": "revise", "meaning": "Significant revisions required."},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": "Fundamental issues or unaddressed prior concerns."}
+        ]
+      },
+      "form_fields": [
+        {"title": "Comments to the author", "from": ["summary", "strengths", "weaknesses", "questions", "changes_major", "changes_moderate", "changes_minor", "limitations"], "guidance": "IEEE suggests: summary, major concerns, minor concerns, and overall feedback with strengths, weaknesses and the recommendation. Avoid excessive or irrelevant reference suggestions."}
+      ],
+      "policy": {
+        "level": "prohibited",
+        "text": "IEEE says not to use AI tools to generate or draft reviews: articles under review are confidential, and processing them through a public AI platform is treated as a breach of confidentiality."
+      }
+    },
+    "elsevier": {
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": "Accept without revision."},
+          {"value": "minor", "label": "Minor revision", "tone": "revise", "meaning": ""},
+          {"value": "major", "label": "Major revision", "tone": "revise", "meaning": "Recommending a revision means agreeing to review the revised version."},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": "Explain your reasoning in the report."}
+        ]
+      },
+      "form_fields": [
+        {"title": "Comments to the author", "from": ["summary", "strengths", "weaknesses", "questions", "changes_major", "changes_moderate", "changes_minor", "limitations"], "guidance": "A short summary, your main impressions, then specific comments; say whether the research is novel or important for the journal or field."}
+      ],
+      "policy": {
+        "level": "restricted",
+        "text": "Elsevier says reviewers should not upload a submitted manuscript, or any part of it, into an AI tool, as this may breach the authors' confidentiality. AI may only support the reviewer, for example to improve the language of a report, and its use should be disclosed."
+      }
+    },
+    "journal": {
+      "recommendation": {
+        "name": "Recommendation",
+        "options": [
+          {"value": "accept", "label": "Accept", "tone": "accept", "meaning": "Publishable as it stands, or with trivial edits."},
+          {"value": "minor", "label": "Minor revision", "tone": "revise", "meaning": "Sound and of interest; needs changes the editor can check without another full review."},
+          {"value": "major", "label": "Major revision", "tone": "revise", "meaning": "Potentially publishable, but needs substantial work, such as new analyses or experiments, before another review."},
+          {"value": "reject", "label": "Reject", "tone": "reject", "meaning": "Flaws in soundness, novelty or scope that a revision could not fix."}
+        ]
+      },
+      "form_fields": [
+        {"title": "Comments to the author", "from": ["summary", "strengths", "weaknesses", "questions", "changes_major", "changes_moderate", "changes_minor", "limitations"], "guidance": ""}
+      ]
+    }
+  }
+}

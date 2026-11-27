@@ -24,13 +24,14 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
 
 | Path | Purpose |
 |---|---|
-| `mac/Sources/` | SwiftUI interface, setup, settings, report editor, PDF viewer, calibration and teaching |
+| `mac/Sources/` | SwiftUI interface, setup, settings, report and review editors, PDF viewer, calibration and teaching |
 | `mac/build.sh` | Universal build, ad hoc signing and DMG packaging |
-| `engine/server.py` | Loopback service that runs the selected engine (Claude Code, Codex or Gemini CLI) and manages report files, grading scales, calibration and taught standards |
+| `engine/server.py` | Loopback service that runs the selected engine (Claude Code, Codex or Gemini CLI) and manages reports and reviews, grading scales, venues, calibration and taught standards |
 | `skill/SKILL.md` | Examiner workflow: three independent readings, the chair, report content and writing style |
 | `skill/references/` | Marking rubric and default grading scale, field checklists and house preferences |
 | `skill/templates/` | Report template (owned by the app: the editor, checker and Word export depend on its sections) |
-| `skill/scripts/` | PDF extraction and rendering, integrity and report checks, Word generation and benchmarking |
+| `skill/paper/` | Paper review workflow (`SKILL.md`), its rubric, the review template, and `venues.json`, the venue database |
+| `skill/scripts/` | PDF extraction and rendering, integrity, report and review checks, Word generation and benchmarking |
 | `dev/` | Offline checks (`check.sh`, `engine_checks.py`) and the sample report fixture |
 
 ## Local development
@@ -43,8 +44,10 @@ The build produces a universal app at `mac/build/Laurea.app` and a DMG in `dist/
   ```
 - **Gemini CLI** is installed from the official npm package into `bin/gemini-cli` with a launcher, using Node.js 20+ (Laurea downloads the LTS release when none is found). Its sign-in lives in `engine-accounts/gemini/.gemini`. Each run gets a private `GEMINI_CLI_HOME` holding Laurea's settings for that run (allowed tools and scripts, sandboxed shell, no telemetry, extensions or MCP servers) and a copy of the sign-in; a refreshed sign-in is copied back and the folder is deleted. Runs decline Google's consent prompt, so an expired sign-in fails at once instead of waiting.
 - **Add a field** by following the template in [the field guide](skill/references/domains.md).
+- **Add or update a venue** in [`skill/paper/venues.json`](skill/paper/venues.json). Each venue has a stable `id` (never change one: reviews refer to it), its kind, its recommendation scale best first with a `tone` per option (`accept`, `borderline`, `revise` or `reject`), its scores and confidence scale, `form_fields` that map the review's parts onto the venue's own form, and its reviewer `policy` (`permitted`, `disclose`, `restricted`, `prohibited` or `unknown`, with a plain-language summary). The policy is reference data: the app shows one general note on refereeing instead of each venue's policy. Set `form` to `published` only when the scale and fields come from the venue's own public pages, `partial` when the form is not public, and list the `sources`. Journals that share a publisher's process can refer to a shared form with `{"$ref": "ieee"}`. Update `checked` at the top, then run `bash dev/check.sh`: it validates every venue.
 - **Run the engine on its own** with `DE_PORT=8765 python3 engine/server.py`. It listens on `127.0.0.1`. Send the `X-DE-App` header with the value of `DE_APP_TOKEN`, which defaults to `1` for a standalone engine.
 - **Capture screenshots** with `DE_SNAPSHOT_DIR=/path/to/screenshots mac/build/Laurea.app/Contents/MacOS/Laurea`. Add `DE_SNAPSHOT_DARK=1` for dark mode.
+- **Paper reviews** share the extraction, rendering and checking scripts with examinations. A review's folder has `kind: review` in `status.json`, a `venue.json` snapshot of its venue, `<stem>_paper_review.md` and `<stem>_review_work/`. Paper calibration is one tendency across venues, stored as a share of each scale's span in `paper-calibration-history.json`.
 - **Run the skill in Claude Code** by linking `skill/` to `~/.claude/skills/dissertation-examiner`, then `/dissertation-examiner path/to/thesis.pdf --level msc`. Without Laurea's run instructions it uses the defaults: the University of Malta scale, the default weights and a 350-word summary. Standalone runs can enable external research for citation verification and repository checks.
 
 ## Benchmark draft marks

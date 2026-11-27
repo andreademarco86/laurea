@@ -17,7 +17,7 @@ struct WelcomeView: View {
                 VStack(spacing: 8) {
                     Text("Welcome to Laurea")
                         .font(.system(size: 34, weight: .bold))
-                    Text("Fair, thorough examiner's reports, ready for your review and signature.")
+                    Text("Fair, thorough examiner's reports and paper reviews, ready for your judgement.")
                         .font(.title3)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
@@ -28,26 +28,60 @@ struct WelcomeView: View {
                     FeatureRow(icon: "books.vertical.fill", tint: .orange, title: "Knows the field",
                                text: "Searches the current literature, verifies references and screens for originality.")
                     FeatureRow(icon: "dial.medium.fill", tint: .green, title: "Learns your standard",
-                               text: "Adjust the marks once and Laurea calibrates the next report to you, for BSc, MSc and PhD.")
-                    FeatureRow(icon: "signature", tint: .purple, title: "Ready to sign",
-                               text: "Viva questions, corrections and your signature, exported to Word.")
+                               text: "Adjust the marks or the recommendation, and Laurea calibrates the next draft to you.")
+                    FeatureRow(icon: "signature", tint: .purple, title: "Ready to submit",
+                               text: "Signed examiner's reports in Word, and reviews laid out as the venue's own form.")
                 }
                 .frame(maxWidth: 460)
-                VStack(spacing: 10) {
-                    Button { model.chooseAndImport() } label: {
-                        Text("Add Dissertation…").frame(minWidth: 200)
+                HStack(spacing: 16) {
+                    StartCard(icon: "graduationcap", tint: .indigo, title: "Examine a Dissertation",
+                              text: "BSc, MSc or PhD: marks, viva questions and corrections.", shortcut: "⌘N") {
+                        model.chooseAndImport()
                     }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .keyboardShortcut(.defaultAction)
-                    .disabled(!model.engineReady)
-                    Text("or drop PDFs anywhere in this window")
-                        .font(.callout).foregroundStyle(.tertiary)
+                    StartCard(icon: "doc.text.magnifyingglass", tint: .teal, title: "Review a Paper",
+                              text: "For a journal or conference: recommendation, scores and changes.", shortcut: "⇧⌘N") {
+                        model.chooseAndImport(review: true)
+                    }
                 }
+                .frame(maxWidth: 560)
+                .disabled(!model.engineReady)
+                Text("or drop PDFs anywhere in this window")
+                    .font(.callout).foregroundStyle(.tertiary)
             }
             .padding(48)
             .frame(maxWidth: .infinity, minHeight: 560)
         }
+    }
+}
+
+struct StartCard: View {
+    let icon: String
+    let tint: Color
+    let title: String
+    let text: String
+    let shortcut: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 26))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(tint.gradient)
+                Text(title).font(.headline)
+                Text(text).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Text(shortcut).font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+            .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(.separator.opacity(0.6)))
+            .contentShape(.rect(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(text)
     }
 }
 
@@ -190,7 +224,7 @@ struct EngineStatusBar: View {
         HStack(spacing: 8) {
             if running > 0 {
                 ProgressView().controlSize(.mini)
-                Text("Examining \(running) dissertation\(running == 1 ? "" : "s")…")
+                Text("\(running) in progress…")
             } else {
                 Circle()
                     .fill(model.engineError != nil ? Color.red : model.engineReady ? Color.green : Color.orange)
@@ -227,9 +261,11 @@ enum SystemIntegration {
 
     static func notifyReady(_ exam: ExamSummary) {
         let c = UNMutableNotificationContent()
-        c.title = exam.state == "done" ? "Report ready" : "Examination needs attention"
+        c.title = exam.state == "done" ? (exam.isReview ? "Review ready" : "Report ready")
+            : (exam.isReview ? "Review needs attention" : "Examination needs attention")
         var body = exam.displayName
-        if let t = exam.total, exam.state == "done" { body += " · \(Fmt.mark(t)) / \(exam.dissertation_max ?? 90)" }
+        if exam.isReview, let r = exam.recommendation, !r.isEmpty, exam.state == "done" { body += " · \(r)" }
+        if !exam.isReview, let t = exam.total, exam.state == "done" { body += " · \(Fmt.mark(t)) / \(exam.dissertation_max ?? 90)" }
         c.body = body
         c.sound = .default
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: exam.id + "-" + exam.state, content: c, trigger: nil))
@@ -244,7 +280,7 @@ enum SystemIntegration {
     @MainActor
     static func showAbout() {
         let credits = NSMutableAttributedString(
-            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations in AI, computing and the computational sciences.\n\nReviewed, calibrated and signed by you.",
+            string: "Fair, thorough examiner's reports for BSc, MSc and PhD dissertations, and reviews of journal and conference papers, in AI, computing and the computational sciences.\n\nReviewed, calibrated and signed by you.",
             attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.secondaryLabelColor])
         let p = NSMutableParagraphStyle(); p.alignment = .center
         credits.addAttribute(.paragraphStyle, value: p, range: NSRange(location: 0, length: credits.length))

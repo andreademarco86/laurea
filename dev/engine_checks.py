@@ -194,5 +194,79 @@ fixed = sv.repair_labels(guessed)
 check("guessed page numbers that break the sequence are repaired",
       fixed[3:7] == ["iv", "v", "vi", "vii"] and fixed[-4:-2] == ["76", "77"] and sv.repair_labels(["1", "2", "3"]) == ["1", "2", "3"])
 
+# Paper reviews: venues, the review's round trip, its checker, the copy-ready form, calibration and export
+venues = sv.load_venues()
+problems = [p for v in venues for p in sv.venue_problems(v)]
+check("every bundled venue is valid, with shared forms resolved", len(venues) >= 20 and not problems, "; ".join(problems[:3]))
+check("venue ids are unique", len({v["id"] for v in venues}) == len(venues))
+check("the venue list has conferences, journals and general entries",
+      {"neurips", "icml", "arr", "tmlr", "ieee-tpami", "generic-conference", "generic-journal"} <= {v["id"] for v in venues})
+check("a venue with an option off its own scale is rejected",
+      sv.venue_problems({**venues[0], "recommendation": {"name": "x", "options": [{"value": "1", "label": "a", "tone": "maybe"}]}}))
+neurips = sv.venue_by_id("neurips")
+review = {"paper": "Robust Widgets", "venue": "NeurIPS", "recommendation": "4", "confidence": "3",
+          "summary": "One.\n\nTwo.\n\nThree.", "scores": {"quality": "3", "clarity": "2", "significance": "3", "originality": "3"},
+          "strengths": ["The ablation isolates the module (§4.3, Table 2)."], "weaknesses": ["No variance over seeds (§5.1, Table 4)."],
+          "questions": ["Does the gain hold across seeds? (W1)"],
+          "changes": {"major": ["§5.1: single seed → Report mean and standard deviation over five seeds. (W1)"], "moderate": [],
+                      "minor": ["p. 3: typo in Eq. 2 → Fix it."]},
+          "limitations": "", "ethics": "", "confidential": "The PDF contains hidden text on p. 2."}
+md = sv.write_review(review, neurips)
+check("a review survives a write/parse round trip", sv.parse_review(md, neurips) == review)
+check("an empty tier is written as 'None required.'", "### Moderate\n\nNone required." in md)
+form = sv.review_form(review, neurips)
+check("the copy-ready form follows the venue's fields and ratings",
+      [f["title"] for f in form["fields"]][:2] == ["Summary", "Strengths and Weaknesses"]
+      and "Overall: 4: Borderline accept" in form["text"] and "hidden text" in form["text"])
+tmlr = sv.venue_by_id("tmlr")
+check("a venue without scores or confidence writes and parses",
+      sv.parse_review(sv.write_review({**review, "recommendation": "leaning-accept", "scores": {}, "confidence": ""}, tmlr), tmlr)["recommendation"] == "leaning-accept")
+
+rd = sv.EXAMS / "20261127-120000-Widgets"
+rd.mkdir(parents=True)
+(rd / "Widgets.pdf").write_bytes(b"%PDF-1.4\n")
+sv.write_json(rd / "status.json", {"state": "done", "pdf": "Widgets.pdf", "kind": "review", "venue": "neurips"})
+sv.write_json(rd / "venue.json", neurips)
+check("a review's files are named for a review", sv.report_path(rd).name == "Widgets_paper_review.md"
+      and sv.work_dir(rd).name == "Widgets_review_work")
+sv.report_path(rd).write_text(md, encoding="utf-8")
+out = sv.check_review(rd)
+check("the review checker runs against the venue's form", "recommendation: 4: Borderline accept" in out["check"], out["check"][-300:])
+bad = md.replace("| **Recommendation** | 4: Borderline accept |", "| **Recommendation** | 7: Superb |")
+sv.report_path(rd).write_text(bad, encoding="utf-8")
+out = sv.check_review(rd)
+check("the review checker rejects a recommendation off the venue's scale", not out["check_ok"] and "not an option" in out["check"])
+sv.report_path(rd).write_text(md, encoding="utf-8")
+info = sv.exam_summary(rd)
+check("the sidebar lists a review with its venue and recommendation",
+      info["kind"] == "review" and info["venue"] == "NeurIPS" and info["recommendation"] == "Borderline accept" and info["tone"] == "borderline")
+check("review phases are the review's own", [k for k, _ in sv.phases_for(rd)][-1] == "verify"
+      and "Three reviewers read the paper" in dict(sv.phases_for(rd)).values())
+
+sv.snapshot_review_proposal(rd)
+first = sv.record_paper_calibration(rd, {**review, "recommendation": "5"})
+entry = sv.read_json(sv.PAPER_HISTORY, [])[0]
+check("a changed recommendation is recorded as steps and a share of the scale",
+      entry["steps"] == 1 and abs(entry["delta"] - 0.2) < 1e-9 and first["n"] == 1 and not first["ready"])
+history = [{"exam_id": f"x{i}", "date": sv.dt.date.today().isoformat(), "delta": 0.2} for i in range(2)]
+check("two reviews moved the same way do not yet learn a tendency", not sv.compute_paper_offset(history)["ready"])
+history.append({"exam_id": "x2", "date": sv.dt.date.today().isoformat(), "delta": 0.4})
+learned = sv.compute_paper_offset(history)
+check("three reviews moved the same way learn a favourable tendency", learned["ready"] and learned["shift"] > 0, str(learned))
+check("the run's calibration notes describe the tendency", "more favourable" in sv.paper_calibration_text(history))
+sv.forget_paper_calibration(rd.name)
+check("deleting a review removes it from paper calibration", sv.read_json(sv.PAPER_HISTORY, []) == [])
+
+path, problem = sv.export_review(rd)
+check("a review exports to Word without a signature or viva", path is not None and path.name == "Widgets_paper_review.docx", str(problem))
+skill = Path(tmp) / "review-skill"
+sv.prepare_exam_skill(skill, rd)
+check("a review run gets the paper workflow, its template and no examiner identity",
+      (skill / "paper" / "SKILL.md").is_file() and (skill / "paper" / "templates" / "paper-review.md").is_file()
+      and not (skill / "config.json").exists() and "papers" in (skill / "references" / "calibration-notes.md").read_text())
+prompt = sv.build_review_prompt("Review it.", skill)
+check("the review prompt points at the paper workflow and the venue form",
+      "paper/SKILL.md" in prompt and "venue.json" in prompt and "identify the authors" in prompt)
+
 print(f"\nengine checks: {'all passed' if not failures else str(len(failures)) + ' failed'}")
 sys.exit(1 if failures else 0)

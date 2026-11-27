@@ -19,10 +19,18 @@ struct ContentView: View {
         }
         .dropDestination(for: URL.self) { urls, _ in
             let pdfs = urls.filter { $0.pathExtension.lowercased() == "pdf" }
-            Task { for u in pdfs { await model.importPDF(u) } }
+            if !pdfs.isEmpty { model.dropped(pdfs) }
             return !pdfs.isEmpty
         }
-        .alert("Save changes to the examiner's report?", isPresented: $model.showDiscardAlert) {
+        .confirmationDialog(model.pendingImports.count == 1 ? "What is this PDF?" : "What are these \(model.pendingImports.count) PDFs?",
+                            isPresented: $model.showImportChoice) {
+            Button("Dissertations to Examine") { model.importPending(review: false) }
+            Button("Papers to Review") { model.importPending(review: true) }
+            Button("Cancel", role: .cancel) { model.pendingImports = [] }
+        } message: {
+            Text("Dissertations get an examiner's report with marks. Papers get a review for a journal or conference.")
+        }
+        .alert(model.isReview ? "Save changes to the review?" : "Save changes to the examiner's report?", isPresented: $model.showDiscardAlert) {
             Button("Save") { Task { await model.confirmDiscard(save: true) } }
             Button("Don't Save", role: .destructive) { Task { await model.confirmDiscard(save: false) } }
             Button("Cancel", role: .cancel) { model.pendingSelection = nil }
@@ -37,7 +45,7 @@ struct ContentView: View {
         .confirmationDialog("Move “\(model.deleteTargetName)” to the Trash?", isPresented: $model.showDeleteConfirm) {
             Button("Move to Trash", role: .destructive) { Task { await model.deleteSelected() } }
         } message: {
-            Text("Its PDF, report and working notes are moved to the Trash, and it is removed from your calibration. You can restore the files from the Trash.")
+            Text("Its PDF, report or review and working notes are moved to the Trash, and it is removed from your calibration. You can restore the files from the Trash.")
         }
         .sheet(isPresented: $model.showRevise) { ReviseSheet() }
         .sheet(isPresented: $model.showSetup) { SetupView().environment(model) }
@@ -58,18 +66,16 @@ struct SidebarView: View {
                 Label("Calibration", systemImage: "dial.medium")
                     .tag(SidebarItem.calibration)
             }
-            Section("Examinations") {
-                ForEach(model.filteredExams) { exam in
-                    ExamRow(exam: exam)
-                        .tag(SidebarItem.exam(exam.id))
-                        .contextMenu {
-                            Button("Show in Finder") {
-                                NSWorkspace.shared.activateFileViewerSelecting([model.backend.examsDir.appendingPathComponent(exam.id)])
-                            }
-                            Divider()
-                            Button("Move to Trash…", role: .destructive) { model.confirmDelete(exam.id) }
-                                .disabled(exam.state == "running")
-                        }
+            let exams = model.filteredExams.filter { !$0.isReview }
+            let reviews = model.filteredExams.filter(\.isReview)
+            if !exams.isEmpty || reviews.isEmpty {
+                Section("Examinations") {
+                    ForEach(exams) { exam in row(exam) }
+                }
+            }
+            if !reviews.isEmpty {
+                Section("Paper Reviews") {
+                    ForEach(reviews) { review in row(review) }
                 }
             }
         }
@@ -82,19 +88,40 @@ struct SidebarView: View {
         .overlay {
             if model.engineReady && model.exams.isEmpty {
                 ContentUnavailableView {
-                    Label("No Examinations", systemImage: "doc.text.magnifyingglass")
+                    Label("Nothing Here Yet", systemImage: "doc.text.magnifyingglass")
                 } description: {
-                    Text("Drag a dissertation PDF here, or click the Add button.")
+                    Text("Drag a dissertation or paper PDF here, or click the Add button.")
                 }
             }
         }
         .toolbar {
             ToolbarItem {
-                Button { model.chooseAndImport() } label: { Label("New Examination", systemImage: "plus") }
-                    .help("Add a dissertation PDF to examine (⌘N)")
-                    .disabled(!model.engineReady)
+                Menu {
+                    Button("New Examination…") { model.chooseAndImport() }
+                    Button("New Paper Review…") { model.chooseAndImport(review: true) }
+                } label: {
+                    Label("New", systemImage: "plus")
+                } primaryAction: {
+                    model.chooseAndImport()
+                }
+                .menuIndicator(.hidden)
+                .help("Add a dissertation to examine (⌘N); hold for a paper to review (⇧⌘N)")
+                .disabled(!model.engineReady)
             }
         }
+    }
+
+    private func row(_ exam: ExamSummary) -> some View {
+        ExamRow(exam: exam)
+            .tag(SidebarItem.exam(exam.id))
+            .contextMenu {
+                Button("Show in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([model.backend.examsDir.appendingPathComponent(exam.id)])
+                }
+                Divider()
+                Button("Move to Trash…", role: .destructive) { model.confirmDelete(exam.id) }
+                    .disabled(exam.state == "running")
+            }
     }
 }
 
@@ -106,20 +133,31 @@ struct ExamRow: View {
         // On the selected (accent-coloured) row, secondary text is plain white at reduced opacity.
         let secondary = prominence == .increased ? AnyShapeStyle(Color.white.opacity(0.85)) : AnyShapeStyle(.secondary)
         VStack(alignment: .leading, spacing: 2) {
-            Text(exam.displayName).font(.headline).lineLimit(1)
-            if !exam.title.isEmpty {
+            Text(exam.displayName).font(.headline).lineLimit(exam.isReview ? 2 : 1)
+            if exam.isReview {
+                if let v = exam.venue, exam.state != "new" {
+                    Text(v).font(.subheadline).foregroundStyle(secondary).lineLimit(1)
+                }
+            } else if !exam.title.isEmpty {
                 Text(exam.title).font(.subheadline).foregroundStyle(secondary).lineLimit(2)
             }
             if exam.state == "running" {
                 SidebarProgress(exam: exam)
             }
             HStack(spacing: 6) {
-                StatusBadge(state: exam.state)
-                if let l = exam.level, let lv = Level(rawValue: l), exam.state != "new" {
-                    LevelCapsule(level: lv)
+                StatusBadge(state: exam.state, review: exam.isReview)
+                if exam.isReview {
+                    Spacer()
+                    if let r = exam.recommendation, !r.isEmpty {
+                        ToneCapsule(text: r, tone: exam.tone)
+                    }
+                } else {
+                    if let l = exam.level, let lv = Level(rawValue: l), exam.state != "new" {
+                        LevelCapsule(level: lv)
+                    }
+                    Spacer()
                 }
-                Spacer()
-                if let t = exam.total {
+                if !exam.isReview, let t = exam.total {
                     Text(exam.viva.map { "\(Fmt.mark(t + $0))/100" } ?? "\(Fmt.mark(t))/\(exam.dissertation_max ?? 90)")
                         .font(.caption.monospacedDigit()).foregroundStyle(secondary)
                 }
@@ -159,17 +197,18 @@ struct SidebarProgress: View {
         .controlSize(.mini)
         .padding(.vertical, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Examination progress \(Int((exam.progress ?? 0) * 100)) percent")
+        .accessibilityLabel("\(exam.isReview ? "Review" : "Examination") progress \(Int((exam.progress ?? 0) * 100)) percent")
     }
 }
 
 struct StatusBadge: View {
     let state: String
+    var review = false
     @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
         let (text, tint, icon): (String, Color, String) = switch state {
-        case "running": ("Examining", .accentColor, "hourglass")
+        case "running": (review ? "Reviewing" : "Examining", .accentColor, "hourglass")
         case "done": ("Ready", .green, "checkmark.circle.fill")
         case "error", "interrupted", "cancelled": ("Needs attention", .orange, "exclamationmark.triangle.fill")
         default: ("Not started", .secondary, "circle.dashed")
@@ -231,15 +270,23 @@ struct ExamView: View {
         Group {
             if detail.state == "running" {
                 RunningView(detail: detail)
+            } else if detail.isReview {
+                if model.reviewDraft == nil { ReviewStartView(detail: detail) } else { ReviewEditor() }
             } else if model.draft == nil {
                 StartView(detail: detail)
             } else {
                 ReportEditor()
             }
         }
-        .navigationTitle(model.draft?.student.isEmpty == false ? model.draft!.student : (detail.status.original_name ?? detail.pdf))
-        .navigationSubtitle(model.draft?.title ?? "")
+        .navigationTitle(title)
+        .navigationSubtitle(detail.isReview ? (detail.venue_form?.name ?? "") : (model.draft?.title ?? ""))
         .toolbar { ExamToolbar(detail: detail) }
+    }
+
+    private var title: String {
+        let file = detail.status.original_name ?? detail.pdf
+        if detail.isReview { return model.reviewDraft?.paper.isEmpty == false ? model.reviewDraft!.paper : file }
+        return model.draft?.student.isEmpty == false ? model.draft!.student : file
     }
 }
 
@@ -249,25 +296,31 @@ struct ExamToolbar: ToolbarContent {
 
     var body: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            if model.draft != nil && detail.state != "running" {
-                Button { model.showRevise = true } label: { Label("Revise Report", systemImage: "pencil.line") }
-                    .help("Describe a change to the report (⇧⌘R)")
-                Button { Task { await model.exportWord() } } label: {
-                    Label("Export Report", systemImage: "square.and.arrow.up")
+            if model.hasDraft && detail.state != "running" {
+                let review = detail.isReview
+                Button { model.showRevise = true } label: { Label(review ? "Revise Review" : "Revise Report", systemImage: "pencil.line") }
+                    .help(review ? "Describe a change to the review (⇧⌘R)" : "Describe a change to the report (⇧⌘R)")
+                if review {
+                    Button { Task { await model.copyReviewForm() } } label: { Label("Copy Review", systemImage: "doc.on.clipboard") }
+                        .help("Copy the whole review, laid out as the venue's form (⇧⌘C)")
+                } else {
+                    Button { Task { await model.exportWord() } } label: {
+                        Label("Export Report", systemImage: "square.and.arrow.up")
+                    }
+                    .help(model.exportBlocker ?? "Export the signed Word report with the viva and final marks (⇧⌘E)")
                 }
-                .help(model.exportBlocker ?? "Export the signed Word report with the viva and final marks (⇧⌘E)")
                 Button { Task { await model.save() } } label: {
                     if model.isSaving { ProgressView().controlSize(.small) } else { Label("Save", systemImage: "checkmark") }
                 }
-                .help("Save the report (⌘S)")
+                .help(review ? "Save the review (⌘S)" : "Save the report (⌘S)")
                 .disabled(!model.canSave)
             }
             if detail.state != "running" {
                 Button(role: .destructive) { model.confirmDelete() } label: { Label("Move to Trash", systemImage: "trash") }
-                    .help("Move this examination to the Trash (⌘⌫)")
+                    .help(detail.isReview ? "Move this review to the Trash (⌘⌫)" : "Move this examination to the Trash (⌘⌫)")
             }
-            Button { model.showPDF.toggle() } label: { Label("Dissertation PDF", systemImage: "sidebar.trailing") }
-                .help("Show or hide the dissertation (⌥⌘P)")
+            Button { model.showPDF.toggle() } label: { Label("PDF", systemImage: "sidebar.trailing") }
+                .help(detail.isReview ? "Show or hide the paper (⌥⌘P)" : "Show or hide the dissertation (⌥⌘P)")
         }
     }
 }
@@ -341,14 +394,15 @@ struct RunningView: View {
         let p = model.progress
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .center, spacing: 14) {
-                Image(systemName: detail.status.run_kind == "revise" ? "pencil.line" : "text.magnifyingglass")
+                Image(systemName: detail.status.run_kind == "revise" ? "pencil.line" : detail.isReview ? "doc.text.magnifyingglass" : "text.magnifyingglass")
                     .font(.system(size: 30, weight: .medium))
                     .foregroundStyle(.tint)
                     .symbolEffect(.pulse, options: .repeating)
                     .frame(width: 52, height: 52)
                     .background(Color.accentColor.opacity(0.12), in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(detail.status.run_kind == "revise" ? "Revising the Report" : "Examining the \(Level(rawValue: detail.status.level ?? "msc")?.noun ?? "Dissertation")")
+                    Text(detail.status.run_kind == "revise" ? (detail.isReview ? "Revising the Review" : "Revising the Report")
+                         : detail.isReview ? "Reviewing the Paper" : "Examining the \(Level(rawValue: detail.status.level ?? "msc")?.noun ?? "Dissertation")")
                         .font(.title2.weight(.semibold))
                     Text(detail.status.original_name ?? detail.pdf).foregroundStyle(.secondary)
                 }
@@ -390,7 +444,8 @@ struct RunningView: View {
                 }
                 .padding(.top, 4)
             }
-            Text("You can keep working in other examinations while this runs. You'll be notified when the report is ready.")
+            Text(detail.isReview ? "You can keep working in Laurea while this runs. You'll be notified when the review is ready."
+                 : "You can keep working in other examinations while this runs. You'll be notified when the report is ready.")
                 .font(.caption).foregroundStyle(.tertiary)
         }
         .padding(28)
@@ -436,8 +491,9 @@ struct ReviseSheet: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 12) {
-            Text("Revise the Report").font(.headline)
-            Text("Describe the change. The report is revised and its page references are re-checked.")
+            Text(model.isReview ? "Revise the Review" : "Revise the Report").font(.headline)
+            Text(model.isReview ? "Describe the change. The review is revised and its references are re-checked."
+                 : "Describe the change. The report is revised and its page references are re-checked.")
                 .font(.callout).foregroundStyle(.secondary)
             TextEditor(text: $model.reviseText)
                 .font(.body)

@@ -52,8 +52,18 @@ struct ExamSummary: Codable, Identifiable, Hashable {
     var progress: Double?
     var phase: String?
     var run_kind: String?
+    /// "review" for a paper review, otherwise an examination.
+    var kind: String?
+    var venue: String?
+    var recommendation: String?
+    var tone: String?
 
-    var displayName: String { student.isEmpty ? (pdf as NSString).deletingPathExtension.replacingOccurrences(of: "_", with: " ") : student }
+    var isReview: Bool { kind == "review" }
+    var fileName: String { (pdf as NSString).deletingPathExtension.replacingOccurrences(of: "_", with: " ") }
+    var displayName: String {
+        if isReview { return title.isEmpty ? fileName : title }
+        return student.isEmpty ? fileName : student
+    }
 }
 
 struct ExamStatus: Codable {
@@ -65,6 +75,8 @@ struct ExamStatus: Codable {
     var started: String?
     var level: String?
     var date_opt_out: Bool?
+    var kind: String?
+    var venue: String?
 }
 
 struct APICriterion: Codable {
@@ -155,7 +167,16 @@ struct ExamDetail: Codable {
     let grading_scale: GradingScale?
     /// Exact quotes behind the report's strengths and weaknesses, keyed by evidenceKey(point).
     let quotes: [String: String]?
+    // Paper reviews
+    var kind: String?
+    var review: APIReview?
+    var venue_form: Venue?
+    var form: ReviewForm?
+    var panel_review: ReviewPanel?
+    var proposed_review: ProposedReview?
+    var paper_calibration: PaperCalEntry?
 
+    var isReview: Bool { kind == "review" }
     var markingScheme: Scheme { Scheme(scheme) }
 
     func proposedMark(_ k: String) -> Int? { (proposed[k] ?? nil).map { Int($0.rounded()) } }
@@ -234,6 +255,15 @@ struct SettingsInfo: Codable {
     var default_scheme: [String: Int]?
     var grading_scale: GradingScale?
     var grading_presets: [GradingScale]?
+    /// The venue of the last paper review, offered first for the next one.
+    var venue: String?
+}
+
+struct PaperSaveResult: Codable {
+    struct Cal: Codable { let n: Int; let shift: Double; let ready: Bool }
+    let check_ok: Bool
+    let check: String
+    let paper_calibration: Cal?
 }
 
 struct SaveResult: Codable {
@@ -355,6 +385,176 @@ struct ReportDraft {
             substantial: substantial.map(\.text),
             corrections: corrections.map(\.text),
             summary: summary, viva: viva, date: date, doc_title: docTitle)
+    }
+}
+
+// MARK: - Paper reviews
+
+/// One option on a venue's scale. Scales list their options best first.
+struct VenueOption: Codable, Hashable {
+    let value: String
+    let label: String
+    var tone: String?
+    var meaning: String?
+
+    /// "4: Borderline accept"
+    var text: String { "\(value): \(label)" }
+    /// What a compact control shows: the number on numeric scales, else the label.
+    var short: String { Double(value) != nil ? value : label }
+}
+
+struct VenueScale: Codable, Hashable {
+    let name: String
+    let options: [VenueOption]
+
+    func option(_ value: String?) -> VenueOption? { options.first { $0.value == value } }
+}
+
+struct VenueScore: Codable, Hashable, Identifiable {
+    let key: String
+    let name: String
+    let options: [VenueOption]
+    var id: String { key }
+
+    func option(_ value: String?) -> VenueOption? { options.first { $0.value == value } }
+}
+
+struct VenueField: Codable, Hashable {
+    let title: String
+    let from: [String]
+    var guidance: String?
+}
+
+struct VenuePolicy: Codable, Hashable {
+    let level: String
+    let text: String
+}
+
+/// A journal or conference and its reviewer form, from Laurea's venue list.
+struct Venue: Codable, Hashable, Identifiable {
+    let id: String
+    let name: String
+    let full_name: String
+    let kind: String
+    var fields: [String]?
+    let form: String
+    var form_year: Int?
+    var anonymity: String?
+    let recommendation: VenueScale
+    var scores: [VenueScore]?
+    var confidence: VenueScale?
+    let form_fields: [VenueField]
+    let policy: VenuePolicy
+    var notes: String?
+    var sources: [String]?
+    var criteria: [String]?
+
+    var isJournal: Bool { kind == "journal" }
+    var scoreList: [VenueScore] { scores ?? [] }
+    var isGeneric: Bool { form == "generic" }
+}
+
+struct VenuesInfo: Codable {
+    let venues: [Venue]
+}
+
+struct APIReview: Codable {
+    var paper: String
+    var venue: String
+    var recommendation: String
+    var confidence: String
+    var summary: String
+    var scores: [String: String]
+    var strengths: [String]
+    var weaknesses: [String]
+    var questions: [String]
+    var changes: [String: [String]]
+    var limitations: String
+    var ethics: String
+    var confidential: String
+}
+
+struct ReviewForm: Codable, Equatable {
+    struct Field: Codable, Equatable, Hashable { let title: String; let text: String }
+    struct Rating: Codable, Equatable, Hashable { let name: String; let value: String }
+    let fields: [Field]
+    let ratings: [Rating]
+    let confidential: String
+    let text: String
+}
+
+/// The three reviewers' and the area chair's ratings, as the venue's option values.
+struct ReviewPanel: Codable, Equatable {
+    let reviewers: [String: [String: String]]
+    let chair: [String: String]
+    let notes: [String: String]
+    let summary: String?
+    let decisions: [String: String]
+    let low_confidence: [String]
+}
+
+struct ProposedReview: Codable, Equatable {
+    var recommendation: String?
+    var scores: [String: String]?
+    var confidence: String?
+}
+
+struct PaperCalEntry: Codable, Identifiable {
+    var id: String { exam_id }
+    let exam_id: String
+    var include: Bool?
+    var label: String?
+    var venue_name: String?
+    let date: String
+    var proposed: String?
+    var final_label: String?
+    var steps: Int?
+    var delta: Double?
+    var note: String?
+}
+
+struct PaperCalibrationInfo: Codable {
+    let entries: [PaperCalEntry]
+    let n: Int
+    let shift: Double
+    let agreeing: Int
+    let ready: Bool
+}
+
+struct ReviewDraft {
+    var paper = "", venue = ""
+    var recommendation = "", confidence = ""
+    var scores: [String: String] = [:]
+    var summary = ""
+    var strengths: [TextItem] = []
+    var weaknesses: [TextItem] = []
+    var questions: [TextItem] = []
+    var major: [TextItem] = []
+    var moderate: [TextItem] = []
+    var minor: [TextItem] = []
+    var limitations = "", ethics = "", confidential = ""
+
+    init() {}
+
+    init(_ r: APIReview) {
+        paper = r.paper; venue = r.venue
+        recommendation = r.recommendation; confidence = r.confidence; scores = r.scores
+        summary = r.summary
+        strengths = r.strengths.map { TextItem(text: $0) }
+        weaknesses = r.weaknesses.map { TextItem(text: $0) }
+        questions = r.questions.map { TextItem(text: $0) }
+        major = (r.changes["major"] ?? []).map { TextItem(text: $0) }
+        moderate = (r.changes["moderate"] ?? []).map { TextItem(text: $0) }
+        minor = (r.changes["minor"] ?? []).map { TextItem(text: $0) }
+        limitations = r.limitations; ethics = r.ethics; confidential = r.confidential
+    }
+
+    var payload: APIReview {
+        APIReview(paper: paper, venue: venue, recommendation: recommendation, confidence: confidence, summary: summary,
+                  scores: scores, strengths: strengths.map(\.text), weaknesses: weaknesses.map(\.text),
+                  questions: questions.map(\.text),
+                  changes: ["major": major.map(\.text), "moderate": moderate.map(\.text), "minor": minor.map(\.text)],
+                  limitations: limitations, ethics: ethics, confidential: confidential)
     }
 }
 

@@ -1,6 +1,8 @@
 # Laurea
 
-Laurea is a macOS app for dissertation examiners. It drafts reports for **BSc, MSc and PhD** dissertations, with suggested marks on your institution’s grading scale, page-referenced feedback, viva questions and corrections. You review the draft, decide the marks and export a signed Word report.
+Laurea is a macOS app for dissertation examiners and paper reviewers.
+- It drafts examiner's reports for **BSc, MSc and PhD** dissertations, with suggested marks on your institution’s grading scale, page-referenced feedback, viva questions and corrections. You review the draft, decide the marks and export a signed Word report.
+- It reviews **journal and conference papers** before submission, as a referee at the target venue would, on that venue's own form and scale: a recommendation, scores, strengths and weaknesses, questions for the authors and required changes.
 
 **[Download the latest Laurea for macOS (.dmg)](https://github.com/andreademarco86/laurea/releases/latest/download/Laurea.dmg)** · [Release notes](https://github.com/andreademarco86/laurea/releases/latest) · [Changelog](CHANGELOG.md)
 
@@ -27,6 +29,23 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 2. Open the draft when it’s ready. Click any page reference to check it against the dissertation: the PDF panel opens at that page with the quoted passage, or the figure or table label, highlighted. If neither appears, Laurea lightly highlights the sentence that best matches the comment, but only when one sentence clearly stands out.
 3. Edit the text, and raise or lower individual marks with their arrows; **Your Adjustment** shows how far the total has moved from the proposed mark. The header shows the percentage and grade on your scale: for the final mark once you add the viva mark, and for the dissertation mark until then. Press **⇧⌘R** to request a revision.
 4. Add the viva mark after the oral. Press **⌘S** to save as you go. When the report is final, click **Export Word Report…** at the end of the report (or press **⇧⌘E**). Laurea produces the Word report only then: signed with your signature, with the viva and final marks, from the report as you left it, saves it with the examination and shows it in Finder. Export asks for the viva mark and your signature if either is missing. **Date the report** under **Declaration** is on by default, so an undated report is dated on the day you export it. Pick another date, or turn it off to sign and date by hand.
+
+## Review a paper
+
+1. Click **New Paper Review…** (**⇧⌘N**) or drop a paper PDF into Laurea and choose **Papers to Review**.
+2. Choose the target venue: a conference such as NeurIPS, ICML, ICLR, ACL Rolling Review, CVPR or Interspeech, or a journal such as TMLR, IEEE TPAMI, Pattern Recognition, the Physical Review journals or MNRAS. **Other conference** and **Other journal** use general scales. Click **Review Paper**.
+3. Check the draft. Click the venue's scale to change the recommendation (a dot marks the proposal), and adjust the scores and confidence. Edit the text as you would a report; page references open the paper at the cited page.
+4. Under **Copy and Export**, copy each field, or the whole review laid out as the venue's form (**⇧⌘C**), or export a Word copy.
+
+The review contains:
+- a summary close to its word limit, ending in an overall assessment, with no page references;
+- numbered strengths and weaknesses (W1, W2, …), most important first, each with its location;
+- three to six questions for the authors whose answers could change the assessment;
+- required changes in three tiers, each tied to a weakness: **major** (new experiments, baselines, statistical tests, narrowed claims or a new title, only where a claim depends on them), **moderate** (rework with existing results) and **minor** (quick fixes);
+- limitations and broader impact, ethical concerns, and confidential comments to the area chair or editor;
+- the recommendation, scores and confidence on the venue's own scale.
+
+It is written in your voice as an anonymous reviewer. Three reviewers read each paper independently, looking closely at **soundness**, **novelty** and **clarity**; an area chair settles disagreements. Their ratings are under **Internal notes**. Novelty is judged without web access, so the review never claims for certain that related work is missing.
 
 ## What the report contains
 
@@ -88,7 +107,7 @@ Laurea covers AI and machine learning, computing and ICT, speech and language pr
 
 In **Examining Standards** (**⇧⌘L**), describe a standing preference, such as asking a viva question about reproducibility. Your changes are saved on your Mac and can be undone until you install a new version of Laurea.
 
-**Calibration** (**⇧⌘K**) learns from how you change the proposed marks, separately for each degree level and criterion.
+**Calibration** (**⇧⌘K**) learns from how you change the proposed marks, separately for each degree level and criterion. For papers, it learns one tendency across all venues from how you change the proposed recommendation (**Calibration → Papers**).
 - An adjustment needs at least three examinations in which you changed that mark in the same direction.
 - Marks you accept unchanged don’t count towards that minimum, but can strengthen an adjustment that points the same way.
 - Recent decisions carry more weight, and the evidence in the current dissertation takes priority.
@@ -97,7 +116,7 @@ Use **Evidence for learned offsets** to see how many examinations support each a
 
 ## Dissertation data
 
-Laurea sends the material needed for each examination or revision to your selected provider. Your account’s training and retention settings apply. App runs disable web searches and local provider session history. Examinations, settings, your signature, calibration history and anything you teach are stored on your Mac in `~/Library/Application Support/Laurea`; the examining standards themselves are part of the app. [Claude data usage](https://code.claude.com/docs/en/data-usage) · [ChatGPT and Codex data controls](https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt) · [Gemini Code Assist for individuals privacy notice](https://developers.google.com/gemini-code-assist/resources/privacy-notice-gemini-code-assist-individuals)
+Laurea sends the material needed for each examination, review or revision to your selected provider. Paper reviews are meant for checking a paper before submission. Using one to referee someone else's submission is your responsibility: many venues don't allow sharing submissions under review, or ask you to declare it. Your account’s training and retention settings apply. App runs disable web searches and local provider session history. Examinations, settings, your signature, calibration history and anything you teach are stored on your Mac in `~/Library/Application Support/Laurea`; the examining standards themselves are part of the app. [Claude data usage](https://code.claude.com/docs/en/data-usage) · [ChatGPT and Codex data controls](https://help.openai.com/en/articles/7730893-data-controls-in-chatgpt) · [Gemini Code Assist for individuals privacy notice](https://developers.google.com/gemini-code-assist/resources/privacy-notice-gemini-code-assist-individuals)
 
 ## Troubleshooting
 

@@ -12,6 +12,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from page_labels import repair_labels  # noqa: E402
 from scheme import KEYS, dissertation_max, load_scheme, load_summary_limit  # noqa: E402
+from writing_checks import VAGUE, filler, long_sentences, process_mentions  # noqa: E402
 
 MAX = {}  # filled from the marking scheme in main()
 errors, warnings = [], []
@@ -178,7 +179,6 @@ def main():
                 warnings.append(f"substantial correction without page ref: {it.strip()[:70]}")
 
     # Corrections are for the student: plain and direct
-    VAGUE = re.compile(r"\b(consider|may wish|might want|could benefit|would benefit|could perhaps|enhanc\w*|robustness|rigou?r)\b", re.I)
     for name, block in (("substantial", sc), ("minor", section(text, r"^## \d+\. Minor corrections\s*$"))):
         for it in re.findall(r"^\s*\d+\.\s+(\S.*)$", block or "", re.M):
             v = VAGUE.search(it)
@@ -197,28 +197,16 @@ def main():
             if not PAGE_REF.search(it):
                 warnings.append(f"correction without page ref: {it.strip()[:70]}")
 
-    # Filler / AI-sounding phrasing (style warnings)
-    SLOP = [r"\bdelv\w*", r"\bshowcas\w*", r"\bleverag(e|es|ed|ing)\b", r"\bcomprehensive\b", r"\bholistic\b",
-            r"\bmeticulous\w*", r"\bseamless\w*", r"\bpivotal\b", r"\bcrucial role\b", r"\ba testament to\b",
-            r"\bin the realm of\b", r"\blandscape\b", r"\btapestry\b", r"\bunderscor\w*", r"\bit is worth noting\b",
-            r"\bit is important to note\b", r"\boverall,? the dissertation\b", r"\bnot only\b.{0,80}\bbut also\b",
-            r"\bcutting[- ]edge\b", r"\bstate[- ]of[- ]the[- ]art\b(?![^.]*\b(table|fig|p\.))", r"^\s*[-*]?\s*(Furthermore|Moreover|Additionally),",
-            r"!(?!\[)", r"\bClaude\b", r"\bAnthropic\b", r"\b(?:AI|LLM)[- ]generated\b", r"\blanguage model\b", r"\bas an AI\b", r"\bnavigat\w* the\b", r"\bintricate\b", r"\bnuanced\b", r"\bmultifaceted\b"]
     body = re.sub(r"^\|.*$", "", text, flags=re.M)  # skip header table
-    hits = {}
-    for pat in SLOP:
-        for m in re.finditer(pat, body, re.I | re.M):
-            hits.setdefault(m.group(0).strip()[:30].lower(), 0)
-            hits[m.group(0).strip()[:30].lower()] += 1
+    hits = filler(body)
     # The report is the examiner's own: no panel, chair or review process behind it
-    process = sorted({m.group(0).lower() for m in re.finditer(
-        r"\b(?:the|our|this) (?:panel|chair|examiners|examining panel|reviewers|expert review|marking panel)\b|\bthe three examiners\b",
-        body, re.I)})
+    process = process_mentions(body, ["panel", "chair", "examiners", "examining panel", "reviewers", "expert review",
+                                      "marking panel", "three examiners"])
     if process:
         warnings.append("the report refers to a process behind it (" + ", ".join(process) + "); write as the examiner, in the first person")
     if hits:
         warnings.append("filler/AI-sounding phrasing, rewrite plainly: " + ", ".join(f"'{k}' x{v}" for k, v in hits.items()))
-    long_s = [s_ for s_ in re.split(r"(?<=[.?])\s+", re.sub(r"\s+", " ", body)) if len(s_.split()) > 40]
+    long_s = long_sentences(body)
     if long_s:
         warnings.append(f"{len(long_s)} sentence(s) over 40 words, e.g. '{long_s[0][:80]}...'")
 

@@ -624,6 +624,8 @@ struct BulletList: View {
     var numbered = false
     /// For strengths and weaknesses: the exact quotes behind each point, so its page references highlight them.
     var quotes: [String: String] = [:]
+    /// Numbering prefix, e.g. "W" for a review's weaknesses (W1, W2, …).
+    var prefix = ""
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.element.id) { i, item in
@@ -631,8 +633,8 @@ struct BulletList: View {
                             set: { nv in if let j = items.firstIndex(where: { $0.id == item.id }) { items[j].text = nv } })
             let quote = quotes.isEmpty ? nil : quotes[evidenceKey(item.text)]
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(numbered ? "\(i + 1)." : "•").foregroundStyle(.secondary).monospacedDigit()
-                    .frame(width: 22, alignment: .trailing)
+                Text(numbered ? (prefix.isEmpty ? "\(i + 1)." : "\(prefix)\(i + 1)") : "•").foregroundStyle(.secondary).monospacedDigit()
+                    .frame(width: 26, alignment: .trailing)
                 VStack(alignment: .leading, spacing: 3) {
                     BufferedField("Item", key: item.id.uuidString, text: b, prompt: prompt, axis: .vertical).labelsHidden()
                     RefChips(text: item.text, highlights: quote.map { [$0] + evidenceAnchors(in: item.text) } ?? []).equatable()

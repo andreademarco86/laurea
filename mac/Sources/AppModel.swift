@@ -51,6 +51,10 @@ final class AppModel {
     // Selected examination
     var detail: ExamDetail?
     var draft: ReportDraft? { didSet { draftRevision &+= 1 } }
+    /// The selected paper review's editable draft (nil for examinations).
+    var reviewDraft: ReviewDraft? { didSet { draftRevision &+= 1 } }
+    var isReview: Bool { detail?.isReview ?? false }
+    var hasDraft: Bool { draft != nil || reviewDraft != nil }
     /// Bumped on every change to the draft, so a finishing save can tell whether newer edits exist.
     @ObservationIgnored private(set) var draftRevision = 0
 
@@ -73,6 +77,16 @@ final class AppModel {
                 set: { [unowned self] value in
                     guard self.draft != nil else { return }
                     self.draft![keyPath: path] = value
+                    self.dirty = true
+                })
+    }
+
+    /// A binding into one part of the review draft.
+    func reviewBinding<T>(_ path: WritableKeyPath<ReviewDraft, T>) -> Binding<T> {
+        Binding(get: { [unowned self] in (self.reviewDraft ?? ReviewDraft())[keyPath: path] },
+                set: { [unowned self] value in
+                    guard self.reviewDraft != nil else { return }
+                    self.reviewDraft![keyPath: path] = value
                     self.dirty = true
                 })
     }
@@ -123,6 +137,13 @@ final class AppModel {
     var progress: ProgressInfo?
     var isSaving = false
     var newLevel: Level = .msc
+    /// Paper reviews: the venue list and the venue chosen for a new review.
+    var venues: [Venue] = []
+    var newVenueID = ""
+    var newVenue: Venue? { venues.first { $0.id == newVenueID } }
+    /// PDFs dropped on the window, waiting for the examiner to say whether they are dissertations or papers.
+    var pendingImports: [URL] = []
+    var showImportChoice = false
 
     // Panels and sheets
     var showPDF = false
@@ -157,7 +178,6 @@ final class AppModel {
     private var skillPoll: Task<Void, Never>?
 
     // Calibration and settings
-    var calibrationLevel: Level = .msc
     var calibration: CalibrationInfo?
     var settings = SettingsInfo()
 
@@ -175,6 +195,7 @@ final class AppModel {
             engineReady = true
             SystemIntegration.requestNotifications()
             await loadSettings()
+            await loadVenues()
             Task { await checkSetupNeeded() }
             await refreshList()
             Snapshot.runIfRequested(self)
@@ -230,7 +251,7 @@ final class AppModel {
         resetBuffers()
         selection = item
         pollTask?.cancel()
-        detail = nil; draft = nil; dirty = false; banner = nil; progress = nil
+        detail = nil; draft = nil; reviewDraft = nil; dirty = false; banner = nil; progress = nil
         showPDF = false
         pdfTarget = nil
         pdfCurrentLabel = ""
@@ -250,9 +271,17 @@ final class AppModel {
             if let r = ifRevision, draftRevision != r { return }
             detail = d
             resetBuffers()
-            draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
+            if d.isReview {
+                draft = nil
+                reviewDraft = d.review.map(ReviewDraft.init)
+                note = d.paper_calibration?.note ?? ""
+                if let v = d.status.venue ?? settings.venue, venues.contains(where: { $0.id == v }) { newVenueID = v }
+            } else {
+                reviewDraft = nil
+                draft = d.report.map { ReportDraft($0, scheme: d.markingScheme) }
+                note = d.calibration?.note ?? ""
+            }
             dateOptOut = d.status.date_opt_out ?? false
-            note = d.calibration?.note ?? ""
             dirty = false
             if !keepBanner { banner = nil }
             if let l = d.status.level, let lv = Level(rawValue: l) { newLevel = lv }
@@ -264,25 +293,46 @@ final class AppModel {
 
     // MARK: Import
 
-    func chooseAndImport() {
+    func chooseAndImport(review: Bool = false) {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.pdf]
         panel.allowsMultipleSelection = true
-        panel.message = "Choose dissertation PDFs to examine"
+        panel.message = review ? "Choose paper PDFs to review" : "Choose dissertation PDFs to examine"
         panel.prompt = "Add"
         if panel.runModal() == .OK {
-            Task { for url in panel.urls { await importPDF(url) } }
+            Task { for url in panel.urls { await importPDF(url, review: review) } }
         }
     }
 
-    func importPDF(_ url: URL) async {
+    /// PDFs dropped on the window: ask whether they are dissertations or papers.
+    func dropped(_ urls: [URL]) {
+        pendingImports = urls
+        showImportChoice = true
+    }
+
+    func importPending(review: Bool) {
+        let urls = pendingImports
+        pendingImports = []
+        Task { for url in urls { await importPDF(url, review: review) } }
+    }
+
+    func loadVenues() async {
+        if let v: VenuesInfo = try? await backend.get("/api/venues") {
+            venues = v.venues
+            if newVenue == nil { newVenueID = settings.venue.flatMap { id in v.venues.first { $0.id == id }?.id } ?? v.venues.first?.id ?? "" }
+        }
+    }
+
+    func importPDF(_ url: URL, review: Bool = false) async {
         guard url.pathExtension.lowercased() == "pdf", let data = try? Data(contentsOf: url) else {
             errorMessage = "\(url.lastPathComponent) is not a readable PDF."
             return
         }
         do {
             let name = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "dissertation.pdf"
-            let d = try await backend.data("POST", "/api/exams", body: data, headers: ["X-Filename": name], timeout: 300)
+            var headers = ["X-Filename": name]
+            if review { headers["X-Kind"] = "review" }
+            let d = try await backend.data("POST", "/api/exams", body: data, headers: headers, timeout: 300)
             let e = try JSONDecoder().decode(ExamSummary.self, from: d)
             await refreshList()
             requestSelection(.exam(e.id))
@@ -296,7 +346,11 @@ final class AppModel {
     func examine() async {
         guard let id = selectedExamID else { return }
         do {
-            let body = ["provider": activeEngine.rawValue, "level": newLevel.rawValue]
+            var body = ["provider": activeEngine.rawValue, "level": newLevel.rawValue]
+            if isReview {
+                guard !newVenueID.isEmpty else { errorMessage = "Choose the venue the paper is for."; return }
+                body = ["provider": activeEngine.rawValue, "venue": newVenueID]
+            }
             let _: OK = try await backend.send("POST", "/api/exams/\(id)/examine", body)
             await refreshList()
             await load(id)
@@ -375,18 +429,19 @@ final class AppModel {
     var reportDocxURL: URL? {
         guard let d = detail else { return nil }
         let stem = (d.pdf as NSString).deletingPathExtension
-        let u = backend.examsDir.appendingPathComponent(d.id).appendingPathComponent("\(stem)_examiner_report.docx")
+        let u = backend.examsDir.appendingPathComponent(d.id).appendingPathComponent("\(stem)\(d.isReview ? "_paper_review" : "_examiner_report").docx")
         return FileManager.default.fileExists(atPath: u.path) ? u : nil
     }
 
     // MARK: Save / export
 
-    var canSave: Bool { draft != nil && dirty && !isSaving }
+    var canSave: Bool { hasDraft && dirty && !isSaving }
 
     /// Saves the report; returns true when it was stored. The Word report is produced only at export.
     @discardableResult
     func save() async -> Bool {
         commitEdits()
+        if isReview { return await saveReview() }
         guard let id = selectedExamID, var d = draft else { return false }
         let revision = draftRevision
         if d.vivaInvalid { errorMessage = "The viva mark must be a number from 0 to \(d.vivaMax)."; return false }
@@ -439,6 +494,7 @@ final class AppModel {
     /// Everything is pinned to the examination selected when export began.
     func exportWord() async {
         commitEdits()
+        if isReview { await exportReview(); return }
         guard let id = selectedExamID, let exam = detail, exam.id == id, var d = draft else { return }
         if let blocker = exportBlocker { errorMessage = blocker; return }
         if d.date.trimmingCharacters(in: .whitespaces).isEmpty && !dateOptOut {
@@ -489,10 +545,96 @@ final class AppModel {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    // MARK: Paper reviews
+
+    /// Saves the review; returns true when it was stored.
+    @discardableResult
+    func saveReview() async -> Bool {
+        guard let id = selectedExamID, let d = reviewDraft else { return false }
+        let revision = draftRevision
+        struct Body: Encodable { let review: APIReview; let note: String }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let r: PaperSaveResult = try await backend.send("PUT", "/api/exams/\(id)/report", Body(review: d.payload, note: note))
+            let issues = r.check.split(separator: "\n").filter { $0.hasPrefix("ERROR") || $0.hasPrefix("WARNING") }
+                .map { $0.replacingOccurrences(of: "ERROR: ", with: "").replacingOccurrences(of: "WARNING: ", with: "") }
+            var text = "Saved."
+            if let c = r.paper_calibration, c.ready {
+                text += " Learned tendency for papers: \(Fmt.signed(c.shift * 100))% of the scale, from \(c.n) review\(c.n == 1 ? "" : "s")."
+            }
+            if !r.check_ok {
+                banner = Banner(kind: .failure, text: "Saved, but the review checker found problems:\n• " + issues.joined(separator: "\n• "))
+            } else {
+                banner = Banner(kind: issues.isEmpty ? .success : .warning, text: issues.isEmpty ? text : text + "\n• " + issues.joined(separator: "\n• "))
+            }
+            guard selectedExamID == id else { await refreshList(); return true }
+            if draftRevision != revision {
+                banner = Banner(kind: .warning, text: "Saved, but you made changes while saving. Save again to include them.")
+                await refreshList()
+                return false
+            }
+            dirty = false
+            saveCount += 1
+            await load(id, keepBanner: true, ifRevision: draftRevision)
+            await refreshList()
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
+
+    /// Saves any edits so the copied text matches the review on screen, then returns the venue's form.
+    private func currentForm() async -> ReviewForm? {
+        commitEdits()
+        if dirty { guard await saveReview() else { return nil } }
+        return detail?.form
+    }
+
+    /// Copies one form field (or, with nil, the whole review laid out as the venue's form) for pasting into the
+    /// venue's submission system.
+    func copyReviewForm(field: String? = nil) async {
+        guard let form = await currentForm() else { return }
+        let text: String
+        if let field {
+            guard let f = form.fields.first(where: { $0.title == field }) else { return }
+            text = f.text
+        } else {
+            text = form.text
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        banner = Banner(kind: .success, text: field.map { "Copied “\($0)”. Paste it into the matching field of the review form." }
+                        ?? "Copied the whole review, laid out as \(detail?.venue_form?.name ?? "the venue")'s form.")
+    }
+
+    func exportReview() async {
+        guard let id = selectedExamID, await currentForm() != nil else { return }
+        struct Exported: Decodable { let path: String }
+        do {
+            let exported: Exported = try await backend.send("POST", "/api/exams/\(id)/export", [String: String]())
+            guard selectedExamID == id else { return }
+            let url = URL(fileURLWithPath: exported.path)
+            banner = Banner(kind: .success, text: "Word review exported: \(url.lastPathComponent)")
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     // MARK: Calibration
 
+    /// "bsc", "msc", "phd" or "paper".
+    var calibrationScope = "msc"
+    var paperCalibration: PaperCalibrationInfo?
+
     func loadCalibration() async {
-        calibration = try? await backend.get("/api/calibration?level=\(calibrationLevel.rawValue)")
+        if calibrationScope == "paper" {
+            paperCalibration = try? await backend.get("/api/calibration?level=paper")
+        } else {
+            calibration = try? await backend.get("/api/calibration?level=\(calibrationScope)")
+        }
     }
 
     func setInclude(_ examID: String, _ include: Bool) async {

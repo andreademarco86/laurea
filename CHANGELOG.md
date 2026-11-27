@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.2 (in development)
+
+**Paper reviews**
+- **Review journal and conference papers before submission**, beside examining dissertations. Laurea reviews the paper as a careful referee at your target venue would, on that venue's own form and scale, so you can see what to fix first.
+- **Venues** with their reviewer forms and recommendation scales, checked against each venue's published guidelines in November 2026:
+  - **Conferences**: NeurIPS, ICML, ICLR, ACL Rolling Review (ACL, EMNLP, NAACL), CVPR, ICCV/ECCV, AAAI, IJCAI, Interspeech and ICASSP.
+  - **Journals**: TMLR, JMLR, IEEE TPAMI, TNNLS and TASLP, Pattern Recognition, Computer Speech & Language, Computer Physics Communications, Astronomy and Computing, the Physical Review journals, MNRAS, ApJ/AJ, A&A and Machine Learning: Science and Technology.
+  - **Other conference** and **Other journal**, with general scales.
+
+  Where a venue does not publish its form, Laurea says so and follows its recent practice. Each review keeps the form it was written for.
+- One short note where a review starts: reviews are for checking a paper before submission, and using one to referee a submission is your responsibility under the venue's rules.
+- **The review**:
+  - a summary close to its word limit, ending in an overall assessment;
+  - numbered strengths and weaknesses (W1, W2, …), most important first, each with its location;
+  - questions for the authors whose answers could change the assessment;
+  - required changes in three tiers, each tied to the weakness it fixes: **major** (new experiments, baselines, statistical tests, narrowed claims or a new title, only where a claim depends on them), **moderate** (rework with existing results) and **minor** (a fuller list of quick fixes);
+  - limitations, ethical concerns and confidential comments to the area chair or editor;
+  - the recommendation, scores and confidence on the venue's own scale.
+
+  Written in your voice as an anonymous reviewer, with the same writing rules as reports.
+- **A panel for papers**: soundness, novelty and clarity reviewers each read the whole paper and give a recommendation before their scores; an area chair settles disagreements with an advocate and a critic. Internal notes show each reviewer's ratings and the rulings.
+- **The review editor** shows the venue's scale as a strip you click to change the recommendation, with the proposal marked, and the scores and confidence beside what was proposed.
+- **Copy and Export**: copy each field, or the whole review laid out as the venue's form (⇧⌘C), or export a Word copy.
+- **Calibration for papers**: one learned tendency across venues, from recommendations you change consistently (at least three reviews moved the same way). It appears under **Calibration → Papers**.
+- The review checker enforces the venue's options, the three tiers and their links to weaknesses, locations and the writing rules, and flags anything that could reveal who you are.
+
+**Everywhere**
+- The sidebar has **Examinations** and **Paper Reviews** sections. **New Examination** (⌘N) adds a dissertation and **New Paper Review** (⇧⌘N) adds a paper; dropped PDFs ask which they are. The welcome screen offers both.
+- Your examining standards cover paper reviews too: teach preferences for either in **Examining Standards**.
+
 ## 1.1
 
 **How dissertations are examined**
