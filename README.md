@@ -37,11 +37,13 @@ To update, quit Laurea and replace the copy in **Applications**. Your examinatio
 3. Check the draft. Click the venue's scale to change the recommendation (a dot marks the proposal), and adjust the scores and confidence. Edit the text as you would a report; page references open the paper at the cited page.
 4. Under **Copy and Export**, copy each field, or the whole review laid out as the venue's form (**⇧⌘C**), or export a Word copy.
 
+5. When the paper is revised, click **Add Revised Version…** (**⌥⌘N**) in its review and choose the new PDF. Laurea re-reviews it as the next round, with the earlier reviews as context, and maps what changed. Attaching the authors' response to the previous review is optional. The new review starts with how each earlier point was answered. The sidebar shows the paper's rounds together.
+
 The review contains:
 - a summary close to its word limit, ending in an overall assessment, with no page references;
 - numbered strengths and weaknesses (W1, W2, …), most important first, each with its location;
 - three to six questions for the authors whose answers could change the assessment;
-- required changes in three tiers, each tied to a weakness: **major** (new experiments, baselines, statistical tests, narrowed claims or a new title, only where a claim depends on them), **moderate** (rework with existing results) and **minor** (quick fixes);
+- required changes in three tiers, each tied to a weakness: **major** (only what a main claim depends on, in its smallest form, such as one missing baseline or a narrowed claim, usually one to three), **moderate** (rework with existing results) and **minor** (quick fixes);
 - limitations and broader impact, ethical concerns, and confidential comments to the area chair or editor;
 - the recommendation, scores and confidence on the venue's own scale.
 

@@ -49,6 +49,11 @@ struct LaureaApp: App {
                 Button(model.isReview ? "Revise Review…" : "Revise Report…") { model.showRevise = true }
                     .keyboardShortcut("r", modifiers: [.command, .shift])
                     .disabled(!model.hasDraft || model.detail?.state == "running")
+                if model.isReview {
+                    Button("Add Revised Version…") { model.addRevisedVersion() }
+                        .keyboardShortcut("n", modifiers: [.command, .option])
+                        .disabled(model.detail == nil)
+                }
                 Divider()
                 Button(model.showPDF ? "Hide PDF" : "Show PDF") { model.showPDF.toggle() }
                     .keyboardShortcut("p", modifiers: [.command, .option])

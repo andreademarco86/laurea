@@ -57,8 +57,12 @@ struct ExamSummary: Codable, Identifiable, Hashable {
     var venue: String?
     var recommendation: String?
     var tone: String?
+    /// Paper reviews: the paper's series (its first round's id) and this version's round.
+    var series: String?
+    var round: Int?
 
     var isReview: Bool { kind == "review" }
+    var roundNumber: Int { round ?? 1 }
     var fileName: String { (pdf as NSString).deletingPathExtension.replacingOccurrences(of: "_", with: " ") }
     var displayName: String {
         if isReview { return title.isEmpty ? fileName : title }
@@ -77,6 +81,8 @@ struct ExamStatus: Codable {
     var date_opt_out: Bool?
     var kind: String?
     var venue: String?
+    var round: Int?
+    var previous: String?
 }
 
 struct APICriterion: Codable {
@@ -175,6 +181,12 @@ struct ExamDetail: Codable {
     var panel_review: ReviewPanel?
     var proposed_review: ProposedReview?
     var paper_calibration: PaperCalEntry?
+    var rounds: [RoundInfo]?
+    var response: ResponseInfo?
+
+    var round: Int { status.round ?? 1 }
+    /// The newest round of this paper: a revised version always follows it.
+    var latestRound: RoundInfo? { rounds?.max { ($0.round ?? 1) < ($1.round ?? 1) } }
 
     var isReview: Bool { kind == "review" }
     var markingScheme: Scheme { Scheme(scheme) }
@@ -473,6 +485,24 @@ struct APIReview: Codable {
     var limitations: String
     var ethics: String
     var confidential: String
+    /// A revised version's answers to the previous review, one per earlier point.
+    var previous: [String]?
+}
+
+/// One round of a paper's reviews.
+struct RoundInfo: Codable, Hashable, Identifiable {
+    let id: String
+    var round: Int?
+    let state: String
+    var title: String?
+    var recommendation: String?
+    var tone: String?
+}
+
+/// The authors' optional response to the previous review.
+struct ResponseInfo: Codable, Equatable {
+    let kind: String
+    let name: String
 }
 
 struct ReviewForm: Codable, Equatable {
@@ -534,6 +564,7 @@ struct ReviewDraft {
     var moderate: [TextItem] = []
     var minor: [TextItem] = []
     var limitations = "", ethics = "", confidential = ""
+    var previous: [TextItem] = []
 
     init() {}
 
@@ -548,6 +579,7 @@ struct ReviewDraft {
         moderate = (r.changes["moderate"] ?? []).map { TextItem(text: $0) }
         minor = (r.changes["minor"] ?? []).map { TextItem(text: $0) }
         limitations = r.limitations; ethics = r.ethics; confidential = r.confidential
+        previous = (r.previous ?? []).map { TextItem(text: $0) }
     }
 
     var payload: APIReview {
@@ -555,7 +587,7 @@ struct ReviewDraft {
                   scores: scores, strengths: strengths.map(\.text), weaknesses: weaknesses.map(\.text),
                   questions: questions.map(\.text),
                   changes: ["major": major.map(\.text), "moderate": moderate.map(\.text), "minor": minor.map(\.text)],
-                  limitations: limitations, ethics: ethics, confidential: confidential)
+                  limitations: limitations, ethics: ethics, confidential: confidential, previous: previous.map(\.text))
     }
 }
 

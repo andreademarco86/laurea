@@ -15,7 +15,7 @@
   - a summary close to its word limit, ending in an overall assessment;
   - numbered strengths and weaknesses (W1, W2, …), most important first, each with its location;
   - questions for the authors whose answers could change the assessment;
-  - required changes in three tiers, each tied to the weakness it fixes: **major** (new experiments, baselines, statistical tests, narrowed claims or a new title, only where a claim depends on them), **moderate** (rework with existing results) and **minor** (a fuller list of quick fixes);
+  - required changes in three tiers, each tied to the weakness it fixes: **major** (only what a main claim depends on, in its smallest form, such as one missing baseline or a narrowed claim, and usually one to three, so the list is one revision rather than a second paper), **moderate** (rework with existing results) and **minor** (a fuller list of quick fixes);
   - limitations, ethical concerns and confidential comments to the area chair or editor;
   - the recommendation, scores and confidence on the venue's own scale.
 
@@ -23,6 +23,7 @@
 - **A panel for papers**: soundness, novelty and clarity reviewers each read the whole paper and give a recommendation before their scores; an area chair settles disagreements with an advocate and a critic. Internal notes show each reviewer's ratings and the rulings.
 - **The review editor** shows the venue's scale as a strip you click to change the recommendation, with the proposal marked, and the scores and confidence beside what was proposed. Changing the recommendation updates the summary's closing sentence to match, and the checker flags a summary that recommends something else.
 - **Copy and Export**: copy each field, or the whole review laid out as the venue's form (⇧⌘C), or export a Word copy.
+- **Revised versions, round by round.** Add a revised version of a paper (**Add Revised Version…**, ⌥⌘N) and Laurea re-reviews it as the next round, as a referee of a revision would. Before the run, it gathers the earlier reviews as you finalised them and maps what changed between the versions, on your Mac. The new review answers every earlier point (Addressed, Partly addressed or Not addressed, with where it is now), keeps the bar where it was, and raises new major points only for problems the revision introduced or serious flaws missed before. A response to the previous review is optional: attach a PDF or paste it, and each claim in it is checked against the paper. The sidebar groups a paper's rounds, and the review shows them so you can step between versions.
 - **Calibration for papers**: one learned tendency across venues, from recommendations you change consistently (at least three reviews moved the same way). It appears under **Calibration → Papers**.
 - The review checker enforces the venue's options, the three tiers and their links to weaknesses, locations and the writing rules, and flags anything that could reveal who you are.
 

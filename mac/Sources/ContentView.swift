@@ -74,8 +74,22 @@ struct SidebarView: View {
                 }
             }
             if !reviews.isEmpty {
+                // One group per paper: the newest round, then its earlier rounds beneath it.
+                let papers = Dictionary(grouping: reviews) { $0.series ?? $0.id }.values
+                    .map { $0.sorted { $0.roundNumber > $1.roundNumber } }
+                    .sorted { $0[0].created > $1[0].created }
                 Section("Paper Reviews") {
-                    ForEach(reviews) { review in row(review) }
+                    ForEach(papers, id: \.[0].id) { rounds in
+                        row(rounds[0])
+                        ForEach(rounds.dropFirst()) { earlier in
+                            EarlierRoundRow(exam: earlier)
+                                .tag(SidebarItem.exam(earlier.id))
+                                .contextMenu {
+                                    Button("Move to Trash…", role: .destructive) { model.confirmDelete(earlier.id) }
+                                        .disabled(earlier.state == "running")
+                                }
+                        }
+                    }
                 }
             }
         }
@@ -147,6 +161,7 @@ struct ExamRow: View {
             HStack(spacing: 6) {
                 StatusBadge(state: exam.state, review: exam.isReview)
                 if exam.isReview {
+                    if exam.roundNumber > 1 { RoundCapsule(round: exam.roundNumber) }
                     Spacer()
                     if let r = exam.recommendation, !r.isEmpty {
                         ToneCapsule(text: r, tone: exam.tone)
@@ -164,6 +179,38 @@ struct ExamRow: View {
             }
         }
         .padding(.vertical, 3)
+    }
+}
+
+/// An earlier round of a paper, shown compactly beneath its newest round.
+struct EarlierRoundRow: View {
+    let exam: ExamSummary
+    @Environment(\.backgroundProminence) private var prominence
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "arrow.turn.down.right").font(.caption2).foregroundStyle(.tertiary)
+            Text("Round \(exam.roundNumber)").font(.caption.weight(.medium))
+            Spacer()
+            if let r = exam.recommendation, !r.isEmpty { ToneCapsule(text: r, tone: exam.tone) }
+        }
+        .foregroundStyle(prominence == .increased ? AnyShapeStyle(Color.white) : AnyShapeStyle(.secondary))
+        .padding(.leading, 10)
+        .accessibilityLabel("Round \(exam.roundNumber) of \(exam.displayName)")
+    }
+}
+
+struct RoundCapsule: View {
+    let round: Int
+    @Environment(\.backgroundProminence) private var prominence
+
+    var body: some View {
+        let selected = prominence == .increased
+        Text("Round \(round)")
+            .font(.caption2.weight(.bold))
+            .padding(.horizontal, 7).padding(.vertical, 2)
+            .foregroundStyle(selected ? Color.white : Color.purple)
+            .background(selected ? Color.black.opacity(0.18) : Color.purple.opacity(0.15), in: .capsule)
     }
 }
 
@@ -402,7 +449,7 @@ struct RunningView: View {
                     .background(Color.accentColor.opacity(0.12), in: .rect(cornerRadius: 12))
                 VStack(alignment: .leading, spacing: 4) {
                     Text(detail.status.run_kind == "revise" ? (detail.isReview ? "Revising the Review" : "Revising the Report")
-                         : detail.isReview ? "Reviewing the Paper" : "Examining the \(Level(rawValue: detail.status.level ?? "msc")?.noun ?? "Dissertation")")
+                         : detail.isReview ? (detail.round > 1 ? "Reviewing the Revised Version" : "Reviewing the Paper") : "Examining the \(Level(rawValue: detail.status.level ?? "msc")?.noun ?? "Dissertation")")
                         .font(.title2.weight(.semibold))
                     Text(detail.status.original_name ?? detail.pdf).foregroundStyle(.secondary)
                 }

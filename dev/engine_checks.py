@@ -212,7 +212,7 @@ review = {"paper": "Robust Widgets", "venue": "NeurIPS", "recommendation": "4", 
                       "minor": ["p. 3: typo in Eq. 2 → Fix it."]},
           "limitations": "", "ethics": "", "confidential": "The PDF contains hidden text on p. 2."}
 md = sv.write_review(review, neurips)
-check("a review survives a write/parse round trip", sv.parse_review(md, neurips) == review)
+check("a review survives a write/parse round trip", sv.parse_review(md, neurips) == {**review, "previous": []})
 check("an empty tier is written as 'None required.'", "### Moderate\n\nNone required." in md)
 form = sv.review_form(review, neurips)
 check("the copy-ready form follows the venue's fields and ratings",
@@ -221,6 +221,36 @@ check("the copy-ready form follows the venue's fields and ratings",
 tmlr = sv.venue_by_id("tmlr")
 check("a worded scale shows its label, not its internal value",
       "| **Recommendation** | Minor revision |" in sv.write_review({**review, "recommendation": "minor", "scores": {}, "confidence": ""}, sv.venue_by_id("pattern-recognition")))
+revised = {**review, "previous": ["(R1 W1) Addressed: seeds are now reported (§5.1, Table 4).", "(R1 W2) Not addressed: still one survey."]}
+rmd = sv.write_review(revised, neurips)
+check("a revised version's review answers the previous review after the summary, with sections renumbered",
+      "## 2. Response to the previous review" in rmd and "## 3. Scores" in rmd and "## 10. Confidential" in rmd
+      and sv.parse_review(rmd, neurips) == revised and sv.review_form(revised, neurips)["fields"][0]["title"] == "Response to the previous review")
+base = sv.EXAMS / "20261128-090000-Widgets"
+base.mkdir(parents=True)
+sv.write_json(base / "status.json", {"state": "done", "pdf": "Widgets.pdf", "kind": "review", "venue": "neurips"})
+sv.write_json(base / "venue.json", neurips)
+(base / "Widgets_paper_review.md").write_text(md, encoding="utf-8")
+(base / "Widgets_review_work").mkdir()
+(base / "Widgets_review_work" / "pages.txt").write_text("===== [PDF p.1 | printed p.1] =====\nWe test one survey. The gain is large.\n", encoding="utf-8")
+second = sv.EXAMS / "20261128-100000-Widgets_v2"
+(second / "Widgets_v2_review_work").mkdir(parents=True)
+sv.write_json(second / "status.json", {"state": "new", "pdf": "Widgets_v2.pdf", "kind": "review", "series": base.name,
+                                       "round": 2, "previous": base.name, "venue": "neurips"})
+(second / "Widgets_v2_review_work" / "pages.txt").write_text("===== [PDF p.1 | printed p.1] =====\nWe test two surveys. The gain is large.\n", encoding="utf-8")
+(second / "response.md").write_text("We added a second survey.", encoding="utf-8")
+note = sv.prepare_resubmission(second, second / "Widgets_v2_review_work")
+prev = second / "Widgets_v2_review_work" / "previous"
+check("a revised version gets the earlier review, the change map and the optional response",
+      (prev / "round-1-review.md").is_file() and "Rewritten" in (prev / "version-changes.md").read_text()
+      and (prev / "response.txt").read_text() == "We added a second survey." and "round 2" in note and "response.txt" in note, note[:200])
+(second / "response.md").unlink()
+note = sv.prepare_resubmission(second, second / "Widgets_v2_review_work")
+check("without a response letter, the run checks each earlier point itself", "no response letter" in note.lower() and not (prev / "response.txt").exists())
+check("rounds of the same paper form one series", [p.name for p in sv.series_rounds(second)] == [base.name, second.name]
+      and [p.name for p in sv.earlier_rounds(second)] == [base.name])
+import shutil as _sh
+_sh.rmtree(base); _sh.rmtree(second)
 check("a venue without scores or confidence writes and parses",
       sv.parse_review(sv.write_review({**review, "recommendation": "leaning-accept", "scores": {}, "confidence": ""}, tmlr), tmlr)["recommendation"] == "leaning-accept")
 
@@ -245,7 +275,18 @@ sv.report_path(rd).write_text(sv.write_review({**review, "recommendation": "mino
                                                 "summary": closing}, pr), encoding="utf-8")
 out = sv.check_review(rd)
 check("the checker flags a summary that recommends another option", "recommends 'Major revision'" in out["check"], out["check"][-300:])
+many = {**review, "changes": {**review["changes"], "major": [f"§5: run experiment {i} → report it. (W1)" for i in range(3)]
+                                                  + ["§6: add a user study with astronomers. (W1)"]}}
 sv.write_json(rd / "venue.json", neurips)
+sv.report_path(rd).write_text(sv.write_review(many, neurips), encoding="utf-8")
+out = sv.check_review(rd)
+check("the checker flags major changes out of proportion for a conference",
+      "4 major changes for a conference" in out["check"] and "out of proportion" in out["check"], out["check"][-300:])
+sv.write_json(rd / "status.json", {**sv.status(rd), "round": 2, "previous": "x"})
+sv.report_path(rd).write_text(md, encoding="utf-8")
+out = sv.check_review(rd)
+check("a revised version's review must answer the previous review", not out["check_ok"] and "revised version" in out["check"])
+sv.write_json(rd / "status.json", {k: v for k, v in sv.status(rd).items() if k not in ("round", "previous")})
 sv.report_path(rd).write_text(md, encoding="utf-8")
 info = sv.exam_summary(rd)
 check("the sidebar lists a review with its venue and recommendation",

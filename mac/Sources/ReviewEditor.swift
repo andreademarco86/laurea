@@ -69,6 +69,10 @@ struct ReviewStartView: View {
                         Label("The last run didn't finish", systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                     }
                     .frame(maxWidth: 560)
+                } else if detail.round > 1 {
+                    RoundCapsule(round: detail.round)
+                    Text("Laurea re-reviews this version against the review of round \(detail.round - 1), as a referee of a revision would: it checks each earlier point, keeps the bar where it was, and shows what still needs work.")
+                        .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 480)
                 } else {
                     Text("Laurea reviews the paper as a careful referee at your target venue would, on the venue's own form and scale, so you can see what to fix before submitting.")
                         .multilineTextAlignment(.center).foregroundStyle(.secondary).frame(maxWidth: 480)
@@ -78,8 +82,12 @@ struct ReviewStartView: View {
                 if let v = model.newVenue {
                     VenueCard(venue: v).frame(maxWidth: 560)
                 }
+                if detail.round > 1 {
+                    ResponseAttachment(response: detail.response).frame(maxWidth: 560)
+                }
                 Button { Task { await model.examine() } } label: {
-                    Text(detail.state == "new" ? "Review Paper" : "Run Again").frame(minWidth: 180)
+                    Text(detail.state == "new" ? (detail.round > 1 ? "Review Revised Version" : "Review Paper") : "Run Again")
+                        .frame(minWidth: 180)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
@@ -89,6 +97,57 @@ struct ReviewStartView: View {
             }
             .padding(40)
             .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+/// The authors' optional response to the previous review: a PDF or pasted text.
+struct ResponseAttachment: View {
+    @Environment(AppModel.self) private var model
+    let response: ResponseInfo?
+
+    var body: some View {
+        @Bindable var model = model
+        HStack(spacing: 10) {
+            Image(systemName: "envelope.open").foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Response to the previous review").font(.callout.weight(.semibold))
+                Text(response.map { "Attached: \($0.name)" } ?? "Optional. Without one, each earlier point is checked against the revised paper.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if response != nil {
+                Button("Remove") { Task { await model.setResponse(text: "") } }
+            } else {
+                Button("Attach PDF…") { model.attachResponse() }
+                Button("Paste Text…") { model.responseDraft = ""; model.showResponsePaste = true }
+            }
+        }
+        .padding(12)
+        .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 10))
+        .sheet(isPresented: $model.showResponsePaste) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Response to the Previous Review").font(.headline)
+                Text("Paste the authors' response. Each claim in it is checked against the revised paper.")
+                    .font(.callout).foregroundStyle(.secondary)
+                TextEditor(text: $model.responseDraft)
+                    .font(.body).frame(minHeight: 220)
+                    .scrollContentBackground(.hidden).padding(6)
+                    .background(.background, in: .rect(cornerRadius: 6))
+                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(.separator))
+                HStack {
+                    Spacer()
+                    Button("Cancel", role: .cancel) { model.showResponsePaste = false }.keyboardShortcut(.cancelAction)
+                    Button("Attach") {
+                        model.showResponsePaste = false
+                        Task { await model.setResponse(text: model.responseDraft) }
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(model.responseDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .padding(20)
+            .frame(width: 560)
         }
     }
 }
@@ -204,6 +263,9 @@ struct ReviewEditor: View {
                 RatingsSection(review: r, venue: venue, proposed: detail?.proposed_review)
                 ReviewDetailsSection(paper: r.paper, venue: venue).equatable()
                 ReviewSummarySection(summary: r.summary, limit: detail?.summary_words ?? 350).equatable()
+                if (detail?.round ?? 1) > 1 || !r.previous.isEmpty {
+                    PreviousReviewSection(items: r.previous, round: detail?.round ?? 1).equatable()
+                }
                 ReviewPointsSection(strengths: r.strengths, weaknesses: r.weaknesses).equatable()
                 ReviewQuestionsSection(questions: r.questions).equatable()
                 ReviewChangesSection(major: r.major, moderate: r.moderate, minor: r.minor, journal: venue.isJournal).equatable()
@@ -251,6 +313,7 @@ struct ReviewHeader: View {
                     Text(rec.map { $0.label } ?? "No recommendation yet").foregroundStyle(.secondary)
                 }
                 HStack(spacing: 8) {
+                    if let d = model.detail, d.round > 1 { RoundCapsule(round: d.round) }
                     ToneCapsule(text: venue.name, tone: nil)
                     if let p = model.detail?.proposed_review?.recommendation, let o = venue.recommendation.option(p) {
                         Pill(text: "Proposed \(o.short)", icon: "doc.text", tint: .secondary).help("Proposed: \(o.text)")
@@ -265,6 +328,87 @@ struct ReviewHeader: View {
             Spacer(minLength: 0)
         }
         .padding(.vertical, 8)
+        RoundsBar()
+    }
+}
+
+/// The paper's rounds, oldest first, and a button to add a revised version as the next round.
+struct RoundsBar: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let rounds = (model.detail?.rounds ?? []).sorted { ($0.round ?? 1) < ($1.round ?? 1) }
+        HStack(spacing: 8) {
+            if rounds.count > 1 {
+                ForEach(rounds) { r in
+                    let current = r.id == model.detail?.id
+                    Button { model.requestSelection(.exam(r.id)) } label: {
+                        HStack(spacing: 5) {
+                            Text("Round \(r.round ?? 1)").fontWeight(current ? .semibold : .regular)
+                            if let rec = r.recommendation, !rec.isEmpty {
+                                Circle().fill(toneColor(r.tone)).frame(width: 6, height: 6)
+                            }
+                        }
+                        .font(.caption)
+                        .padding(.horizontal, 8).padding(.vertical, 3)
+                        .background(current ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.1), in: .capsule)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(current)
+                    .help(r.recommendation.map { $0.isEmpty ? "Round \(r.round ?? 1)" : "Round \(r.round ?? 1): \($0)" } ?? "")
+                }
+            }
+            Spacer()
+            Button { model.addRevisedVersion() } label: { Label("Add Revised Version…", systemImage: "plus.square.on.square") }
+                .buttonStyle(.borderless)
+                .font(.callout)
+                .help("Review a new version of this paper as the next round, with the earlier reviews as context (⌥⌘N)")
+        }
+    }
+}
+
+/// A revised version's answers to each point of the previous review.
+struct PreviousReviewSection: View, Equatable {
+    @Environment(AppModel.self) private var model
+    let items: [TextItem]
+    let round: Int
+
+    static func == (a: Self, b: Self) -> Bool { a.items == b.items && a.round == b.round }
+
+    private func count(_ status: String) -> Int {
+        items.filter { item in
+            let t = item.text.replacingOccurrences(of: #"^\([^)]*\)\s*\**"#, with: "", options: .regularExpression).lowercased()
+            return t.hasPrefix(status)
+        }.count
+    }
+
+    var body: some View {
+        @Bindable var model = model
+        Section {
+            DisclosureGroup(isExpanded: $model.previousExpanded) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("One point per weakness of round \(max(1, round - 1))'s review: Addressed, Partly addressed or Not addressed, and where in this version.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    BulletList(items: model.reviewBinding(\.previous),
+                               prompt: "(R\(max(1, round - 1)) W1) Addressed: what changed and where (§x.y)", addLabel: "Add Point", numbered: true)
+                }
+                .padding(.top, 8)
+            } label: {
+                HStack {
+                    Text("Response to the Previous Review").font(.headline)
+                    Spacer()
+                    HStack(spacing: 6) {
+                        statusCount(count("addressed"), "addressed", .green)
+                        statusCount(count("partly"), "partly", .orange)
+                        statusCount(count("not"), "not addressed", .red)
+                    }
+                }
+            }
+        }
+    }
+
+    private func statusCount(_ n: Int, _ label: String, _ tint: Color) -> some View {
+        Text("\(n) \(label)").font(.caption.monospacedDigit()).foregroundStyle(n == 0 ? Color.secondary : tint)
     }
 }
 
@@ -461,7 +605,7 @@ struct ReviewChangesSection: View, Equatable {
             DisclosureGroup(isExpanded: $model.correctionsExpanded) {
                 VStack(alignment: .leading, spacing: 10) {
                     tier("Major", count: major.count,
-                         about: "Heavy revision a main claim depends on: new or rerun experiments, missing baselines or ablations, statistical tests, narrowing a claim, a new title. Only where necessary.",
+                         about: "Only what a main claim depends on, in its smallest form: one missing baseline or ablation, seeds and a significance test, or a narrowed claim. Usually one to three; one revision, not a second paper.",
                          items: model.reviewBinding(\.major), prompt: "§x.y: what is wrong → what to do (W1)", add: "Add Major Change")
                     Divider()
                     tier("Moderate", count: moderate.count,

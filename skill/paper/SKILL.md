@@ -84,8 +84,9 @@ You act as area chair and decide on the evidence:
 1. **Weight by focus.** For each score, start from the reviewer who leads on it and let the other two move it only with evidence the lead missed or misjudged. For the recommendation, weigh all three.
 2. **Settle disputes with an advocate and a critic.** The recommendation is disputed when the reviewers' options differ by two or more steps or straddle accept and reject; a score is disputed when they differ by two or more steps. For each, write the strongest evidence-based case for the option above (advocate) and below (critic), after re-reading the decisive pages, then rule in one sentence. List disputed items as lower confidence.
 3. **Consolidate the evidence.** Write `evidence.md` from the findings as you decided them, one per line in the format above. Where a finding has a short verbatim passage on its page, append ` | Quote: ` and 6-18 exact words. Complete `claims.md` (claim, where claimed, evidence, verdict: supported / partly supported / not supported / not tested).
-4. Apply the learned tendency from `calibration-notes.md` as the rubric says.
-5. Write `<work>/panel.json`, using the venue's exact option values as strings:
+4. **Check proportion.** Gather every change the reviewers would ask for and apply the rubric's proportion test: keep as major only what a main claim depends on, in its cheapest sufficient form, feasible in one revision at this venue; demote, merge or drop the rest. If what remains still amounts to a new study, the recommendation must say so rather than the list. Record what you demoted or dropped, and why, in `evidence.md`.
+5. Apply the learned tendency from `calibration-notes.md` as the rubric says.
+6. Write `<work>/panel.json`, using the venue's exact option values as strings:
 
    ```json
    {"reviewers": {"soundness": {"recommendation": "3", "scores": {"quality": "2", "clarity": "3"}, "confidence": "4"},
@@ -110,7 +111,7 @@ You act as area chair and decide on the evidence:
 
 **Questions for the authors.** Three to six, as the rubric says, each ending with the weakness it relates to, e.g. `(W3)`, where it relates to one.
 
-**Required changes.** Major, moderate and minor, as the rubric defines them. Every major and moderate change ends with the weakness it addresses, e.g. `(W1)`. Write `None required.` under a tier with no changes. Major changes appear only where a claim depends on them. Write every change for the authors: what is wrong, then what to do, starting with a verb ("Add", "Run", "Report", "Narrow"), in plain words, with no hedging ("consider", "may wish to").
+**Required changes.** Major, moderate and minor, as the rubric defines them. Every major and moderate change ends with the weakness it addresses, e.g. `(W1)`. Write `None required.` under a tier with no changes. Major changes appear only where a claim depends on them and pass the rubric's proportion test: usually one to three for a journal, at most two for a conference, each in its smallest acceptable form, offering "or narrow the claim" where that would also settle it. Write every change for the authors: what is wrong, then what to do, starting with a verb ("Add", "Run", "Report", "Narrow"), in plain words, with no hedging ("consider", "may wish to").
 
 > Before: "The experimental evaluation could benefit from additional baselines to strengthen the claims."
 > After: "§5.1, Table 4: the method is compared only with ResNet-50 → Add the two strongest recent baselines on ImageNet-C, tuned with the same budget as the method. (W2)"
@@ -134,6 +135,16 @@ python3 $SKILL/scripts/check_review.py "<review.md>" --venue "<pdf_dir>/venue.js
 ```
 
 Finish with a short chat message: anything in `integrity.md` first; then the recommendation, the disputed items with the reviewers' options and the ruling, unsupported numbers, important missing prior work, and anything you could not verify. Do not paste the review.
+
+## Revised versions
+
+When the run says this is round 2 or later, the paper is a revision of one reviewed before. `<work>/previous/` holds the earlier reviews as the reviewer finalised them (`round-N-review.md`), `version-changes.md`, a map of where the text changed since the previous version, and, only if the authors wrote one, their response to the previous review (`response.txt`). The revised paper is the evidence: a response says what the authors claim to have done, so check each claim in the paper. Review it as a referee of a revision would:
+
+1. **Read the latest earlier review first**, then the response if there is one, then the change map, then the whole revised paper. The change map shows where to look; it does not show whether a point was answered. Figures, tables and equations may have changed without changing the text: view them.
+2. **Answer every point.** Each reviewer checks every weakness and every major and moderate change of the latest earlier review against the revised paper, with locations in the revision. The area chair decides each one.
+3. **Keep the bar where it was.** Judge the revision against the earlier review and the venue's standard, not against a new list of wishes. Raise a new major point only for a problem the revision introduced or a serious flaw missed before, and mark it `(new)`. Credit what was fixed.
+4. **Write `## 2. Response to the previous review`** after the Summary, and number the following sections on from 3. One numbered item per earlier weakness, in the earlier review's order: `(R1 W2) Addressed: what the authors did and where it is now (§5.2, Table 4).` The status is **Addressed**, **Partly addressed** or **Not addressed**; a partly or not addressed point says what is still missing. Where the authors argue a point rather than change the work (in the response, or as a new justification or limitation in the paper), say whether the argument holds.
+5. **The rest of the review is for this version.** Strengths and weaknesses describe the revised paper (renumbered W1, W2, …). Every major change either carries over an earlier point still open, citing it (`R1 W2`), or is marked `(new)`. The summary's second paragraph says what the revision changed and what remains; the recommendation reflects the paper as it now stands.
 
 ## Writing style
 

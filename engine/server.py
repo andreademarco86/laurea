@@ -870,6 +870,7 @@ REVIEW_TONES = ("accept", "borderline", "revise", "reject")
 POLICY_LEVELS = ("permitted", "disclose", "restricted", "prohibited", "unknown")
 REVIEW_ROLES = ("soundness", "novelty", "clarity")
 CHANGE_TIERS = (("major", "Major"), ("moderate", "Moderate"), ("minor", "Minor"))
+PREVIOUS_SECTION = "Response to the previous review"
 REVIEW_SECTIONS = ["Summary", "Scores", "Strengths", "Weaknesses", "Questions for the authors", "Required changes",
                    "Limitations and broader impact", "Ethical concerns",
                    "Confidential comments to the area chair or editor"]
@@ -1026,7 +1027,8 @@ def parse_review(md, venue):
     r = {"paper": head("Paper"), "venue": head("Venue") or venue.get("name", ""),
          "recommendation": option_value(head("Recommendation"), venue["recommendation"]["options"]),
          "confidence": option_value(head("Confidence"), venue["confidence"]["options"]) if venue.get("confidence") else "",
-         "summary": _review_section(md, "Summary").strip(), "scores": {}}
+         "summary": _review_section(md, "Summary").strip(), "scores": {},
+         "previous": _items(_review_section(md, PREVIOUS_SECTION), numbered=True)}
     table = _review_section(md, "Scores")
     for s in venue.get("scores") or []:
         m = re.search(rf"^\|\s*{re.escape(s['name'])}\s*\|\s*(.*?)\s*\|\s*$", table, re.M | re.I)
@@ -1057,26 +1059,30 @@ def write_review(r, venue):
         return (s or "").strip() or "None."
 
     conf = venue.get("confidence")
+    numbers = iter(range(1, 20))
     L = ['---', 'title: "Paper Review"', '---', '', '| | |', '|---|---|',
          f"| **Paper** | {cell(r.get('paper'))} |",
          f"| **Venue** | {cell(r.get('venue') or venue.get('name'))} |",
          f"| **Recommendation** | {option_text(r.get('recommendation'), venue['recommendation']['options'])} |",
          f"| **Confidence** | {option_text(r.get('confidence'), conf['options']) if conf else 'Not asked by this venue.'} |",
-         "", "## 1. Summary", "", (r.get("summary") or "").strip(), "", "## 2. Scores", ""]
+         "", f"## {next(numbers)}. Summary", "", (r.get("summary") or "").strip(), ""]
+    if [x for x in r.get("previous") or [] if one(x)]:  # a revised version: how the earlier points were answered
+        L += [f"## {next(numbers)}. {PREVIOUS_SECTION}", "", *items(r.get("previous"), "None."), ""]
+    L += [f"## {next(numbers)}. Scores", ""]
     if venue.get("scores"):
         L += ["| Criterion | Score |", "|---|---|"]
         L += [f"| {s['name']} | {option_text((r.get('scores') or {}).get(s['key']), s['options'])} |" for s in venue["scores"]]
     else:
         L.append("No separate scores for this venue.")
-    L += ["", "## 3. Strengths", "", *items(r.get("strengths"), "None."), "",
-          "## 4. Weaknesses", "", *items(r.get("weaknesses"), "None."), "",
-          "## 5. Questions for the authors", "", *items(r.get("questions"), "None."), "",
-          "## 6. Required changes", ""]
+    L += ["", f"## {next(numbers)}. Strengths", "", *items(r.get("strengths"), "None."), "",
+          f"## {next(numbers)}. Weaknesses", "", *items(r.get("weaknesses"), "None."), "",
+          f"## {next(numbers)}. Questions for the authors", "", *items(r.get("questions"), "None."), "",
+          f"## {next(numbers)}. Required changes", ""]
     for key, title in CHANGE_TIERS:
         L += [f"### {title}", "", *items((r.get("changes") or {}).get(key), "None required."), ""]
-    L += ["## 7. Limitations and broader impact", "", para(r.get("limitations")), "",
-          "## 8. Ethical concerns", "", para(r.get("ethics")), "",
-          "## 9. Confidential comments to the area chair or editor", "", para(r.get("confidential")), ""]
+    L += [f"## {next(numbers)}. Limitations and broader impact", "", para(r.get("limitations")), "",
+          f"## {next(numbers)}. Ethical concerns", "", para(r.get("ethics")), "",
+          f"## {next(numbers)}. Confidential comments to the area chair or editor", "", para(r.get("confidential")), ""]
     return "\n".join(L)
 
 
@@ -1115,6 +1121,9 @@ def review_form(review, venue):
     for key, title in CHANGE_TIERS:
         parts[f"changes_{key}"] = (f"{title} changes", numbered((review.get("changes") or {}).get(key) or []))
     fields = []
+    previous = numbered(review.get("previous") or [])
+    if previous:
+        fields.append({"title": PREVIOUS_SECTION, "text": previous})
     for f in venue.get("form_fields") or []:
         chosen = [parts[p] for p in f.get("from") or [] if p in parts and parts[p][1].strip()]
         if len(chosen) == 1 and len(f.get("from") or []) == 1:
@@ -1280,9 +1289,102 @@ def export_review(d):
     return out, None
 
 
+def review_round(d):
+    try:
+        return max(1, int(status(d).get("round") or 1))
+    except (TypeError, ValueError):
+        return 1
+
+
+def review_series(d):
+    return status(d).get("series") or d.name
+
+
+def earlier_rounds(d):
+    """The earlier rounds of this paper, oldest first, following each round's link to the one before."""
+    chain, seen, cur = [], {d.name}, status(d).get("previous")
+    while cur and cur not in seen:
+        seen.add(cur)
+        try:
+            p = exam_dir(cur)
+        except KeyError:
+            break
+        chain.append(p)
+        cur = status(p).get("previous")
+    return list(reversed(chain))
+
+
+def series_rounds(d):
+    """Every round of this paper (including later ones), by round."""
+    series = review_series(d)
+    found = [p for p in EXAMS.iterdir() if p.is_dir() and not p.is_symlink()
+             and status(p).get("kind") == "review" and review_series(p) == series]
+    return sorted(found, key=review_round)
+
+
+def response_text(d):
+    """The authors' optional response to the previous review, as text: pasted, or extracted from a PDF."""
+    md = d / "response.md"
+    if md.is_file() and not md.is_symlink():
+        return md.read_text(encoding="utf-8", errors="replace")
+    pdf = d / "response.pdf"
+    if not pdf.is_file() or pdf.is_symlink():
+        return ""
+    with tempfile.TemporaryDirectory(prefix=".laurea-response-", dir=d) as staging:
+        try:
+            subprocess.run([PYTHON, str(BUNDLED / "scripts" / "extract_pdf.py"), str(pdf), staging], cwd=d, env=ENV,
+                           stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+        except subprocess.SubprocessError:
+            return ""
+        pages = Path(staging) / "pages.txt"
+        return pages.read_text(encoding="utf-8", errors="replace") if pages.is_file() else ""
+
+
+def prepare_resubmission(d, work):
+    """For a revised version: the earlier reviews as the reviewer finalised them, a map of what changed since the
+    previous version and, if given, the authors' response, all in <work>/previous. Returns the run's instructions."""
+    rounds = earlier_rounds(d)
+    if not rounds:
+        return ""
+    folder = work / "previous"
+    if folder.is_symlink():
+        return ""
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    names = []
+    for p in rounds:
+        rp = report_path(p)
+        if rp.is_file():
+            name = f"round-{review_round(p)}-review.md"
+            shutil.copyfile(rp, folder / name)
+            names.append(name)
+    response = response_text(d)
+    if response.strip():
+        (folder / "response.txt").write_text(response, encoding="utf-8")
+    old_pages, new_pages = work_dir(rounds[-1]) / "pages.txt", work / "pages.txt"
+    changes = ""
+    if old_pages.is_file() and new_pages.is_file():
+        r = subprocess.run([PYTHON, str(BUNDLED / "scripts" / "version_diff.py"), str(old_pages), str(new_pages),
+                            str(folder / "version-changes.md")], capture_output=True, text=True, env=ENV, timeout=300)
+        if r.returncode == 0:
+            changes = "version-changes.md maps where the text changed since the previous version. "
+    if not names:
+        return ""
+    return (f"\n\nThis is round {review_round(d)}: a revised version of a paper reviewed before. In `{work.name}/previous/` "
+            f"are the earlier reviews as the reviewer finalised them ({', '.join(names)}). "
+            + changes + ("response.txt is the authors' response to the previous review: check each claim in it against "
+                         "the revised paper. " if response.strip() else
+                         "There is no response letter: check the revision against each earlier point yourself. ")
+            + "Follow the 'Revised versions' section of paper/SKILL.md: answer every point of the latest "
+            "earlier review in the Response to the previous review section, keep the bar where it was, and raise new "
+            "major points only for problems the revision introduced or serious flaws missed before.")
+
+
 def review_summary_info(d, info):
     venue = exam_venue(d)
-    info.update(kind="review", venue=venue["name"], venue_kind=venue["kind"])
+    info.update(kind="review", venue=venue["name"], venue_kind=venue["kind"], series=review_series(d),
+                round=review_round(d))
     rp = report_path(d)
     if rp.exists():
         try:
@@ -1963,6 +2065,12 @@ def run_exam(eid, prompt, kind, provider, path):
             review_panel = adaptive and kind == "examine" and not review and not exam_work.is_symlink()
             previous_panel = panel_stamp(panel) if review_panel else None
             if review:
+                if kind == "examine" and review_round(d) > 1:
+                    append_progress(d, {"kind": "info", "text": "Comparing with the previous version on this Mac"})
+                    work_folder = extracted or work_dir(d)
+                    if not work_folder.is_symlink():
+                        work_folder.mkdir(exist_ok=True)
+                        prompt += prepare_resubmission(d, work_folder)
                 task = build_review_prompt(prompt, skill, extracted, revision=kind == "revise", document_map=document_map)
             else:
                 task = build_exam_prompt(prompt, skill, extracted, revision=kind == "revise", document_map=document_map,
@@ -2321,6 +2429,8 @@ def validate_skill(files):
     for need in ("**Paper**", "**Venue**", "**Recommendation**", "**Confidence**", "### Major", "### Moderate", "### Minor"):
         if need not in review:
             problems.append(f"review template lost '{need}'")
+    if PREVIOUS_SECTION not in paper:
+        problems.append(f"paper/SKILL.md lost its '{PREVIOUS_SECTION}' instructions for revised versions")
     text("paper/references/review-rubric.md")
     return problems
 
@@ -2681,6 +2791,18 @@ class Handler(BaseHTTPRequestHandler):
         st = {"state": "new", "pdf": f"{stem}.pdf", "original_name": name, "created": now()}
         if self.headers.get("X-Kind") == "review":
             st["kind"] = "review"
+        previous = self.headers.get("X-Previous")
+        if previous:  # a revised version of a paper reviewed before: the next round of the same series
+            try:
+                p = exam_dir(previous)
+            except KeyError:
+                shutil.rmtree(d)
+                return self.send(400, {"error": "The earlier review was not found."})
+            if not is_review(p):
+                shutil.rmtree(d)
+                return self.send(400, {"error": "Only a paper review can have a revised version."})
+            st.update(kind="review", series=review_series(p), round=review_round(p) + 1, previous=p.name,
+                      venue=status(p).get("venue"))
         write_json(d / "status.json", st)
         self.send(200, exam_summary(d))
 
@@ -2695,6 +2817,17 @@ class Handler(BaseHTTPRequestHandler):
                                                    or venue_by_id("generic-conference"))
             words = exam_summary_words(d) if (d / "scheme.json").exists() else current_summary_words()
             prop = read_json(d / "proposed.json", {})
+            rounds = []
+            for p in series_rounds(d):
+                ps = review_summary_info(p, {"id": p.name, "state": status(p).get("state", "new"), "title": "",
+                                             "recommendation": "", "tone": ""})
+                rounds.append({k: ps.get(k) for k in ("id", "round", "state", "title", "recommendation", "tone")})
+            response = None
+            if (d / "response.md").is_file():
+                response = {"kind": "text", "name": "Pasted response"}
+            elif (d / "response.pdf").is_file():
+                response = {"kind": "pdf", "name": st.get("response_name") or "response.pdf"}
+            info.update(rounds=rounds, response=response)
             info.update(status=st, venue_form=venue, summary_words=words, proposed={}, applied={},
                         proposed_review={k: prop.get(k) for k in ("recommendation", "scores", "confidence")} if prop else None,
                         paper_calibration=next((e for e in read_json(PAPER_HISTORY, []) if e["exam_id"] == eid), None))
@@ -2791,6 +2924,24 @@ class Handler(BaseHTTPRequestHandler):
                                   "Keep the template structure, verify page references against the available evidence and rerun "
                                   "check_report.py. If the change affects marks: " + describe_grading_scale(exam_grading_scale(d)))
                 start_run(eid, prompt, action, provider, path)
+            return self.send(200, {"ok": True})
+        if method == "POST" and action == "response":
+            # The authors' optional response to the previous review: a PDF, pasted text, or nothing (to clear it).
+            if not is_review(d) or review_round(d) < 2:
+                return self.send(400, {"error": "A response belongs to a revised version."})
+            (d / "response.md").unlink(missing_ok=True)
+            (d / "response.pdf").unlink(missing_ok=True)
+            if (self.headers.get("Content-Type") or "").startswith("application/pdf"):
+                n = int(self.headers.get("Content-Length") or 0)
+                data = self.rfile.read(n) if 0 < n <= 100 * 1024 * 1024 else b""
+                if not data.startswith(b"%PDF"):
+                    return self.send(400, {"error": "that file is not a PDF"})
+                (d / "response.pdf").write_bytes(data)
+                set_status(d, response_name=urllib.parse.unquote(self.headers.get("X-Filename") or "response.pdf"))
+            else:
+                text = (self.body_json().get("text") or "").strip()
+                if text:
+                    (d / "response.md").write_text(text, encoding="utf-8")
             return self.send(200, {"ok": True})
         if method == "POST" and action == "cancel":
             with LOCK:

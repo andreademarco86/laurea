@@ -323,7 +323,48 @@ final class AppModel {
         }
     }
 
-    func importPDF(_ url: URL, review: Bool = false) async {
+    /// Adds a revised version of the selected paper as its next round, then opens it.
+    func addRevisedVersion() {
+        guard isReview, let latest = detail?.latestRound?.id ?? selectedExamID else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.message = "Choose the revised version of the paper"
+        panel.prompt = "Add Revised Version"
+        if panel.runModal() == .OK, let url = panel.url {
+            Task { await importPDF(url, review: true, previous: latest) }
+        }
+    }
+
+    // The authors' optional response to the previous review
+    var showResponsePaste = false
+    var responseDraft = ""
+
+    func attachResponse() {
+        guard let id = selectedExamID else { return }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf]
+        panel.message = "Choose the authors' response to the previous review"
+        panel.prompt = "Attach"
+        guard panel.runModal() == .OK, let url = panel.url, let data = try? Data(contentsOf: url) else { return }
+        Task {
+            do {
+                let name = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "response.pdf"
+                _ = try await backend.data("POST", "/api/exams/\(id)/response", body: data,
+                                           headers: ["Content-Type": "application/pdf", "X-Filename": name], timeout: 120)
+                await load(id)
+            } catch { errorMessage = error.localizedDescription }
+        }
+    }
+
+    func setResponse(text: String) async {
+        guard let id = selectedExamID else { return }
+        do {
+            let _: OK = try await backend.send("POST", "/api/exams/\(id)/response", ["text": text])
+            await load(id)
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func importPDF(_ url: URL, review: Bool = false, previous: String? = nil) async {
         guard url.pathExtension.lowercased() == "pdf", let data = try? Data(contentsOf: url) else {
             errorMessage = "\(url.lastPathComponent) is not a readable PDF."
             return
@@ -332,6 +373,7 @@ final class AppModel {
             let name = url.lastPathComponent.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "dissertation.pdf"
             var headers = ["X-Filename": name]
             if review { headers["X-Kind"] = "review" }
+            if let previous { headers["X-Previous"] = previous }
             let d = try await backend.data("POST", "/api/exams", body: data, headers: headers, timeout: 300)
             let e = try JSONDecoder().decode(ExamSummary.self, from: d)
             await refreshList()
@@ -766,6 +808,7 @@ final class AppModel {
     /// The Settings tab to show: "general", "marking" or "engine".
     var settingsTab = "general"
     var correctionsExpanded = true
+    var previousExpanded = true
 
     /// The examining standards in use: taught ones in the data folder, else the app's own.
     var standardsURL: URL? { settings.skill_path.map { URL(fileURLWithPath: $0) } }

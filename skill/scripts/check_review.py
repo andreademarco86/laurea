@@ -19,6 +19,8 @@ errors, warnings = [], []
 PAGE_REF = re.compile(r"(?<![A-Za-z])pp?\.[ \t]?((?:\d{1,4}|[ivxlc]{1,7})(?:[ \t]?[-–][ \t]?(?:\d{1,4}|[ivxlc]{1,7}))?)(?![\w])", re.I)
 LOCATION = re.compile(r"§\s?\d|(?<![A-Za-z])pp?\.\s?\d|\b(?:Table|Tab\.|Fig(?:ure)?\.?|Eq(?:uation)?\.?|Algorithm|Alg\.|Appendix|Section|Sec\.)\s?[A-Z]?\d"
                       r"|\bL{1,2}\.\s?\d|\blines?\s\d", re.I)
+PREVIOUS = "Response to the previous review"
+STATUS = re.compile(r"^(?:\(R\d+ ?[WQ]?\d*[^)]*\)\s*)?\**(Addressed|Partly addressed|Not addressed)\b", re.I)
 SECTIONS = ["Summary", "Scores", "Strengths", "Weaknesses", "Questions for the authors", "Required changes",
             "Limitations and broader impact", "Ethical concerns", "Confidential comments to the area chair or editor"]
 
@@ -75,6 +77,15 @@ def named_options(paragraph, options):
                 found.append(i)
                 text = re.sub(pattern, " ", text)
     return found
+
+
+def review_round(path):
+    """The review's round, from status.json next to it (1 when absent)."""
+    try:
+        with open(os.path.join(os.path.dirname(os.path.abspath(path)), "status.json"), encoding="utf-8") as f:
+            return max(1, int(json.load(f).get("round") or 1))
+    except Exception:
+        return 1
 
 
 def main():
@@ -167,6 +178,24 @@ def main():
         elif not re.search(r"no separate scores", scores, re.I):
             warnings.append("this venue has no separate scores; write 'No separate scores for this venue.'")
 
+    # A revised version answers every point of the previous review, and keeps the bar where it was
+    revision = review_round(path) > 1
+    previous = numbered(section(text, PREVIOUS))
+    if revision and not previous:
+        errors.append(f"this is a revised version: add '## N. {PREVIOUS}' after the Summary, answering each point of the previous review")
+    for it in previous:
+        if not STATUS.search(it):
+            warnings.append(f"previous-review point without a status (Addressed, Partly addressed or Not addressed): {it[:70]}...")
+    if revision:
+        majors = numbered(subsection(section(text, "Required changes"), "Major"))
+        new = [m for m in majors if re.search(r"\(new\b", m, re.I)]
+        untagged = [m for m in majors if not re.search(r"\(new\b|\bR\d+\b", m, re.I)]
+        if len(new) > 1:
+            warnings.append(f"{len(new)} new major changes in a revision; raise new major points only for problems the revision "
+                            "introduced or serious flaws missed before")
+        for m in untagged:
+            warnings.append(f"in a revision, a major change either carries an earlier point (e.g. R1 W2) or is marked (new): {m[:60]}...")
+
     # Strengths and weaknesses
     strengths, weaknesses = numbered(section(text, "Strengths")), numbered(section(text, "Weaknesses"))
     if len(strengths) < 2:
@@ -210,6 +239,16 @@ def main():
         if tier == "Minor" and items and len(items) < 3:
             warnings.append(f"{len(items)} minor change(s); list the quick fixes you found (typically 5-15)")
         if tier == "Major" and venue:
+            limit = 2 if venue.get("kind") == "conference" else 4
+            if len(items) > limit:
+                warnings.append(f"{len(items)} major changes for a {venue.get('kind')}; keep only what the main claims need, "
+                                f"in their smallest form (usually at most {limit}), and turn the rest into narrowed claims, "
+                                "limitations or moderate changes")
+            scope = [it for it in items if re.search(r"\b(?:user study|new dataset|additional datasets|several (?:more )?datasets|"
+                                                     r"all (?:recent|existing|state-of-the-art)|a new (?:method|study|benchmark))\b", it, re.I)]
+            for it in scope:
+                warnings.append(f"major change may be out of proportion (a new study rather than a revision); give its smallest "
+                                f"acceptable form, or 'or narrow the claim': {it[:70]}...")
             if tone == "accept" and len(items) >= 3:
                 warnings.append(f"{len(items)} major changes with an accepting recommendation; check that the recommendation and the changes agree")
             if tone == "reject" and not items and len(weaknesses) < 3:
